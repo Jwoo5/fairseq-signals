@@ -1,0 +1,73 @@
+# Byte-compiled / optimized / DLL files
+__pycache__/
+*.py[cod]
+*$py.class
+
+# C extensions
+*.so
+
+# macOS dir files
+.DS_Store
+
+# Distribution / packaging
+.Python
+env/
+build/
+develop-eggs/
+dist/
+downloads/
+eggs/
+.eggs/
+lib/
+lib64/
+parts/
+sdist/
+var/
+wheels/
+*.egg-info/
+.installed.cfg
+*.egg
+*-info
+
+# Checkpoints
+checkpoints
+
+# Installer logs
+pip-log.txt
+pip-delete-this-directory.txt
+
+# Sphinx documentation
+docs/_build/
+
+# Jupyter Notebook
+.ipynb_checkpoints
+
+# pyenv
+.python-version
+
+# dotenv
+.env
+
+# virtualenv
+.venv
+venv/
+ENV/
+
+# data
+data-bin/
+
+# Cython-generated C++ source files
+/fairseq_signals/data/data_utils_fast.cpp
+
+# VSCODE
+.vscode/ftp-sync.json
+.vscode/settings.json
+
+# Experimental Folder
+experimental/*
+outputs/*
+
+# Weights and Biases logs
+wandb/
+
+/fairseq_signals/version.py

@@ -1,0 +1,63 @@
+common:
+  fp16: false
+  log_format: json
+  log_interval: 50
+
+checkpoint:
+  save_interval_updates: 250000
+  keep_interval_updates: 1
+  no_epoch_checkpoints: true
+  # patience: 20
+
+task:
+  _name: ecg_pretraining
+  data: ???
+  patient_dataset: true
+  max_sample_size: 2500
+  normalize: false
+  min_segment_size: 2
+  required_segment_size_multiple: 2
+
+dataset:
+  num_workers: 6
+  max_tokens: null
+  batch_size: 128
+  n_labels: 9
+
+distributed_training:
+  distributed_world_size: 1
+  # ddp_backend: pytorch_ddp
+
+criterion:
+  _name: clocs
+  mode: cmsc # cmsc, cmlc, cmsmlc
+
+optimization:
+  max_epoch: 2000
+  lr: [5e-5]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-06
+  weight_decay: 0.01
+
+lr_scheduler:
+  _name: fixed
+  warmup_updates: 0
+
+model:
+  _name: clocs
+  in_d: 1
+
+  w2v_dc_args:
+    w2v_path: ???
+    apply_mask: true
+    mask_prob: 0.65
+    mask_channel_prob: 0.5
+    mask_channel_length: 64
+    layerdrop: 0.1
+    activation_dropout: 0.1
+    feature_grad_mult: 0.0
+    freeze_finetune_updates: 0
+    no_pretrained_weights: true

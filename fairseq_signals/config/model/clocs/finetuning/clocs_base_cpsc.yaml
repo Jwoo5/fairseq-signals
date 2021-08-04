@@ -1,0 +1,52 @@
+common:
+  fp16: false
+  log_format: json
+  log_interval: 10
+
+checkpoint:
+  no_epoch_checkpoints: true
+  best_checkpoint_metric: loss
+  # patience: 20
+
+task:
+  _name: ecg_pretraining
+  data: ???
+  patient_dataset: false
+  normalize: false
+  min_segment_size: 1
+  required_segment_size_multiple: 1
+
+dataset:
+  num_workers: 6
+  max_tokens: null
+  batch_size: 128
+  n_labels: 9
+
+distributed_training:
+  distributed_world_size: 1
+  find_unused_parameters: true
+  # ddp_backend: pytorch_ddp
+
+criterion:
+  _name: binary_cross_entropy_with_logits
+  report_auc: true
+
+optimization:
+  max_epoch: 1000
+  lr: [5e-4]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-08
+
+lr_scheduler:
+  _name: fixed
+  warmup_updates: 0
+
+model:
+  _name: clocs_dc
+  clocs_path: ???
+  in_d: 1
+  freeze_finetune_updates: 0
+  no_pretrained_weights: false

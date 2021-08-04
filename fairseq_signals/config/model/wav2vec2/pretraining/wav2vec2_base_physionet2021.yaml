@@ -1,0 +1,60 @@
+common:
+  fp16: false
+  log_format: json
+  log_interval: 50
+
+checkpoint:
+  save_interval_updates: 250000
+  keep_interval_updates: 1
+  no_epoch_checkpoints: true
+  patience: 50
+
+task:
+  _name: ecg_pretraining
+  data: ???
+  label: false
+  max_sample_size: 2500
+  normalize: false
+
+dataset:
+  num_workers: 6
+  max_tokens: null
+  batch_size: 128
+  required_batch_size_multiple: 1
+  valid_subset: null
+  disable_validation: true
+
+distributed_training:
+  distributed_world_size: 8
+  # ddp_backend: pytorch_ddp
+
+criterion:
+  _name: wav2vec
+  infonce: true
+  log_keys: ["prob_perplexity", "code_perplexity", "temp"]
+  loss_weights: [0.1, 10]
+
+optimization:
+  max_epoch: 400000
+  lr: [5e-5]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-06
+  weight_decay: 0.01
+
+lr_scheduler:
+  _name: fixed
+  warmup_updates: 0
+
+model:
+  _name: wav2vec2
+  quantize_targets: true
+  final_dim: 256
+  encoder_layerdrop: 0.05
+  dropout_input: 0.1
+  dropout_features: 0.1
+  feature_grad_mult: 0.1
+  encoder_embed_dim: 768
+  in_d: 12
