@@ -24,7 +24,7 @@ class ClocsCriterionConfig(Dataclass):
         default=0.1, metadata={"help": "temperature in softmax"}
     )
     eps: float = field(
-        default=1e-8, metadata={"help": "small value for numerical stability"}
+        default=1e-8, metadata={"help": "small value for numerical stability when calculating softmax"}
     )
 
 @register_criterion("clocs", dataclass = ClocsCriterionConfig)
@@ -49,8 +49,6 @@ class ClocsCriterion(BaseCriterion):
         losses = []
         loss = 0
 
-        #TODO get_logits, get_targets
-
         if self.mode == "cmsc":
             logits = logits.transpose(0,1)
             logits /= torch.max(
@@ -70,7 +68,7 @@ class ClocsCriterion(BaseCriterion):
             logits = logits / self.temp
 
             logits_1 = -F.log_softmax(logits, dim = -1)
-            logits_2 = -F.log_softmax(logits.transpose(1,2), dim = -1)            
+            logits_2 = -F.log_softmax(logits.transpose(1,2), dim = -1)
 
             target = torch.from_numpy(
                 np.array([p == pat2 for p in pat1])
