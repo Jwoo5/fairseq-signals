@@ -130,7 +130,6 @@ def preprocess(args, dx_codes, dest_path, fnames):
 
         length = record['val'].shape[-1]
 
-        num_segs = length // int(args.sec * sample_rate)
         for i, seg in enumerate(range(0, length, int(args.sec * sample_rate))):
             data = {}
             data['age'] = age
@@ -138,8 +137,6 @@ def preprocess(args, dx_codes, dest_path, fnames):
             data['label'] = label
             data['patient_id'] = os.path.basename(fname)
             data['curr_sample_rate'] = sample_rate
-            # data['segment'] = 0 if i % 2 == 0 else 1
-            data['num_segs'] = num_segs
             if seg + args.sec * sample_rate <= length:
                 data['feats'] = record['val'][:, seg: int(seg + args.sec * sample_rate)]
                 scipy.io.savemat(os.path.join(dest_path, os.path.basename(fname) + f"_{i}.mat"), data)

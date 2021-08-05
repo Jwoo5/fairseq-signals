@@ -496,7 +496,7 @@ class PatientECGDataset(RawECGDataset):
         import scipy.io
 
         #TODO handle files not in case of .mat
-        for path in paths:
+        for i, path in enumerate(paths):
             ecg = scipy.io.loadmat(path)
         
             #NOTE preprocess data to match with given keys: "feats", "curr_sample_rate", "label"
@@ -513,7 +513,7 @@ class PatientECGDataset(RawECGDataset):
             patient_ids.append(ecg['patient_id'][0])
             ages.append(ecg['age'][0,0])
             sexes.append(ecg['sex'][0,0])
-            segments.append(ecg['segment'][0,0])
+            segments.append(i % 2)
 
         return [
                 {
