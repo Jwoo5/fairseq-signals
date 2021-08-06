@@ -23,6 +23,8 @@ dataset:
   max_tokens: null
   batch_size: 128
   n_labels: 9
+  valid_subset: ""
+  disable_validation: true
 
 distributed_training:
   distributed_world_size: 1

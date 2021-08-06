@@ -21,7 +21,7 @@ dataset:
   max_tokens: null
   batch_size: 128
   required_batch_size_multiple: 1
-  valid_subset: null
+  valid_subset: ""
   disable_validation: true
 
 distributed_training:
