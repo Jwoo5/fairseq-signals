@@ -19,7 +19,7 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null
-  batch_size: 128
+  batch_size: 64
   required_batch_size_multiple: 1
   valid_subset: ""
   disable_validation: true

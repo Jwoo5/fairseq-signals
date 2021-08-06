@@ -42,6 +42,7 @@ def main(args):
             assert len(items) == 2, line
             fnames.append(items[0])
             sizes[items[0][:items[0].rindex("_")]] = items[1]
+    #TODO should aggregate over patient_id, not file names
     num_segs = dict(Counter([f[:f.rindex("_")] for f in fnames]))
 
     if not os.path.exists(os.path.join(args.dest, args.predir)):

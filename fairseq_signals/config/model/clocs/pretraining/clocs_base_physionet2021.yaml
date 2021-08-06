@@ -21,13 +21,13 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null
-  batch_size: 128
+  batch_size: 64
   n_labels: 9
   valid_subset: ""
   disable_validation: true
 
 distributed_training:
-  distributed_world_size: 1
+  distributed_world_size: 8
   # ddp_backend: pytorch_ddp
 
 criterion:
@@ -36,13 +36,13 @@ criterion:
 
 optimization:
   max_epoch: 2000
-  lr: [5e-5]
+  lr: [1e-4]
 
 optimizer:
   _name: adam
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-06
-  weight_decay: 0.01
+  # weight_decay: 0.01
 
 lr_scheduler:
   _name: fixed

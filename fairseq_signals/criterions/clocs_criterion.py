@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional
+from itertools import combinations
 
 import torch
 import torch.nn.functional as F
@@ -24,7 +25,7 @@ class ClocsCriterionConfig(Dataclass):
         default=0.1, metadata={"help": "temperature in softmax"}
     )
     eps: float = field(
-        default=1e-8, metadata={"help": "small value for numerical stability when calculating softmax"}
+        default=1e-8, metadata={"help": "small value for numerical stability when normalizing"}
     )
 
 @register_criterion("clocs", dataclass = ClocsCriterionConfig)
@@ -43,54 +44,100 @@ class ClocsCriterion(BaseCriterion):
         2) the sample size, which is used as the denominator for the gradient
         3) logging outputs to display while training
         """
+        assert self.mode in ["cmsc", "cmlc", "cmsmlc"], self.mode
+
         net_output = model(**sample["net_input"])
         logits = model.get_logits(net_output).float()
+        logits = logits.transpose(0,1)
+        logits /= torch.max(
+            logits.detach().norm(dim=2).unsqueeze(2),
+            self.eps * torch.ones_like(logits)
+        )
 
         losses = []
         loss = 0
 
         if self.mode == "cmsc":
-            logits = logits.transpose(0,1)
-            logits /= torch.max(
-                logits.detach().norm(dim=2).unsqueeze(2),
-                self.eps * torch.ones_like(logits)
-            )
-
             indices = torch.where(net_output["segment"] == 0)[0]
             mat1 = logits[:, indices, :]
-            pat1 = net_output["patient_id"][indices.cpu()]
+            p1 = (
+                net_output["patient_id"][indices.cpu()]
+            ) if len(indices) > 1 else (
+                np.array([net_output["patient_id"][indices.cpu()]])
+            )
 
             indices = torch.where(net_output["segment"] == 1)[0]
             mat2 = logits[:, indices, :]
-            pat2 = net_output["patient_id"][indices.cpu()]
+            p2 = (
+                net_output["patient_id"][indices.cpu()]
+            ) if len(indices) > 1 else (
+                np.array([net_output["patient_id"][indices.cpu()]])
+            )
 
             logits = torch.matmul(mat1, mat2.transpose(1,2))
-            logits = logits / self.temp
-
-            logits_1 = -F.log_softmax(logits, dim = -1)
-            logits_2 = -F.log_softmax(logits.transpose(1,2), dim = -1)
+            logits /= self.temp
 
             target = torch.from_numpy(
-                np.array([p == pat2 for p in pat1])
+                np.array([p == p2 for p in p1])
+            ).to(logits.device)
+        elif self.mode == "cmlc":
+            combs = combinations(range(logits.size(0)), 2)
+            logits = torch.stack(
+                [torch.matmul(logits[first], logits[second].T) for first, second in combs]
+            )
+            logits /= self.temp
+
+            target = torch.from_numpy(
+                np.array([p == net_output["patient_id"] for p in net_output["patient_id"]])
+            ).to(logits.device)
+        else:
+            indices = torch.where(net_output["segment"] == 0)[0]
+            mat1 = logits[:, indices, :]
+            p1 = (
+                net_output["patient_id"][indices.cpu()]
+            ) if len(indices) > 1 else (
+                np.array([net_output["patient_id"][indices.cpu()]])
+            )
+
+            indices = torch.where(net_output["segment"] == 1)[0]
+            mat2 = logits[:, indices, :]
+            p2 = (
+                net_output["patient_id"][indices.cpu()]
+            ) if len(indices) > 1 else (
+                np.array([net_output["patient_id"][indices.cpu()]])
+            )
+
+            combs = combinations(range(logits.size(0)), 2)
+            logits = torch.stack(
+                [torch.matmul(mat1[first], mat2[second].T) for first, second in combs]
+            )
+            logits /= self.temp
+
+            target = torch.from_numpy(
+                np.array([p == p2 for p in p1])
             ).to(logits.device)
 
-            loss = torch.mean(
-                torch.stack(
-                    [torch.mean(l[target]) for l in logits_1]
-                )
-            )
-            losses.append(loss.detach().clone())
+        logits_1 = -F.log_softmax(logits, dim = -1)
+        logits_2 = -F.log_softmax(logits.transpose(1,2), dim = -1)
 
-            loss_2 = torch.mean(
-                torch.stack(
-                    [torch.mean(l[target]) for l in logits_2]
-                )
+
+        loss_1 = torch.mean(
+            torch.stack(
+                [torch.mean(l[target]) for l in logits_1]
             )
-            loss += loss_2
-            losses.append(loss_2.detach().clone())
-        else:
-            raise NotImplementedError()
-        
+        )
+        loss += loss_1
+        losses.append(loss_1.detach().clone())
+
+        loss_2 = torch.mean(
+            torch.stack(
+                [torch.mean(l[target]) for l in logits_2]
+            )
+        )
+        loss += loss_2
+
+        losses.append(loss_2.detach().clone())
+
         if 'sample_size' in sample:
             sample_size = sample['sample_size']
         elif 'mask_indices' in sample['net_input']:
