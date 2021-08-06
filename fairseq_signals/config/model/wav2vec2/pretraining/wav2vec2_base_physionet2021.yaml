@@ -7,7 +7,6 @@ checkpoint:
   save_interval_updates: 250000
   keep_interval_updates: 1
   no_epoch_checkpoints: true
-  patience: 50
 
 task:
   _name: ecg_pretraining

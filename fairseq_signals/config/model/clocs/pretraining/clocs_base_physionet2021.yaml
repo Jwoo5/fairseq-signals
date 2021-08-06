@@ -7,7 +7,6 @@ checkpoint:
   save_interval_updates: 250000
   keep_interval_updates: 1
   no_epoch_checkpoints: true
-  # patience: 20
 
 task:
   _name: ecg_pretraining
@@ -28,7 +27,7 @@ dataset:
 
 distributed_training:
   distributed_world_size: 8
-  # ddp_backend: pytorch_ddp
+  find_unused_parameters: true
 
 criterion:
   _name: clocs

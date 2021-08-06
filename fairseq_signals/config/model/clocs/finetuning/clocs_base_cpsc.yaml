@@ -19,13 +19,12 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null
-  batch_size: 128
+  batch_size: 64
   n_labels: 9
 
 distributed_training:
-  distributed_world_size: 1
+  distributed_world_size: 8
   find_unused_parameters: true
-  # ddp_backend: pytorch_ddp
 
 criterion:
   _name: binary_cross_entropy_with_logits
