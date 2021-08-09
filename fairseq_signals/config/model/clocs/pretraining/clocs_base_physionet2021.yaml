@@ -2,6 +2,7 @@ common:
   fp16: false
   log_format: json
   log_interval: 50
+  clocs: clocs-pretraining
 
 checkpoint:
   save_interval_updates: 250000

@@ -4,6 +4,7 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
+  wandb_project: wav2vec2-finetuning
 
 checkpoint:
   no_epoch_checkpoints: true
@@ -25,7 +26,7 @@ dataset:
   valid_subset: "valid,test"
 
 distributed_training:
-  distributed_world_size: 8
+  distributed_world_size: 1
   find_unused_parameters: true
 
 criterion:

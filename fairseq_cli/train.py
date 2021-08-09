@@ -404,6 +404,11 @@ def validate(
                 if distributed_utils.is_master(cfg.distributed_training)
                 else None
             ),
+            wandb_entity = (
+                cfg.common.wandb_entity
+                if distributed_utils.is_master(cfg.distributed_training)
+                else None
+            ),
             wandb_run_name = os.environ.get(
                 "WANDB_NAME", os.path.basename(cfg.checkpoint.save_dir)
             )

@@ -2,6 +2,7 @@ common:
   fp16: false
   log_format: json
   log_interval: 10
+  wandb_project: clocs-finetuning
 
 checkpoint:
   no_epoch_checkpoints: true

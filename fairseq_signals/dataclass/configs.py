@@ -83,6 +83,10 @@ class CommonConfig(Dataclass):
         default = None,
         metadata={"help": "Weights and Biases project name to use for logging"}
     )
+    wandb_entity: Optional[str] = field(
+        default = 'ecg-pretraining',
+        metadata={"help": "Weights and Biases entity(team) name to use for logging"}
+    )
 
     seed: int = field(
         default=1, metadata={"help": "pseudo random number generator seed"}
