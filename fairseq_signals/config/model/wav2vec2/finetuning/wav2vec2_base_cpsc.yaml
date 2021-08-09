@@ -9,7 +9,7 @@ common:
 checkpoint:
   no_epoch_checkpoints: true
   best_checkpoint_metric: loss # auprc?
-  patience: 50
+  patience: 20
 
 task:
   _name: ecg_pretraining

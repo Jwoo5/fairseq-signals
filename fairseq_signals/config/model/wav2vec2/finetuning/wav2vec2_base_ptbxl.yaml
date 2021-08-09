@@ -1,28 +1,28 @@
+
 common:
   fp16: false
   log_format: json
   log_interval: 10
-  wandb_project: clocs-finetuning
+  all_gather_list_size: 2048000
+  wandb_project: wav2vec2-finetuning
 
 checkpoint:
   no_epoch_checkpoints: true
-  best_checkpoint_metric: loss
+  best_checkpoint_metric: loss # auprc?
   patience: 20
 
 task:
   _name: ecg_pretraining
   data: ???
   label: true
-  patient_dataset: false
   normalize: false
-  min_segment_size: 1
-  required_segment_size_multiple: 1
+  enable_padding: true
 
 dataset:
   num_workers: 6
-  max_tokens: null
-  batch_size: 64
-  n_labels: 9
+  max_tokens: null 
+  batch_size: 128
+  n_labels: 50
   valid_subset: "valid,test"
 
 distributed_training:
@@ -34,8 +34,9 @@ criterion:
   report_auc: true
 
 optimization:
-  max_epoch: 1000
+  max_epoch: 100
   lr: [5e-4]
+  # update_freq: null
 
 optimizer:
   _name: adam
@@ -47,8 +48,14 @@ lr_scheduler:
   warmup_updates: 0
 
 model:
-  _name: clocs_dc
-  clocs_path: ???
-  in_d: 1
+  _name: wav2vec2_dc
+  w2v_path: ???
+  apply_mask: true
+  mask_prob: 0.65
+  mask_channel_prob: 0.5
+  mask_channel_length: 64
+  layerdrop: 0.1
+  activation_dropout: 0.1
+  feature_grad_mult: 0.0
   freeze_finetune_updates: 0
   no_pretrained_weights: false
