@@ -22,7 +22,7 @@ dataset:
   max_tokens: null 
   batch_size: 128
   n_labels: 9
-  valid_subset: "valid, test"
+  valid_subset: "valid,test"
 
 distributed_training:
   distributed_world_size: 8
