@@ -141,6 +141,10 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
             y_true = np.concatenate([log.get("_y_true", 0) for log in logging_outputs])
             y_score = np.concatenate([log.get("_y_score", 0) for log in logging_outputs])
 
+            valid_labels = np.where(y_true.sum(0) > 0)[0]
+            y_true = y_true[:, valid_labels]
+            y_score = y_score[:, valid_labels]
+
             auroc = roc_auc_score(y_true = y_true, y_score = y_score)
             metrics.log_scalar(
                 "auroc", auroc, round = 3
