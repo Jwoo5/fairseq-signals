@@ -56,6 +56,36 @@ class Wav2Vec2DcConfig(Dataclass):
         }
     )
 
+    # wav2vec2 model
+    encoder_layers: int = field(
+        default=2,
+        metadata={
+            "help": "num encoder layers in the transformer inside wav2vec 2.0 model"
+                    "only overide when --no_pretrained_weights is True"
+        }
+    )
+    encoder_embed_dim: int = field(
+        default=256,
+        metadata={
+            "help": "encoder embedding dimension inside wav2vec 2.0 model"
+                    "only overide when --no_pretrained_weights is True"
+        }
+    )
+    encoder_ffn_embed_dim: int = field(
+        default=1024,
+        metadata={
+            "help": "encoder embedding dimension for FFN inside wav2vec 2.0 model"
+                    "only overide when --no_pretrained_weights is True"
+        }
+    )
+    encoder_attention_heads: int = field(
+        default=8,
+        metadata={
+            "help": "num encoder attention heads inside wav2vec 2.0 model"
+                    "only overide when --no_pretrained_weights is True"
+        }
+    )
+
     # masking
     apply_mask: bool = field(
         default = False, metadata = {"help": "apply masking during fine-tuning"}
@@ -201,13 +231,20 @@ class Wav2Vec2Encoder(BaseModel):
             "feature_grad_mult": cfg.feature_grad_mult,
             "in_d": cfg.in_d
         }
-
+        model_overrides = {
+            "encoder_layers": cfg.encoder_layers,
+            "encoder_embed_dim": cfg.encoder_embed_dim,
+            "encoder_ffn_embed_dim": cfg.encoder_ffn_embed_dim,
+            "encoder_attention_heads": cfg.encoder_attention_heads
+        }
         assert cfg.no_pretrained_weights or cfg.w2v_path, (
             "Cannot load pretrained weights. "
             "Please pass --w2v_path explicitly."
         )
 
         if cfg.w2v_args is None:
+            if cfg.no_pretrained_weights:
+                arg_overrides.update(model_overrides)
             state = checkpoint_utils.load_checkpoint_to_cpu(cfg.w2v_path, arg_overrides)
             w2v_args = state.get("cfg", None)
             if w2v_args is None:
