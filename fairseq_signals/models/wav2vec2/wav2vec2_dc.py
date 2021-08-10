@@ -58,31 +58,31 @@ class Wav2Vec2DcConfig(Dataclass):
 
     # wav2vec2 model
     encoder_layers: int = field(
-        default=2,
+        default=12,
         metadata={
             "help": "num encoder layers in the transformer inside wav2vec 2.0 model"
-                    "only overide when --no_pretrained_weights is True"
+                    "only override when --no_pretrained_weights is True"
         }
     )
     encoder_embed_dim: int = field(
-        default=256,
+        default=768,
         metadata={
             "help": "encoder embedding dimension inside wav2vec 2.0 model"
-                    "only overide when --no_pretrained_weights is True"
+                    "only override when --no_pretrained_weights is True"
         }
     )
     encoder_ffn_embed_dim: int = field(
-        default=1024,
+        default=3072,
         metadata={
             "help": "encoder embedding dimension for FFN inside wav2vec 2.0 model"
-                    "only overide when --no_pretrained_weights is True"
+                    "only override when --no_pretrained_weights is True"
         }
     )
     encoder_attention_heads: int = field(
-        default=8,
+        default=12,
         metadata={
             "help": "num encoder attention heads inside wav2vec 2.0 model"
-                    "only overide when --no_pretrained_weights is True"
+                    "only override when --no_pretrained_weights is True"
         }
     )
 
