@@ -22,9 +22,9 @@ def get_physionet_weights(path_or_fp: Union[str, BinaryIO]) -> Tuple[List[set], 
         assert (rows == cols)
 
         values = np.stack(
-            np.array(
+            [np.array(
                 [float(v) for v in row[1:]]
-            ) for row in table[1:]
+            ) for row in table[1:]]
         )
         
         return rows, cols, values
