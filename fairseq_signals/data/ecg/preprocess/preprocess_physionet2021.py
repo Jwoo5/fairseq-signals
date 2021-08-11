@@ -1,5 +1,7 @@
 """
 Data pre-processing: encode labels (age, diagnosis, patient id) and crop data.
+
+If finding legacy version, please refer commit: 8ebaab5a615a8a7717ba76d3d17c557e0fb14325
 """
 
 import argparse
