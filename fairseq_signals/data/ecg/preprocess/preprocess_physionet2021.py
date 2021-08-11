@@ -4,23 +4,23 @@ Data pre-processing: encode labels (age, diagnosis, patient id) and crop data.
 
 import argparse
 import os
-import scipy.io
-import linecache
-import numpy as np
-import numpy.ma as ma
-import glob
-import pandas as pd
-import math
 import functools
+import math
+import linecache
+import glob
+import scipy.io
+import numpy as np
+
 from multiprocessing import Pool
+
+from fairseq_signals.data.ecg import ecg_utils
 
 def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument("root", metavar="DIR",
                        help="root directory containing mat files to pre-process")
-    #TODO if not given, should infer labels on the fly
     parser.add_argument("--meta-dir",
-                       help="directory containing metadata file (dx_mapping_(un)scored.csv)")
+                       help="directory containing metadata for labeling (weights.csv)")
     parser.add_argument(
         "--subset",
         default="WFDB_CPSC2018, WFDB_CPSC2018_2, WFDB_Ga, WFDB_PTBXL, WFDB_ChapmanShaoxing, WFDB_Ningbo",
@@ -41,49 +41,26 @@ def get_parser():
                        help="number of parallel workers")
     return parser
 
-
 def main(args):
     if not args.meta_dir:
         args.meta_dir = args.root
 
-    meta_path = os.path.realpath(args.meta_dir)
-    try:
-        dx_codes = pd.read_csv(os.path.join(meta_path, "dx_mapping_scored.csv"))
-        dx_codes = dx_codes.append(
-                pd.read_csv(os.path.join(meta_path, "dx_mapping_unscored.csv")), ignore_index = True
-            )
-    except FileNotFoundError:
-        raise FileNotFoundError(
-            "cannot find the metadata files for labeling (dx_mapping_(un)scored.csv)"
-            "please ensure that files are located in --meta-dir "
-            "or download from https://github.com/physionetchallenges/evaluation-2021."
-            f"--meta-dir: {meta_path}"
-        )
-
-    def convert_to_column_names(subset):
-        subset = subset.lstrip("WFDB_")
-        if subset == "CPSC2018":
-            return "CPSC"
-        elif subset == "CPSC2018_2":
-            return "CPSC_Extra"
-        elif subset == "Ga":
-            return "Georgia"
-        elif subset == "PTBXL":
-            return "PTB_XL"
-        elif subset == "ChapmanShaoxing":
-            return "Chapman_Shaoxing"
-        elif subset == "Ningbo":
-            return "Ningbo"
-        else:
-            raise NotImplementedError()
+    meta_path = os.path.join(os.path.realpath(args.meta_dir), "weights.csv")
 
     subset = args.subset.replace(' ','').split(',')
-
     for s in subset:
         if not os.path.exists(os.path.join(args.dest, args.predir, s.lstrip("WFDB_"))):
             os.makedirs(os.path.join(args.dest, args.predir, s.lstrip("WFDB_")))
 
-        codes = dx_codes[dx_codes[convert_to_column_names(s)] > 0]["SNOMEDCTCode"].to_numpy().astype(str)
+        try:
+            classes, _ = ecg_utils.get_physionet_weights(meta_path)
+        except FileNotFoundError:
+            raise FileNotFoundError(
+                "cannot find the metadata file for labeling (weights.csv)"
+                "please ensure that files are located in --meta-dir "
+                "or download from https://github.com/physionetchallenges/evaluation-2021."
+                f"--meta-dir: {meta_path}"
+            )
 
         dir_path = os.path.realpath(os.path.join(args.root, s))
         search_path = os.path.join(dir_path, "**/*." + args.ext)
@@ -96,7 +73,7 @@ def main(args):
         func = functools.partial(
             preprocess,
             args,
-            codes,
+            classes,
             os.path.join(args.dest, args.predir, s.lstrip("WFDB_"))
         )
         pool = Pool(processes = args.workers)
@@ -104,15 +81,15 @@ def main(args):
         pool.close()
         pool.join()
 
-def preprocess(args, dx_codes, dest_path, fnames):
+def preprocess(args, classes, dest_path, fnames):
     for fname in fnames:
         fname = fname[:-(len(args.ext)+1)]
-        label = linecache.getline(fname + '.hea', 16).replace(',',' ').split()[1:]
-        mask = np.zeros(len(dx_codes))
-        for each in label:
-            mask = np.logical_or(mask, np.where(dx_codes == each, True, False))
-        label = np.zeros(len(dx_codes), dtype = np.int16)
-        label = ma.masked_array(label, mask).filled(fill_value=1)
+
+        y = set(linecache.getline(fname + '.hea', 16).replace(',',' ').split()[1:])
+        label = np.zeros(len(classes), dtype=bool)
+        for i, x in enumerate(classes):
+            if x & y:
+                label[i] = 1
 
         try:
             age = int(linecache.getline(fname + '.hea', 14).split()[1])
