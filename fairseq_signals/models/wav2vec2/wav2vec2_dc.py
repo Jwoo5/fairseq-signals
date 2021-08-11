@@ -190,7 +190,7 @@ class Wav2Vec2DcModel(BaseModel):
         return logits
 
     def get_targets(self, sample, net_output):
-        return sample["label"]
+        return sample["label"].float()
 
     def get_normalized_probs(self, net_output, log_probs):
         """Get normalized probabilities (or log probs) from a net's output."""

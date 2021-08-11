@@ -11,15 +11,14 @@ import torch.nn.functional as F
 
 from sklearn.metrics import roc_auc_score, average_precision_score
 
-from fairseq_signals import metrics
+from fairseq_signals import logging, metrics
+from fairseq_signals.data.ecg import ecg_utils
 from fairseq_signals.utils import utils
 from fairseq_signals.criterions import BaseCriterion, register_criterion
 from fairseq_signals.dataclass import Dataclass
 # from fairseq_signals.data.data_utils import post_process
 from fairseq_signals.tasks import Task
 from fairseq_signals.logging.meters import safe_round
-
-#TODO develop how to calculate auprc, auroc, ...
 
 @dataclass
 class BinaryCrossEntropyCriterionConfig(Dataclass):
@@ -38,8 +37,18 @@ class BinaryCrossEntropyCriterionConfig(Dataclass):
         }
     )
     report_auc: bool = field(
-        default = False,
-        metadata = {"help": "whether to report auprc / auroc metric, used for valid step"}
+        default=False,
+        metadata={"help": "whether to report auprc / auroc metric, used for valid step"}
+    )
+    report_score: bool = field(
+        default=False,
+        metadata={"help": "whether to report cinc challenge metric"}
+    )
+    weights_file: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "score weights file for cinc challenge, only used when --report_score is True"
+        }
     )
 
 @register_criterion(
@@ -51,6 +60,14 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
         self.weight = cfg.weight
         self.pos_weight = cfg.pos_weight
         self.report_auc = cfg.report_auc
+        self.report_score = cfg.report_score
+        if self.report_score:
+            assert cfg.weights_file
+            (
+                classes,
+                self.score_weights
+            ) = ecg_utils.get_physionet_weights(cfg.weights_file)
+            self.sinus_rhythm_index = ecg_utils.get_sinus_rhythm_index(classes)            
     
     def forward(self, model, sample, reduce = True):
         """Compute the loss for the given sample.
@@ -103,18 +120,49 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
 
         with torch.no_grad():
             probs = torch.sigmoid(logits)
+            outputs = (probs > 0.5)
 
             if probs.numel() == 0:
                 corr = 0
                 count = 0
             else:
                 count = float(probs.numel())
-                corr = ((probs > 0.5) == target).sum().item()
+                corr = (outputs == target).sum().item()
 
             logging_output["correct"] = corr
             logging_output["count"] = count
 
-            if self.report_auc:
+            labels = target.cpu().numpy()
+            if self.report_score:
+                observed_score = (
+                    ecg_utils.compute_scored_confusion_matrix(
+                        self.score_weights,
+                        labels,
+                        outputs.cpu().numpy()
+                    )
+                )
+                correct_score = (
+                    ecg_utils.compute_scored_confusion_matrix(
+                        self.score_weights,
+                        labels,
+                        labels
+                    )
+                )
+                inactive_outputs = np.zeros(outputs.size(), dtype=bool)
+                inactive_outputs[:, self.sinus_rhythm_index] = 1
+                inactive_score = (
+                    ecg_utils.compute_scored_confusion_matrix(
+                        self.score_weights,
+                        labels,
+                        inactive_outputs
+                    )
+                )
+
+                logging_output["o_score"] = observed_score
+                logging_output["c_score"] = correct_score
+                logging_output["i_score"] = inactive_score
+
+            if not self.training and self.report_auc:
                 logging_output["_y_true"] = target.cpu().numpy()
                 logging_output["_y_score"] = probs.cpu().numpy()
         
@@ -136,7 +184,6 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
             "loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
         )
 
-        y_true = [log.get("_y_true", None) for log in logging_outputs]
         if "_y_true" in logging_outputs[0] and "_y_score" in logging_outputs[0]:
             y_true = np.concatenate([log.get("_y_true", 0) for log in logging_outputs])
             y_score = np.concatenate([log.get("_y_score", 0) for log in logging_outputs])
@@ -145,15 +192,37 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
             y_true = y_true[:, valid_labels]
             y_score = y_score[:, valid_labels]
 
-            auroc = roc_auc_score(y_true = y_true, y_score = y_score)
+            auroc = roc_auc_score(y_true = y_true, y_score = y_score, average="micro")
             metrics.log_scalar(
                 "auroc", auroc, round = 3
             )
 
-            auprc = average_precision_score(y_true = y_true, y_score = y_score)
+            auprc = average_precision_score(y_true = y_true, y_score = y_score, average="micro")
             metrics.log_scalar(
                 "auprc", auprc, round = 3
             )
+
+        observed_score = sum(log.get("o_score", 0) for log in logging_outputs)
+        metrics.log_scalar("_o_score", observed_score)
+
+        correct_score = sum(log.get("c_score", 0) for log in logging_outputs)
+        metrics.log_scalar("_c_score", correct_score)
+
+        inactive_score = sum(log.get("i_score", 0) for log in logging_outputs)
+        metrics.log_scalar("_i_score", inactive_score)
+
+        if observed_score > 0:
+            metrics.log_derived(
+                "cinc_score",
+                lambda meters: safe_round(
+                    float(meters["_o_score"].sum - meters["_i_score"].sum) / (
+                        float(meters["_c_score"].sum - meters["_i_score"].sum)
+                    ), 3
+                )
+                if float(meters["_c_score"].sum - meters["_i_score"].sum) != 0
+                else float(0.0)
+            )
+
 
         metrics.log_scalar("nsignals", nsignals)
 
