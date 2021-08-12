@@ -360,24 +360,24 @@ class Wav2Vec2Model(BaseModel):
         else:
             mask_indices = None
         
-        # if self.mask_channel_prob > 0:
-        #     mask_channel_indices = compute_mask_indices(
-        #         (B, C),
-        #         None,
-        #         self.mask_channel_prob,
-        #         self.mask_channel_length,
-        #         self.mask_channel_selection,
-        #         self.mask_channel_other,
-        #         no_overlap = self.no_mask_channel_overlap,
-        #         min_space = self.mask_channel_min_space
-        #     )
-        #     mask_channel_indices = (
-        #         torch.from_numpy(mask_channel_indices)
-        #         .to(x.device)
-        #         .unsqueeze(1)
-        #         .expand(-1, T, -1)
-        #     )
-        #     x[mask_channel_indices] = 0
+        if self.mask_channel_prob > 0:
+            mask_channel_indices = compute_mask_indices(
+                (B, C),
+                None,
+                self.mask_channel_prob,
+                self.mask_channel_length,
+                self.mask_channel_selection,
+                self.mask_channel_other,
+                no_overlap = self.no_mask_channel_overlap,
+                min_space = self.mask_channel_min_space
+            )
+            mask_channel_indices = (
+                torch.from_numpy(mask_channel_indices)
+                .to(x.device)
+                .unsqueeze(1)
+                .expand(-1, T, -1)
+            )
+            x[mask_channel_indices] = 0
         
         return x, mask_indices
 
