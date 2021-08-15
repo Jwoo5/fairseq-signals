@@ -366,7 +366,7 @@ class PatientECGDataset(RawECGDataset):
 
         skipped = 0
         self.fnames = []
-        self.num_segments = []
+        self.segments = []
         sizes = []
         self.skipped_indices = set()
 
@@ -377,7 +377,8 @@ class PatientECGDataset(RawECGDataset):
                 items = line.strip().split("\t")
                 assert len(items) == 3, line
                 sz = int(items[1])
-                seg_sz = int(items[2])
+                seg = [int(s) for s in items[2].split(',')][:max_segment_size]
+                seg_sz = len(seg)
                 if (
                     (min_sample_size is not None and sz < min_sample_size)
                     or (min_segment_size is not None and seg_sz < min_segment_size)
@@ -386,8 +387,11 @@ class PatientECGDataset(RawECGDataset):
                     self.skipped_indices.add(i)
                     continue
                 self.fnames.append(items[0])
-                seg_sz -= (seg_sz % required_segment_size_multiple)
-                self.num_segments.append(seg_sz)
+                self.segments.append(
+                    seg if len(seg) % required_segment_size_multiple == 0 else (
+                        seg[:-(len(seg) % required_segment_size_multiple)]
+                    )
+                )
                 sizes.append(sz)
         logger.info(f"loaded {len(self.fnames)}, skipped {skipped} samples")
 
@@ -484,7 +488,8 @@ class PatientECGDataset(RawECGDataset):
         paths = [os.path.join(
                 self.root_dir,
                 str(fn + f"_{i}.{self.ext}")
-                ) for i in range(min(self.num_segments[index], self.max_segment_size))]
+                ) for i in self.segments[index]
+        ]
 
         feats = []
         labels = []

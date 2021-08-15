@@ -2,18 +2,20 @@ common:
   fp16: false
   log_format: json
   log_interval: 50
-  clocs: clocs-pretraining
+  # wandb_project: clocs-pretraining
 
 checkpoint:
   save_interval_updates: 250000
   keep_interval_updates: 1
-  no_epoch_checkpoints: true
+  save_interval: 50
+  no_epoch_checkpoints: false
+  
 
 task:
   _name: ecg_pretraining
   data: ???
   patient_dataset: true
-  max_sample_size: 2500
+  max_sample_size: 3000
   normalize: false
   min_segment_size: 2
   required_segment_size_multiple: 2
@@ -35,7 +37,7 @@ criterion:
   mode: cmsc # cmsc, cmlc, cmsmlc
 
 optimization:
-  max_epoch: 2000
+  max_epoch: 400
   lr: [1e-4]
 
 optimizer:
