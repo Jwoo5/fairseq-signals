@@ -2,7 +2,7 @@ common:
   fp16: false
   log_format: json
   log_interval: 50
-  # wandb_project: clocs-pretraining
+  wandb_project: clocs-pretraining
 
 checkpoint:
   save_interval_updates: 250000
