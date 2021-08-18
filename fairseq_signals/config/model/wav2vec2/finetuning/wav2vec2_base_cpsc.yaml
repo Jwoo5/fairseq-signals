@@ -4,12 +4,14 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  # wandb_project: wav2vec2-finetuning
+  wandb_project: wav2vec2-finetuning
 
 checkpoint:
   no_epoch_checkpoints: true
   best_checkpoint_metric: loss # auprc?
-  patience: 20
+  save_interval: 50
+  no_epoch_checkpoints: false
+  # patience: 20
 
 task:
   _name: ecg_pretraining
