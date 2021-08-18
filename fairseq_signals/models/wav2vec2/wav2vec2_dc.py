@@ -160,7 +160,7 @@ class Wav2Vec2DcModel(BaseModel):
         super().__init__()
         self.cfg = cfg
         self.w2v_encoder = w2v_encoder
-    
+
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
         return state_dict
@@ -311,7 +311,7 @@ class Wav2Vec2Encoder(BaseModel):
 
         if self.proj:
             x = self.proj(x)
-        
+
         return {
             "encoder_out": x, # B x T x n_labels
             "padding_mask": padding_mask,
