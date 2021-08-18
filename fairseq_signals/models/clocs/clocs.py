@@ -1,7 +1,7 @@
-from collections import defaultdict
+from argparse import Namespace
 from dataclasses import dataclass, field
-from typing import List, Tuple
-from fairseq_signals.models.wav2vec2.wav2vec2 import ConvFeatureExtraction
+from typing import List, Tuple, Optional, Any
+from fairseq_signals.dataclass.utils import convert_namespace_to_omegaconf
 from omegaconf import II
 
 import math
@@ -9,23 +9,20 @@ import math
 import torch
 import torch.nn as nn
 
-from fairseq_signals.utils import utils
-
-from fairseq_signals.data.data_utils import compute_mask_indices
-
-from fairseq_signals.dataclass import Dataclass
-
+from fairseq_signals import tasks
+from fairseq_signals.utils import checkpoint_utils
+from fairseq_signals.dataclass import Dataclass, ChoiceEnum
 from fairseq_signals.models import BaseModel, register_model
-
-from fairseq_signals.models.wav2vec2 import Wav2Vec2DcConfig, Wav2Vec2Encoder
+from fairseq_signals.models.wav2vec2 import Wav2Vec2Config
 
 from fairseq_signals.modules import (
     Fp32GroupNorm,
     Fp32LayerNorm,
     LayerNorm,
     TransposeLast,
-    TransformerEncoder
 )
+
+CLOCS_MODE_CHOICES = ChoiceEnum(["cmsc", "cmlc", "cmsmlc"])
 
 @dataclass
 class ClocsConfig(Dataclass):
@@ -44,6 +41,9 @@ class ClocsConfig(Dataclass):
                     "first conv block, and layer norm has layer norms in every block"
                     "used when encoder_mode == default (conv encoder)"
         }
+    )
+    clocs_mode: CLOCS_MODE_CHOICES = field(
+        default="cmsc", metadata={"help": "coding mode for clocs model"}
     )
 
     encoder_embed_dim: int = field(
@@ -68,12 +68,16 @@ class ClocsConfig(Dataclass):
         default = 1,
         metadata = {"help": "input dimension"}
     )
-
     sample_size: int = field(
         default = 2500, metadata = {"help": "fixed length of input samples"}
     )
-    # this holds the wav2vec2_dc args for transformer encoder    
-    w2v_dc_args: Wav2Vec2DcConfig = Wav2Vec2DcConfig()
+    w2v_path: Optional[str] = field(
+        default=None, metadata={"help":"path to wav2vec 2.0 model"}
+    )
+    apply_mask: bool = False
+    data: str = II("task.data")
+    # this holds the wav2vec2 args for transformer encoder to override
+    w2v_args: Any = None
 
 @register_model("clocs", dataclass = ClocsConfig)
 class ClocsModel(BaseModel):
@@ -95,8 +99,7 @@ class ClocsModel(BaseModel):
                 conv_bias=True
             )
         else:
-            cfg.w2v_dc_args.in_d = cfg.in_d
-            self.encoder = Wav2Vec2Encoder(cfg.w2v_dc_args)
+            self.encoder = TransformerEncoder(cfg)
             
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
@@ -229,3 +232,63 @@ class ConvEncoder(nn.Module):
         return {
             "encoder_out": x, # bsz x n_leads x fsz
         }
+
+class TransformerEncoder(BaseModel):
+    def __init__(self, cfg: ClocsConfig):
+        super().__init__()
+        self.apply_mask = cfg.apply_mask
+        assert cfg.w2v_path or cfg.w2v_args
+
+        override_args = {"in_d": cfg.in_d}
+
+        if cfg.w2v_args is None:
+            state = checkpoint_utils.load_checkpoint_to_cpu(cfg.w2v_path, override_args)
+            w2v_args = state.get("cfg", None)
+            if w2v_args is None:
+                w2v_args = convert_namespace_to_omegaconf(state["args"])
+            w2v_args.criterion = None
+            w2v_args.lr_scheduler = None
+            cfg.w2v_args = w2v_args
+        else:
+            state = None
+            w2v_args = cfg.w2v_args
+            if isinstance(w2v_args, Namespace):
+                cfg.w2v_args = w2v_args = convert_namespace_to_omegaconf(w2v_args)
+
+        w2v_args.task.data = cfg.data
+        task = tasks.setup_task(w2v_args.task)
+        model = task.build_model(w2v_args.model)
+
+        model.remove_pretraining_modules()
+
+        self.w2v_model = model
+    
+    def set_num_updates(self, num_updates):
+        """Set the number of parameters updates."""
+        super().set_num_updates(num_updates)
+        self.num_updates = num_updates
+
+    def forward(self, source, padding_mask=None, **kwargs):
+        w2v_args = {
+            "source": source,
+            "padding_mask": padding_mask,
+            "mask": self.apply_mask and self.training
+        }
+
+        res = self.w2v_model.extract_features(**w2v_args)
+        
+        x = res["x"]
+        padding_mask = res["padding_mask"]
+
+        if padding_mask is not None and padding_mask.any():
+            x[padding_mask] = 0
+        
+        x = torch.div(x.sum(dim=1), (x != 0).sum(dim=1))
+
+        return {
+            "encoder_out": x,
+            "padding_mask": padding_mask
+        }
+    
+    def upgrade_state_dict_named(self, state_dict, name):
+        return state_dict
