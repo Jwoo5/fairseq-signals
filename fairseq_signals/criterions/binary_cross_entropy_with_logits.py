@@ -63,11 +63,10 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
         self.report_score = cfg.report_score
         if self.report_score:
             assert cfg.weights_file
-            (
-                classes,
-                self.score_weights
-            ) = ecg_utils.get_physionet_weights(cfg.weights_file)
-            self.sinus_rhythm_index = ecg_utils.get_sinus_rhythm_index(classes)            
+            classes, self.score_weights = (
+                ecg_utils.get_physionet_weights(cfg.weights_file)
+            )
+            self.sinus_rhythm_index = ecg_utils.get_sinus_rhythm_index(classes)
     
     def forward(self, model, sample, reduce = True):
         """Compute the loss for the given sample.
