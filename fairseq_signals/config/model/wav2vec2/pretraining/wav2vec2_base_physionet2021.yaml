@@ -36,7 +36,7 @@ criterion:
 
 optimization:
   max_epoch: 200
-  lr: [5e-4]
+  lr: [5e-5]
 
 optimizer:
   _name: adam
