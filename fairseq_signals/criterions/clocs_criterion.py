@@ -1,5 +1,6 @@
 from dataclasses import dataclass, field
 from typing import Optional
+from omegaconf import II
 from itertools import combinations
 
 import torch
@@ -13,26 +14,23 @@ from fairseq_signals.criterions import BaseCriterion, register_criterion
 from fairseq_signals.dataclass import Dataclass, ChoiceEnum
 from fairseq_signals.tasks import Task
 from fairseq_signals.logging.meters import safe_round
-
-CLOCS_MODE_CHOICES = ChoiceEnum(["cmsc", "cmlc", "cmsmlc"])
+from fairseq_signals.models.clocs import CLOCS_MODE_CHOICES
 
 @dataclass
 class ClocsCriterionConfig(Dataclass):
-    mode: CLOCS_MODE_CHOICES = field(
-        default="cmsc", metadata={"help": "coding mode for clocs model"}
-    )
     temp: float = field(
         default=0.1, metadata={"help": "temperature in softmax"}
     )
     eps: float = field(
         default=1e-8, metadata={"help": "small value for numerical stability when normalizing"}
     )
+    clocs_mode: CLOCS_MODE_CHOICES = II("model.clocs_mode")
 
 @register_criterion("clocs", dataclass = ClocsCriterionConfig)
 class ClocsCriterion(BaseCriterion):
     def __init__(self, cfg: ClocsCriterionConfig, task: Task):
         super().__init__(task)
-        self.mode = cfg.mode
+        self.mode = cfg.clocs_mode
         self.temp = cfg.temp
         self.eps = cfg.eps
     
