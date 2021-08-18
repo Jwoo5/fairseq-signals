@@ -20,6 +20,7 @@ from fairseq_signals.data import (
     PatientECGDataset
 )
 from fairseq_signals.dataclass import Dataclass
+from fairseq_signals.models.clocs import CLOCS_MODE_CHOICES
 
 from . import Task, register_task
 from ..utils import utils
@@ -82,15 +83,6 @@ class ECGPretrainingConfig(Dataclass):
     min_sample_size: Optional[int] = field(
         default = None, metadata = {"help": "min sample size to skip small examples"}
     )
-    max_segment_size: Optional[int] = field(
-        default = None, metadata = {"help": "max number of segments per sample"}
-    )
-    min_segment_size: Optional[int] = field(
-        default = None, metadata = {"help": "min number of segments per sample"}
-    )
-    required_segment_size_multiple: Optional[int] = field(
-        default = 1, metadata = {"help": "segment size will be cropped to a multiplier of this value"}
-    )
     num_batch_buckets: int = field(
         default = 0,
         metadata = {"help": "number of buckets"}
@@ -108,6 +100,8 @@ class ECGPretrainingConfig(Dataclass):
             "help": "wav2vec 2.0 masking arguments used to pre-compute masks (required for TPU)"
         }
     )
+
+    clocs_mode: CLOCS_MODE_CHOICES = II("model.clocs_mode")
 
 @register_task("ecg_pretraining", dataclass = ECGPretrainingConfig)
 class ECGPretrainingTask(Task):
@@ -153,9 +147,10 @@ class ECGPretrainingTask(Task):
                 sample_rate = task_cfg.get("sample_rate", self.cfg.sample_rate),
                 max_sample_size = self.cfg.max_sample_size,
                 min_sample_size = self.cfg.min_sample_size,
-                max_segment_size = self.cfg.max_segment_size,
-                min_segment_size = self.cfg.min_segment_size,
-                required_segment_size_multiple=self.cfg.required_segment_size_multiple,
+                max_segment_size = None,
+                min_segment_size = 2 if self.cfg.clocs_mode in ["cmsc", "cmsmlc"] else 1,
+                required_segment_size_multiple=2 if self.cfg.clocs_mode in ["cmsc", "cmsmlc"] else 1,
+                clocs_mode=self.cfg.clocs_mode,
                 pad = task_cfg.enable_padding,
                 label = task_cfg.label,
                 normalize = task_cfg.normalize,
