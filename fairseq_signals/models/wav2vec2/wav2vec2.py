@@ -495,6 +495,10 @@ class Wav2Vec2Model(BaseModel):
 
         if padding_mask is not None and padding_mask.any():
             input_lengths = ( 1- padding_mask.long()).sum(-1)
+            if input_lengths.dim() > 1:
+                for input_len in input_lengths:
+                    assert (input_len == input_len[0]).all()
+                input_lengths = input_lengths[:,0]
             # apply conv formula to get real output_lengths
             output_lengths = self._get_feat_extract_output_lengths(input_lengths)
 
@@ -506,7 +510,7 @@ class Wav2Vec2Model(BaseModel):
             # before the output lengths indices are attended to
             padding_mask[
                 (
-                    torch.arange(padding_mask.shaope[0], device = padding_mask.device),
+                    torch.arange(padding_mask.shape[0], device = padding_mask.device),
                     output_lengths - 1
                 )
             ] = 1
