@@ -35,7 +35,7 @@ criterion:
   loss_weights: [0.1, 10]
 
 optimization:
-  max_epoch: 100
+  max_epoch: 200
   lr: [5e-4]
 
 optimizer:

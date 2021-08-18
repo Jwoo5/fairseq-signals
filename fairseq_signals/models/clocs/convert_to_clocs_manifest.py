@@ -9,7 +9,6 @@ from collections import Counter
     Usage: python examples/clocs/convert_to_clocs_manifest.py \
             /path/to/manifest.tsv \
             --dest /manifest/path \
-            --predir /sub/root/dir \
             --ext $ext \
 """
 
