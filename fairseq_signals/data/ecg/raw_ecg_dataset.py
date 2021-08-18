@@ -54,7 +54,7 @@ class RawECGDataset(BaseDataset):
         # if feats.dim() == 2:
         #     feats = feats.mean(-1)
         
-        if curr_sample_rate != self.sample_rate:
+        if self.sample_rate > 0 and curr_sample_rate != self.sample_rate:
             raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
         
         # assert feats.dim() == 1, feats.dim()
@@ -134,9 +134,9 @@ class RawECGDataset(BaseDataset):
             elif diff < 0:
                 assert self.pad
                 collated_sources[i] = torch.cat(
-                    [source, source.new_full((-diff,), 0.0)]
+                    [source, source.new_full((source.shape[0], -diff,), 0.0)], dim=-1
                 )
-                padding_mask[i, diff:] = True
+                padding_mask[i, :, diff:] = True
             else:
                 collated_sources[i] = self.crop_to_max_size(source, target_size)
         
@@ -317,9 +317,9 @@ class FileECGDataset(RawECGDataset):
         feats = torch.from_numpy(ecg['feats'])
         curr_sample_rate = ecg['curr_sample_rate']
         res["source"] = self.postprocess(feats, curr_sample_rate)
-        res["patient_id"] = ecg['patient_id'][0]
-        res["age"] = torch.from_numpy(ecg['age'][0])
-        res["sex"] = torch.from_numpy(ecg['sex'][0])
+        # res["patient_id"] = ecg['patient_id'][0]
+        # res["age"] = torch.from_numpy(ecg['age'][0])
+        # res["sex"] = torch.from_numpy(ecg['sex'][0])
 
         if self.label:
             res["label"] = torch.from_numpy(ecg['label'])
