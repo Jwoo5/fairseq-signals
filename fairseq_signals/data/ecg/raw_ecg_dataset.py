@@ -340,6 +340,7 @@ class PatientECGDataset(RawECGDataset):
         max_segment_size = None,
         min_segment_size = 0,
         required_segment_size_multiple = 2,
+        clocs_mode = "cmsc",
         shuffle = True,
         pad = False,
         label = False,
@@ -359,6 +360,7 @@ class PatientECGDataset(RawECGDataset):
             compute_mask_indices = compute_mask_indices,
             **mask_compute_kwargs
         )
+        self.clocs_mode = clocs_mode
         self.max_segment_size = (
             max_segment_size if max_segment_size is not None else sys.maxsize
         )
@@ -367,6 +369,7 @@ class PatientECGDataset(RawECGDataset):
         skipped = 0
         self.fnames = []
         self.segments = []
+        self.leads = []
         sizes = []
         self.skipped_indices = set()
 
@@ -375,9 +378,9 @@ class PatientECGDataset(RawECGDataset):
             self.ext = f.readline().strip()
             for i, line in enumerate(f):
                 items = line.strip().split("\t")
-                assert len(items) == 3, line
+                assert len(items) == 4, line
                 sz = int(items[1])
-                seg = [int(s) for s in items[2].split(',')][:max_segment_size]
+                seg = [int(s) for s in items[3].split(',')][:max_segment_size]
                 seg_sz = len(seg)
                 if (
                     (min_sample_size is not None and sz < min_sample_size)
@@ -387,6 +390,7 @@ class PatientECGDataset(RawECGDataset):
                     self.skipped_indices.add(i)
                     continue
                 self.fnames.append(items[0])
+                self.leads.append(int(items[2]))
                 self.segments.append(
                     seg if len(seg) % required_segment_size_multiple == 0 else (
                         seg[:-(len(seg) % required_segment_size_multiple)]
@@ -435,12 +439,12 @@ class PatientECGDataset(RawECGDataset):
             elif diff < 0:
                 assert self.pad
                 collated_sources[i] = torch.cat(
-                    [source, source.new_full((-diff,), 0.0)]
+                    [source, source.new_full((source.shape[0], -diff,), 0.0)], dim=-1
                 )
-                padding_mask[i, diff:] = True
+                padding_mask[i, :, diff:] = True
             else:
-                collated_sources[i] = self.crop_to_max_size(source, target_size)
-        
+                collated_sources[i] = self.crop_to_max_size(source, target_size)        
+
         input = {"source": collated_sources}
         input["patient_id"] = np.array([s["patient_id"] for s in collated_samples])
         input["segment"] = torch.LongTensor([s["segment"] for s in collated_samples])
@@ -490,6 +494,7 @@ class PatientECGDataset(RawECGDataset):
                 str(fn + f"_{i}.{self.ext}")
                 ) for i in self.segments[index]
         ]
+        lead = self.leads[index] if self.clocs_mode == "cmsc" else None
 
         feats = []
         labels = []
@@ -504,8 +509,8 @@ class PatientECGDataset(RawECGDataset):
         for i, path in enumerate(paths):
             ecg = scipy.io.loadmat(path)
         
-            #NOTE preprocess data to match with given keys: "feats", "curr_sample_rate", "label"
             feat = torch.from_numpy(ecg['feats'])
+            feat = feat[lead].unsqueeze(0) if lead is not None else feat
             curr_sample_rate = ecg['curr_sample_rate']
 
             feats.append(
