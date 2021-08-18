@@ -2,39 +2,41 @@ common:
   fp16: false
   log_format: json
   log_interval: 10
+  all_gather_list_size: 2048000
   wandb_project: clocs-finetuning
 
 checkpoint:
-  no_epoch_checkpoints: true
   best_checkpoint_metric: loss
-  patience: 20
+  save_interval: 50
+  no_epoch_checkpoints: false
+  # patience: 20
 
 task:
   _name: ecg_pretraining
   data: ???
   label: true
   patient_dataset: false
+  enable_padding: true
   normalize: false
-  min_segment_size: 1
-  required_segment_size_multiple: 1
 
 dataset:
   num_workers: 6
   max_tokens: null
-  batch_size: 64
-  n_labels: 9
+  batch_size: 128
+  n_labels: 26
   valid_subset: "valid,test"
 
 distributed_training:
   distributed_world_size: 8
-  find_unused_parameters: true
 
 criterion:
   _name: binary_cross_entropy_with_logits
   report_auc: true
+  report_score: true
+  weights_file: ???
 
 optimization:
-  max_epoch: 1000
+  max_epoch: 250
   lr: [5e-4]
 
 optimizer:

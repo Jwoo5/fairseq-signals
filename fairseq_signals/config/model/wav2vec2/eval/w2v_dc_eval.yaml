@@ -23,7 +23,6 @@ dataset:
 
 distributed_training:
   distributed_world_size: 8
-  find_unused_parameters: true
 
 criterion:
   _name: binary_cross_entropy_with_logits

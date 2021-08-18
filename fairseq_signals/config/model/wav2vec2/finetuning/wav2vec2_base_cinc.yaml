@@ -1,3 +1,4 @@
+
 common:
   fp16: false
   log_format: json
@@ -21,7 +22,7 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null 
-  batch_size: 32
+  batch_size: 128
   n_labels: 26
   valid_subset: "valid,test"
 
@@ -51,9 +52,12 @@ lr_scheduler:
 model:
   _name: wav2vec2_dc
   w2v_path: ???
-  apply_mask: false
+  apply_mask: true
+  mask_prob: 0.65
+  mask_channel_prob: 0.5
+  mask_channel_length: 64
   layerdrop: 0.1
   activation_dropout: 0.1
-  feature_grad_mult: 1.0
+  feature_grad_mult: 0.0
   freeze_finetune_updates: 0
-  no_pretrained_weights: true
+  no_pretrained_weights: false

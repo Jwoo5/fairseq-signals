@@ -2,26 +2,26 @@ common:
   fp16: false
   log_format: json
   log_interval: 50
-  wandb_project: wav2vec2-pretraining
+  # wandb_project: clocs-pretraining
 
 checkpoint:
   save_interval_updates: 250000
   keep_interval_updates: 1
   save_interval: 50
   no_epoch_checkpoints: false
+  
 
 task:
   _name: ecg_pretraining
   data: ???
-  label: false
-  max_sample_size: 2500
+  patient_dataset: true
+  max_sample_size: 3000
   normalize: false
 
 dataset:
   num_workers: 6
   max_tokens: null
   batch_size: 64
-  required_batch_size_multiple: 1
   valid_subset: ""
   disable_validation: true
 
@@ -29,32 +29,24 @@ distributed_training:
   distributed_world_size: 8
 
 criterion:
-  _name: wav2vec
-  infonce: true
-  log_keys: ["prob_perplexity", "code_perplexity", "temp"]
-  loss_weights: [0.1, 10]
+  _name: clocs
 
 optimization:
-  max_epoch: 100
-  lr: [5e-4]
+  max_epoch: 200
+  lr: [1e-4]
 
 optimizer:
   _name: adam
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-06
-  weight_decay: 0.01
+  # weight_decay: 0.01
 
 lr_scheduler:
   _name: fixed
   warmup_updates: 0
 
 model:
-  _name: wav2vec2
-  quantize_targets: true
-  final_dim: 256
-  encoder_layerdrop: 0.05
-  dropout_input: 0.1
-  dropout_features: 0.1
-  feature_grad_mult: 0.1
-  encoder_embed_dim: 768
-  in_d: 12
+  _name: clocs
+  encoder_mode: default
+  clocs_mode: cmsmlc # cmsc, cmlc, cmsmlc
+  in_d: 1

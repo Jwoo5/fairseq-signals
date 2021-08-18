@@ -1,15 +1,15 @@
 common:
   fp16: false
   log_format: json
-  log_interval: 50
-  wandb_project: clocs-pretraining
+  log_interval: 10
+  # wandb_project: clocs-pretraining
 
 checkpoint:
   save_interval_updates: 250000
   keep_interval_updates: 1
   save_interval: 50
   no_epoch_checkpoints: false
-  
+
 
 task:
   _name: ecg_pretraining
@@ -17,28 +17,23 @@ task:
   patient_dataset: true
   max_sample_size: 3000
   normalize: false
-  min_segment_size: 2
-  required_segment_size_multiple: 2
 
 dataset:
   num_workers: 6
   max_tokens: null
   batch_size: 64
-  n_labels: 9
   valid_subset: ""
   disable_validation: true
 
 distributed_training:
   distributed_world_size: 8
-  find_unused_parameters: true
 
 criterion:
   _name: clocs
-  mode: cmsc # cmsc, cmlc, cmsmlc
 
 optimization:
-  max_epoch: 400
-  lr: [1e-4]
+  max_epoch: 200
+  lr: [5e-5]
 
 optimizer:
   _name: adam
@@ -52,16 +47,6 @@ lr_scheduler:
 
 model:
   _name: clocs
+  encoder_mode: transformer
+  clocs_mode: cmsc # cmsc, cmlc, cmsmlc
   in_d: 1
-
-  w2v_dc_args:
-    w2v_path: ???
-    apply_mask: true
-    mask_prob: 0.65
-    mask_channel_prob: 0.5
-    mask_channel_length: 64
-    layerdrop: 0.1
-    activation_dropout: 0.1
-    feature_grad_mult: 0.0
-    freeze_finetune_updates: 0
-    no_pretrained_weights: true
