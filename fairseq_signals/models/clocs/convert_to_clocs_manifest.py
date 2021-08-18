@@ -24,11 +24,12 @@ def get_parser():
         "--dest", default=".", type=str, metavar="DIR", help="output directory"
     )
     parser.add_argument(
-        "--predir", default=".", type=str, metavar="DIR", help="if set, create sub-root directory in --dest"
-    )
-    parser.add_argument(
         "--ext", default="mat", type=str, metavar="EXT",
         help="extension of data files in the manifest"
+    )
+    parser.add_argument(
+        "--n-lead", default=12, type=int, metavar="D",
+        help="number of leads in each sample"
     )
     return parser
 
@@ -52,19 +53,40 @@ def main(args):
             else:
                 segments[folder] = [segment]
 
-    if not os.path.exists(os.path.join(args.dest, args.predir)):
-        os.makedirs(os.path.join(args.dest, args.predir))
+    if not os.path.exists(os.path.join(args.dest, "cmsc")):
+        os.makedirs(os.path.join(args.dest, "cmsc"))
+    if not os.path.exists(os.path.join(args.dest, "cmlc")):
+        os.makedirs(os.path.join(args.dest, "cmlc"))
+    if not os.path.exists(os.path.join(args.dest, "cmsmlc")):
+        os.makedirs(os.path.join(args.dest, "cmsmlc"))
+    
 
-    with open(os.path.join(args.dest, args.predir, os.path.basename(args.root)), "w") as f:
-        print(dir_path, file=f)
-        print(args.ext, file=f)
+    with open(os.path.join(args.dest, "cmsc", "train.tsv"), "w") as cmsc_f, open(
+        os.path.join(args.dest, "cmlc", "train.tsv"), "w") as cmlc_f, open(
+        os.path.join(args.dest, "cmsmlc", "train.tsv"), "w"
+        ) as cmsmlc_f:
+        print(dir_path, file=cmsc_f)
+        print(dir_path, file=cmlc_f)
+        print(dir_path, file=cmsmlc_f)
+        print(args.ext, file=cmsc_f)
+        print(args.ext, file=cmlc_f)
+        print(args.ext, file=cmsmlc_f)
 
+        leads = list(range(args.n_lead))
         for fname, segment in segments.items():
             n_segs = len(segment)
             if n_segs <= 1:
                 continue
             segment.sort()
-            print(f"{fname}\t{sizes[fname]}\t{','.join(str(seg) for seg in segment)}", file=f)
+
+            for i in range(0, len(segment)-1, 2):
+                seg = ','.join(str(seg) for seg in segment[i:i+2])
+                print(f"{fname}\t{sizes[fname]}\t0\t{seg}", file=cmsmlc_f)
+                for lead in leads:
+                    print(f"{fname}\t{sizes[fname]}\t{lead}\t{seg}", file=cmsc_f)
+
+            for seg in segment:
+                print(f"{fname}\t{sizes[fname]}\t0\t{seg}", file=cmlc_f)
 
 if __name__ == "__main__":
     parser = get_parser()
