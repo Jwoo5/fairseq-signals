@@ -101,7 +101,10 @@ class ECGPretrainingConfig(Dataclass):
         }
     )
 
-    clocs_mode: CLOCS_MODE_CHOICES = II("model.clocs_mode")
+    # Legacy keys for loading old version of pre-trained model
+    max_segment_size: Optional[int] = None
+    min_segment_size: Optional[int] = None
+    required_segment_size_multiple: Optional[int] = None
 
 @register_task("ecg_pretraining", dataclass = ECGPretrainingConfig)
 class ECGPretrainingTask(Task):
@@ -141,15 +144,13 @@ class ECGPretrainingTask(Task):
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
 
         if getattr(task_cfg, "patient_dataset", False):
+            self.cfg.clocs_mode = II("model.clocs_mode")
             self.datasets[split] = PatientECGDataset(
                 manifest_path = manifest_path,
                 split = split,
                 sample_rate = task_cfg.get("sample_rate", self.cfg.sample_rate),
                 max_sample_size = self.cfg.max_sample_size,
                 min_sample_size = self.cfg.min_sample_size,
-                max_segment_size = None,
-                min_segment_size = 2 if self.cfg.clocs_mode in ["cmsc", "cmsmlc"] else 1,
-                required_segment_size_multiple=2 if self.cfg.clocs_mode in ["cmsc", "cmsmlc"] else 1,
                 clocs_mode=self.cfg.clocs_mode,
                 pad = task_cfg.enable_padding,
                 label = task_cfg.label,
