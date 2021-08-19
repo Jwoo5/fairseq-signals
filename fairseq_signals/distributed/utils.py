@@ -111,7 +111,7 @@ def distributed_main(i, main, cfg: Config, kwargs):
     
     main(cfg, **kwargs)
 
-    if torch.distributed_is_initialized():
+    if torch.distributed.is_initialized():
         torch.distributed.barrier(get_global_group())
 
 def call_main(cfg: Config, main, **kwargs):
