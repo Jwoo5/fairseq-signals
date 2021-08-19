@@ -42,9 +42,6 @@ class ClocsConfig(Dataclass):
                     "used when encoder_mode == default (conv encoder)"
         }
     )
-    clocs_mode: CLOCS_MODE_CHOICES = field(
-        default="cmsc", metadata={"help": "coding mode for clocs model"}
-    )
 
     encoder_embed_dim: int = field(
         default=256, metadata={"help": "encoder embedding dimension"}

@@ -94,6 +94,10 @@ class ECGPretrainingConfig(Dataclass):
         }
     )
 
+    clocs_mode: Optional[CLOCS_MODE_CHOICES] = field(
+        default=None, metadata={"help": "coding mode for clocs model"}
+    )
+
     inferred_w2v_config: Optional[InferredW2vConfig] = field(
         default = None,
         metadata = {
@@ -144,14 +148,13 @@ class ECGPretrainingTask(Task):
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
 
         if getattr(task_cfg, "patient_dataset", False):
-            self.cfg.clocs_mode = II("model.clocs_mode")
             self.datasets[split] = PatientECGDataset(
                 manifest_path = manifest_path,
                 split = split,
                 sample_rate = task_cfg.get("sample_rate", self.cfg.sample_rate),
                 max_sample_size = self.cfg.max_sample_size,
                 min_sample_size = self.cfg.min_sample_size,
-                clocs_mode=self.cfg.clocs_mode,
+                clocs_mode=task_cfg.clocs_mode,
                 pad = task_cfg.enable_padding,
                 label = task_cfg.label,
                 normalize = task_cfg.normalize,

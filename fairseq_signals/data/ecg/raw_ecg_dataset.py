@@ -337,9 +337,6 @@ class PatientECGDataset(RawECGDataset):
         sample_rate,
         max_sample_size = None,
         min_sample_size = 0,
-        max_segment_size = None,
-        min_segment_size = 0,
-        required_segment_size_multiple = 2,
         clocs_mode = "cmsc",
         shuffle = True,
         pad = False,
@@ -361,10 +358,9 @@ class PatientECGDataset(RawECGDataset):
             **mask_compute_kwargs
         )
         self.clocs_mode = clocs_mode
-        self.max_segment_size = (
-            max_segment_size if max_segment_size is not None else sys.maxsize
-        )
-        self.min_segment_size = min_segment_size
+        self.max_segment_size = sys.maxsize
+        self.min_segment_size = 2 if clocs_mode in ["cmsc", "cmsmlc"] else 1
+        required_segment_size_multiple = 2 if clocs_mode in ["cmsc", "cmsmlc"] else 1
 
         skipped = 0
         self.fnames = []
@@ -380,11 +376,11 @@ class PatientECGDataset(RawECGDataset):
                 items = line.strip().split("\t")
                 assert len(items) == 4, line
                 sz = int(items[1])
-                seg = [int(s) for s in items[3].split(',')][:max_segment_size]
+                seg = [int(s) for s in items[3].split(',')][:self.max_segment_size]
                 seg_sz = len(seg)
                 if (
                     (min_sample_size is not None and sz < min_sample_size)
-                    or (min_segment_size is not None and seg_sz < min_segment_size)
+                    or (self.min_segment_size is not None and seg_sz < self.min_segment_size)
                 ):
                     skipped += 1
                     self.skipped_indices.add(i)

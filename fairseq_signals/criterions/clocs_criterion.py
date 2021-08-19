@@ -24,7 +24,7 @@ class ClocsCriterionConfig(Dataclass):
     eps: float = field(
         default=1e-8, metadata={"help": "small value for numerical stability when normalizing"}
     )
-    clocs_mode: CLOCS_MODE_CHOICES = II("model.clocs_mode")
+    clocs_mode: CLOCS_MODE_CHOICES = II("task.clocs_mode")
 
 @register_criterion("clocs", dataclass = ClocsCriterionConfig)
 class ClocsCriterion(BaseCriterion):

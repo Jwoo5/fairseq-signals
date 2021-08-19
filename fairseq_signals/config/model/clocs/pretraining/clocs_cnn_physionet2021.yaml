@@ -2,7 +2,7 @@ common:
   fp16: false
   log_format: json
   log_interval: 50
-  # wandb_project: clocs-pretraining
+  wandb_project: clocs-pretraining
 
 checkpoint:
   save_interval_updates: 250000
@@ -13,6 +13,7 @@ checkpoint:
 
 task:
   _name: ecg_pretraining
+  clocs_mode: cmsc # cmsc, cmlc, cmsmlc
   data: ???
   patient_dataset: true
   max_sample_size: 3000
@@ -48,5 +49,4 @@ lr_scheduler:
 model:
   _name: clocs
   encoder_mode: default
-  clocs_mode: cmsmlc # cmsc, cmlc, cmsmlc
   in_d: 1
