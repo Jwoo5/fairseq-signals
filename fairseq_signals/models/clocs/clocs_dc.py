@@ -38,8 +38,6 @@ class ClocsDcConfig(Dataclass):
         default=0, metadata={"help": "dont finetune clocs for this many updates"}
     )
 
-    #TODO args for wav2vec2 transformer
-
     in_d: int = field(
         default = 1,
         metadata = {"help": "input dimension"}
