@@ -476,7 +476,7 @@ class Wav2Vec2Model(BaseModel):
         mask = True,
         features_only = False,
         mask_indices = None,
-        ):
+    ):
         if self.feature_grad_mult > 0:
             features = self.feature_extractor(source)
             if self.feature_grad_mult != 1.0:
