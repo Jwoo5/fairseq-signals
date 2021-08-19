@@ -57,6 +57,14 @@ class Wav2Vec2DcConfig(Dataclass):
     )
 
     # wav2vec2 model
+    conv_feature_layers: str = field(
+        default="[(256, 2, 2)] * 4",
+        metadata={
+            "help": "string describing convolutional feature extraction layers in form of a python list that contains "
+            "[(dim, kernel_size, stride), ...]"
+            "only override when --no_pretrained_weights is True"
+        },
+    )
     encoder_layers: int = field(
         default=12,
         metadata={
@@ -232,6 +240,7 @@ class Wav2Vec2Encoder(BaseModel):
             "in_d": cfg.in_d
         }
         model_overrides = {
+            "conv_feature_layers": cfg.conv_feature_layers,
             "encoder_layers": cfg.encoder_layers,
             "encoder_embed_dim": cfg.encoder_embed_dim,
             "encoder_ffn_embed_dim": cfg.encoder_ffn_embed_dim,
