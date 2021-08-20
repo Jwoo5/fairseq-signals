@@ -94,7 +94,7 @@ class ECGPretrainingConfig(Dataclass):
         }
     )
 
-    clocs_mode: Optional[CLOCS_MODE_CHOICES] = field(
+    clocs_mode: Optional[str] = field(
         default=None, metadata={"help": "coding mode for clocs model"}
     )
 
