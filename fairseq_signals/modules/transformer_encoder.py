@@ -69,22 +69,24 @@ class TransformerEncoder(nn.Module):
             embed_dim = self.embedding_dim,
             n_heads = args.encoder_attention_heads,
             ffn_dim = args.encoder_ffn_embed_dim,
-            dropout = args.dropout
+            dropout = self.dropout,
+            attention_dropout=args.attention_dropout,
+            activation_dropout=args.activation_dropout            
         )
 
         self.layer_norm_first = args.layer_norm_first
         self.layer_norm = LayerNorm(self.embedding_dim)
 
-        # self.layerdrop = args.layer_dropout
+        # self.layerdrop = args.encoder_layerdrop
 
         self.apply(init_bert_params)
     
     def extract_features(self, x, padding_mask = None):
-        if padding_mask is not None:
+        if padding_mask is not None and padding_mask.any():
             x[padding_mask] = 0
+            padding_mask = padding_mask.transpose(-1,-2).unsqueeze(1).unsqueeze(2)
         x_conv = self.pos_conv(x.transpose(1,2))
         x_conv = x_conv.transpose(1,2)
-
 
         x += x_conv
 
@@ -96,7 +98,7 @@ class TransformerEncoder(nn.Module):
         # B x T x C -> T x B x C
         x = x.transpose(0, 1)
 
-        x = self.encoder(x)
+        x = self.encoder(x, padding_mask=padding_mask)
         # T x B x C -> B x T x C
         x = x.transpose(0,1)
 
