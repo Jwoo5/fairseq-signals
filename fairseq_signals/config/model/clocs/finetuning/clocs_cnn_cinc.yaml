@@ -3,7 +3,7 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  # wandb_project: clocs-finetuning
+  wandb_project: clocs-finetuning
 
 checkpoint:
   best_checkpoint_metric: loss
