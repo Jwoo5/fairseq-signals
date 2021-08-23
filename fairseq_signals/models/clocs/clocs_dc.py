@@ -97,7 +97,7 @@ class ClocsDcModel(BaseModel):
 
         target = target.expand(x.size()).contiguous().view(-1, x.size(-1))
 
-        return target
+        return target.float()
     
     def get_normalized_probs(self, net_output, log_probs):
         """Get normalized probabilities (or log probs) from a net's output."""
