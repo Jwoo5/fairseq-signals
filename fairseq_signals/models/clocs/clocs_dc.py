@@ -76,8 +76,8 @@ class ClocsDcModel(BaseModel):
         # TODO aggregate over tokens to classify the whole outputs
         # example: logits = net_output["encoder_out"].mean(1).float() # B x T x n_classes -> B x n_classes
         #       ... mean is too naive
-        if aggregate and self.cfg.clocs_args.model.encoder_mode == 'transformer':
-            logits = torch.div(logits.sum(dim = 1), (logits != 0).sum(dim = 1))
+        # if aggregate and self.cfg.clocs_args.model.encoder_mode == 'transformer':
+        #     logits = torch.div(logits.sum(dim = 1), (logits != 0).sum(dim = 1))
         
         if normalize:
             logits = utils.log_softmax(logits.float(), dim=-1)

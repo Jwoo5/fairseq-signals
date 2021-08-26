@@ -44,7 +44,7 @@ class ClocsConfig(Dataclass):
     )
 
     encoder_embed_dim: int = field(
-        default=256, metadata={"help": "encoder embedding dimension"}
+        default=768, metadata={"help": "encoder embedding dimension"}
     )
 
     # dropouts
@@ -57,12 +57,12 @@ class ClocsConfig(Dataclass):
         metadata={
             "help": "string describing convolutional layers in form of a python list that contains "
                     "[(dim, kernel_size, stride), ...]"
-                    "when encoder_mode == transformer, it is used for conv feat extr"
+                    "only used when encoder_mode == default,"
         }
     )
 
     in_d: int = field(
-        default = 1,
+        default = 12,
         metadata = {"help": "input dimension"}
     )
     sample_size: int = field(
@@ -81,7 +81,6 @@ class ClocsModel(BaseModel):
     def __init__(self, cfg: ClocsConfig):
         super().__init__()
         self.cfg = cfg
-
         assert cfg.encoder_mode in {"default", "transformer"}
 
         conv_layers = eval(cfg.conv_layers)
@@ -113,15 +112,14 @@ class ClocsModel(BaseModel):
         return logits
     
     def forward(self, source, patient_id=None, segment=None, **kwargs):
-        bsz, csz, tsz = source.shape
-        source = source.view(-1, 1, tsz)
         x = self.encoder(source, **kwargs)
 
-        x['encoder_out'] = x['encoder_out'].view(bsz, csz, -1)
+        x['encoder_out'] = x['encoder_out']
         x['patient_id'] = patient_id
         x['segment'] = segment
         return x
 
+#XXX deprecated
 class ConvEncoder(nn.Module):
     def __init__(
         self,
@@ -212,7 +210,6 @@ class ConvEncoder(nn.Module):
         self.proj = nn.Sequential(
             nn.Flatten(),
             nn.Linear(self.output_size, encoder_embed_dim),
-            nn.ReLU()
         )
     
     def forward(self, source, **kwargs):
@@ -236,7 +233,11 @@ class TransformerEncoder(BaseModel):
         self.apply_mask = cfg.apply_mask
         assert cfg.w2v_path or cfg.w2v_args
 
-        override_args = {"in_d": cfg.in_d}
+        override_args = {
+            "encoder_embed_dim": cfg.encoder_embed_dim,
+            "in_d": cfg.in_d
+        }
+
 
         if cfg.w2v_args is None:
             state = checkpoint_utils.load_checkpoint_to_cpu(cfg.w2v_path, override_args)
@@ -280,6 +281,7 @@ class TransformerEncoder(BaseModel):
         if padding_mask is not None and padding_mask.any():
             x[padding_mask] = 0
         
+        #XXX
         x = torch.div(x.sum(dim=1), (x != 0).sum(dim=1))
 
         return {

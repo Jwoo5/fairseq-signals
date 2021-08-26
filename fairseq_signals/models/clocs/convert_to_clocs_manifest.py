@@ -81,8 +81,10 @@ def main(args):
             for i in range(0, len(segment)-1, 2):
                 seg = ','.join(str(seg) for seg in segment[i:i+2])
                 print(f"{fname}\t{sizes[fname]}\t0\t{seg}", file=cmsmlc_f)
-                for lead in leads:
-                    print(f"{fname}\t{sizes[fname]}\t{lead}\t{seg}", file=cmsc_f)
+                print(f"{fname}\t{sizes[fname]}\t0\t{seg}", file=cmsc_f)
+
+                # for lead in leads:
+                #     print(f"{fname}\t{sizes[fname]}\t{lead}\t{seg}", file=cmsc_f)
 
             for seg in segment:
                 print(f"{fname}\t{sizes[fname]}\t0\t{seg}", file=cmlc_f)

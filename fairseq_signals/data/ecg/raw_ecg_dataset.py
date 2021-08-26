@@ -317,6 +317,8 @@ class FileECGDataset(RawECGDataset):
         feats = torch.from_numpy(ecg['feats'])
         curr_sample_rate = ecg['curr_sample_rate']
         res["source"] = self.postprocess(feats, curr_sample_rate)
+        #XXX
+        # res["file_id"] = ecg['file_id'][0]
         # res["patient_id"] = ecg['patient_id'][0]
         # res["age"] = torch.from_numpy(ecg['age'][0])
         # res["sex"] = torch.from_numpy(ecg['sex'][0])
@@ -357,6 +359,8 @@ class PatientECGDataset(RawECGDataset):
             compute_mask_indices = compute_mask_indices,
             **mask_compute_kwargs
         )
+        #XXX only cmsc
+        assert clocs_mode in ["cmsc", "cmlc", "cmsmlc"]
         self.clocs_mode = clocs_mode
         self.max_segment_size = sys.maxsize
         self.min_segment_size = 2 if clocs_mode in ["cmsc", "cmsmlc"] else 1
@@ -374,6 +378,7 @@ class PatientECGDataset(RawECGDataset):
             self.ext = f.readline().strip()
             for i, line in enumerate(f):
                 items = line.strip().split("\t")
+                #XXX only cmsc
                 assert len(items) == 4, line
                 sz = int(items[1])
                 seg = [int(s) for s in items[3].split(',')][:self.max_segment_size]
@@ -490,7 +495,9 @@ class PatientECGDataset(RawECGDataset):
                 str(fn + f"_{i}.{self.ext}")
                 ) for i in self.segments[index]
         ]
-        lead = self.leads[index] if self.clocs_mode == "cmsc" else None
+        #XXX only cmsc
+        # lead = self.leads[index] if self.clocs_mode == "cmsc" else None
+        lead = None
 
         feats = []
         labels = []
