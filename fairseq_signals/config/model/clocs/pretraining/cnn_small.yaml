@@ -1,13 +1,13 @@
 common:
   fp16: false
   log_format: json
-  log_interval: 10
+  log_interval: 50
   wandb_project: clocs-pretraining
 
 checkpoint:
   save_interval: 50
   no_epoch_checkpoints: false
-
+  
 
 task:
   _name: ecg_pretraining
@@ -20,20 +20,19 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null
-  batch_size: 64
+  batch_size: 256
   valid_subset: ""
   disable_validation: true
 
 distributed_training:
-  distributed_world_size: 8
-  # find_unused_parameters: true
+  distributed_world_size: 1
 
 criterion:
   _name: clocs
 
 optimization:
-  max_epoch: 200
-  lr: [5e-5]
+  max_epoch: 400
+  lr: [1e-4]
 
 optimizer:
   _name: adam
@@ -47,8 +46,5 @@ lr_scheduler:
 
 model:
   _name: clocs
-  encoder_mode: transformer
-  in_d: 12
-  encoder_embed_dim: 768
-  w2v_path: null
-  w2v_args: null
+  encoder_mode: default
+  in_d: 1
