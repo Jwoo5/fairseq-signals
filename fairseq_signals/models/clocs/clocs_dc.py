@@ -76,9 +76,9 @@ class ClocsDcModel(BaseModel):
         # TODO aggregate over tokens to classify the whole outputs
         # example: logits = net_output["encoder_out"].mean(1).float() # B x T x n_classes -> B x n_classes
         #       ... mean is too naive
-        # if aggregate and self.cfg.clocs_args.model.encoder_mode == 'transformer':
-        #     logits = torch.div(logits.sum(dim = 1), (logits != 0).sum(dim = 1))
-        
+        if aggregate and self.cfg.clocs_args.model.encoder_mode == 'transformer':
+            logits = torch.div(logits.sum(dim = 1), (logits != 0).sum(dim = 1))
+
         if normalize:
             logits = utils.log_softmax(logits.float(), dim=-1)
         
@@ -87,17 +87,7 @@ class ClocsDcModel(BaseModel):
         return logits
     
     def get_targets(self, sample, net_output):
-        x = net_output["encoder_out"]
-        target = sample["label"].unsqueeze(1)
-        
-        assert (
-            (target.size(0) == x.size(0))
-            and (target.size(2) == x.size(2))
-        )
-
-        target = target.expand(x.size()).contiguous().view(-1, x.size(-1))
-
-        return target.float()
+        return sample["label"].float()
     
     def get_normalized_probs(self, net_output, log_probs):
         """Get normalized probabilities (or log probs) from a net's output."""
@@ -160,6 +150,7 @@ class ClocsEncoder(BaseModel):
         self.num_updates = 0
 
         dim = clocs_args.model.encoder_embed_dim
+        dim = dim * 12 if cfg.in_d == 1 else dim
         trg_dim = cfg.output_size
 
         self.proj = None
