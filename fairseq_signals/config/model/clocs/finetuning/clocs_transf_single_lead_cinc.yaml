@@ -3,7 +3,7 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  wandb_project: clocs-finetuning
+  # wandb_project: clocs-finetuning
 
 checkpoint:
   best_checkpoint_metric: loss
@@ -22,17 +22,17 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null
-  batch_size: 128
+  batch_size: 8
   n_labels: 26
   valid_subset: "valid,test"
 
 distributed_training:
-  distributed_world_size: 8
+  distributed_world_size: 1
 
 criterion:
   _name: binary_cross_entropy_with_logits
   report_auc: true
-  report_score: true
+  report_score: false
   weights_file: ???
 
 optimization:
@@ -51,6 +51,6 @@ lr_scheduler:
 model:
   _name: clocs_dc
   clocs_path: ???
-  in_d: 12
+  in_d: 1
   freeze_finetune_updates: 0
-  no_pretrained_weights: false
+  no_pretrained_weights: true
