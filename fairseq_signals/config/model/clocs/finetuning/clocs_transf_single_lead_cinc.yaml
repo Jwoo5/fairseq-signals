@@ -27,7 +27,7 @@ dataset:
   valid_subset: "valid,test"
 
 distributed_training:
-  distributed_world_size: 1
+  distributed_world_size: 8
 
 criterion:
   _name: binary_cross_entropy_with_logits
@@ -53,4 +53,4 @@ model:
   clocs_path: ???
   in_d: 1
   freeze_finetune_updates: 0
-  no_pretrained_weights: true
+  no_pretrained_weights: false
