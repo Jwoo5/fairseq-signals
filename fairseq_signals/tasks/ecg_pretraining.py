@@ -52,10 +52,10 @@ class InferredW2vConfig:
 @dataclass
 class ECGPretrainingConfig(Dataclass):
     data: str = field(default = MISSING, metadata = {"help": "path to data directory"})
-    label: bool = field(
-        default = False,
-        metadata = {"help": "whether loading the label together or not, used for fine-tuning"}
-    )
+    # label: bool = field(
+    #     default = False,
+    #     metadata = {"help": "whether loading the label together or not, used for fine-tuning"}
+    # )
     patient_dataset: bool = field(
         default = False,
         metadata = {
@@ -109,6 +109,7 @@ class ECGPretrainingConfig(Dataclass):
     max_segment_size: Optional[int] = None
     min_segment_size: Optional[int] = None
     required_segment_size_multiple: Optional[int] = None
+    label: Optional[bool] = None
 
 @register_task("ecg_pretraining", dataclass = ECGPretrainingConfig)
 class ECGPretrainingTask(Task):
@@ -156,7 +157,7 @@ class ECGPretrainingTask(Task):
                 min_sample_size = self.cfg.min_sample_size,
                 clocs_mode=task_cfg.clocs_mode,
                 pad = task_cfg.enable_padding,
-                label = task_cfg.label,
+                label = False,
                 normalize = task_cfg.normalize,
                 num_buckets = self.cfg.num_batch_buckets,
                 compute_mask_indices = self.cfg.precompute_mask_indices,
@@ -169,7 +170,7 @@ class ECGPretrainingTask(Task):
                 max_sample_size = self.cfg.max_sample_size,
                 min_sample_size = self.cfg.min_sample_size,
                 pad = task_cfg.enable_padding,
-                label = task_cfg.label,
+                label = False,
                 normalize = task_cfg.normalize,
                 num_buckets = self.cfg.num_batch_buckets,
                 compute_mask_indices = self.cfg.precompute_mask_indices,

@@ -158,7 +158,7 @@ class Wav2Vec2DcConfig(Dataclass):
     mask_channel_before: bool = False
     normalize: bool = II("task.normalize")
     data: str = II("task.data")
-    output_size: int = II("dataset.n_labels")
+    output_size: int = II("task.num_labels")
     # this holds the loaded wav2vec args
     w2v_args: Any = None
 

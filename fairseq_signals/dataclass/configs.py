@@ -227,9 +227,9 @@ class DatasetConfig(Dataclass):
     num_workers: int = field(
         default = 1, metadata={"help": "how many subprocesses to use for data loading"}
     )
-    n_labels: Optional[int] = field(
-        default = None, metadata = {"help": "the number of labels to be classified"}
-    )
+    # n_labels: Optional[int] = field(
+    #     default = None, metadata = {"help": "the number of labels to be classified"}
+    # )
     skip_invalid_size_inputs_valid_test: bool = field(
         default=False,
         metadata={"help": "ignore too long or too short lines in valid and test set"},

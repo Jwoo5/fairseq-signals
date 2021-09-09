@@ -4,7 +4,7 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  wandb_project: wav2vec2-finetuning
+  wandb_project: diagnosis-prediction
 
 checkpoint:
   best_checkpoint_metric: loss # auprc?
@@ -13,9 +13,9 @@ checkpoint:
   # patience: 20
 
 task:
-  _name: ecg_pretraining
+  _name: multi_label_classification
+  num_labels: 26
   data: ???
-  label: true
   normalize: false
   enable_padding: true
 
@@ -23,7 +23,6 @@ dataset:
   num_workers: 6
   max_tokens: null 
   batch_size: 128
-  n_labels: 26
   valid_subset: "valid,test"
 
 distributed_training:
