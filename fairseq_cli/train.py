@@ -49,7 +49,7 @@ def main(cfg: Config) -> None:
     if distributed_utils.is_master(cfg.distributed_training) and "job_logging_cfg" in cfg:
         # make hydra logging work with ddp (see # see https://github.com/facebookresearch/hydra/issues/1126)
         logging.config.dictConfig(OmegaConf.to_container(cfg.job_logging_cfg))
-    
+
     assert (
         cfg.dataset.max_tokens is not None or cfg.dataset.batch_size is not None
     ), "Must specify batch size either with --max-tokens or --batch-size"
@@ -92,7 +92,7 @@ def main(cfg: Config) -> None:
     logger.info("model: {}".format(model.__class__.__name__))
     logger.info("criterion: {}".format(criterion.__class__.__name__))
     logger.info(
-        "num. shared model params: {:,} (num. trained: {:,}".format(
+        "num. shared model params: {:,} (num. trained: {:,})".format(
             sum(p.numel() for p in model.parameters() if not getattr(p, "expert", False)),
             sum(p.numel() for p in model.parameters() if not getattr(p, "expert", False) and p.requires_grad)
         )
@@ -270,8 +270,8 @@ def train(
 
                 # reset mid-epoch stats after each log interval
                 # the end-of-epoch stats will still be preserved
-                metrics.reset_meters("train_inner")
-        
+                metrics.reset_meters("train_inner")            
+
         end_of_epoch = not itr.has_next()
         valid_losses, should_stop = validate_and_save(
             cfg, trainer, task, epoch_itr, valid_subsets, end_of_epoch
@@ -426,7 +426,7 @@ def validate(
         for i, sample in enumerate(progress):
             if cfg.dataset.max_valid_steps is not None and i > cfg.dataset.max_valid_steps:
                 break
-            _loss, _sample_size, log_output = trainer.valid_step(sample)
+            _loss, _sample_size, log_output = trainer.valid_step(sample, subset=subset)
             log_outputs.append(log_output)
 
         if distributed_utils.get_data_parallel_world_size() > 1:

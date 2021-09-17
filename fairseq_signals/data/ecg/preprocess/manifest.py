@@ -9,7 +9,7 @@ import random
 import scipy.io
 
 """
-    Usage: python path/to/wav2vec2_manifest.py \
+    Usage: python path/to/manifest.py \
             /path/to/signals \
             --subset $subsets \
             --combine_subsets $combine_subsets \

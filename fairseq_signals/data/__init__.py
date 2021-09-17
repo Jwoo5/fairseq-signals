@@ -5,7 +5,9 @@
 
 from .dataset import BaseDataset
 
-from .ecg.raw_ecg_dataset import FileECGDataset, PatientECGDataset
+from .ecg.raw_ecg_dataset import FileECGDataset
+from .ecg.clocs_ecg_dataset import ClocsECGDataset
+from .ecg.identification_ecg_dataset import IdentificationECGDataset
 
 from .iterators import (
     CountingIterator,
@@ -19,5 +21,6 @@ __all__ = [
     "EpochBatchIterator",
     "ShardedIterator",
     "FileECGDataset",
-    "PatientECGDataset"
+    "ClocsECGDataset",
+    "IdentificationECGDataset"
 ]

@@ -17,7 +17,7 @@ from omegaconf import MISSING, II, OmegaConf
 
 from fairseq_signals.data import (    
     FileECGDataset,
-    PatientECGDataset
+    ClocsECGDataset
 )
 from fairseq_signals.dataclass import Dataclass
 from fairseq_signals.models.clocs import CLOCS_MODE_CHOICES
@@ -56,14 +56,14 @@ class ECGPretrainingConfig(Dataclass):
     #     default = False,
     #     metadata = {"help": "whether loading the label together or not, used for fine-tuning"}
     # )
-    patient_dataset: bool = field(
-        default = False,
-        metadata = {
-            "help": "if true, loads patient dataset (used for contrastive learning with patients)."
-                    "This could cause inconsistent memory allocation between multi GPUs since "
-                    "the number of samples per patient is various."
-        }
-    )
+    # patient_dataset: bool = field(
+    #     default = False,
+    #     metadata = {
+    #         "help": "if true, loads patient dataset (used for contrastive learning with patients)."
+    #                 "This could cause inconsistent memory allocation between multi GPUs since "
+    #                 "the number of samples per patient is various."
+    #     }
+    # )
     sample_rate: int = field(
         default = 500,
         metadata = {
@@ -94,6 +94,9 @@ class ECGPretrainingConfig(Dataclass):
         }
     )
 
+    clocs: Optional[bool] = field(
+        default=False, metadata={"help": "whether to train in clocs manner"}
+    )
     clocs_mode: Optional[str] = field(
         default=None, metadata={"help": "coding mode for clocs model"}
     )
@@ -110,6 +113,7 @@ class ECGPretrainingConfig(Dataclass):
     min_segment_size: Optional[int] = None
     required_segment_size_multiple: Optional[int] = None
     label: Optional[bool] = None
+    patient_dataset: Optional[bool] = None
 
 @register_task("ecg_pretraining", dataclass = ECGPretrainingConfig)
 class ECGPretrainingTask(Task):
@@ -148,8 +152,8 @@ class ECGPretrainingTask(Task):
 
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
 
-        if getattr(task_cfg, "patient_dataset", False):
-            self.datasets[split] = PatientECGDataset(
+        if getattr(task_cfg, "clocs", False):
+            self.datasets[split] = ClocsECGDataset(
                 manifest_path = manifest_path,
                 split = split,
                 sample_rate = task_cfg.get("sample_rate", self.cfg.sample_rate),
@@ -192,8 +196,8 @@ class ECGPretrainingTask(Task):
         # we do not need to filter by size in this task as dataloaders take care of this
         return indices
     
-    def valid_step(self, sample, model, criterion):
-        loss, sample_size, logging_output = super().valid_step(sample, model, criterion)
+    def valid_step(self, sample, model, criterion, subset=None):
+        loss, sample_size, logging_output = super().valid_step(sample, model, criterion, subset)
         return loss, sample_size, logging_output
     
     def build_model(self, model_cfg: Dataclass):

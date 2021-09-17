@@ -251,6 +251,8 @@ class Wav2Vec2Encoder(BaseModel):
             "Please pass --w2v_path explicitly."
         )
 
+        #TODO if intended to train from scratch, do not refer model checkpoint anymore.
+        #XXX if no_pretrained_weights, init w2v_args on its own.
         if cfg.w2v_args is None:
             if cfg.no_pretrained_weights:
                 arg_overrides.update(model_overrides)
@@ -267,7 +269,7 @@ class Wav2Vec2Encoder(BaseModel):
             if isinstance(w2v_args, Namespace):
                 cfg.w2v_args = w2v_args = convert_namespace_to_omegaconf(w2v_args)
         
-        assert cfg.normalize == w2v_args.task.normalize, (
+        assert cfg.no_pretrained_weights or cfg.normalize == w2v_args.task.normalize, (
             "Fine-tuning works best when data normalization is the same. "
             "Please check that --normalize is set or unset for both pre-training and here"
         )
@@ -282,15 +284,16 @@ class Wav2Vec2Encoder(BaseModel):
         model.remove_pretraining_modules()
 
         self.w2v_model = model
+        if not cfg.apply_mask:
+            self.w2v_model.mask_emb = None
 
         self.final_dropout = nn.Dropout(cfg.final_dropout)
         self.freeze_finetune_updates = cfg.freeze_finetune_updates
         self.num_updates = 0
 
-        dim = w2v_args.model.encoder_embed_dim
+        dim = cfg.w2v_args.model.encoder_embed_dim
         trg_dim = cfg.output_size
 
-        self.proj = None
         if trg_dim is not None:
             self.proj = nn.Linear(dim, trg_dim)
             nn.init.xavier_uniform_(self.proj.weight)

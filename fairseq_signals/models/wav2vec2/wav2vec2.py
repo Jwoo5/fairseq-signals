@@ -549,8 +549,7 @@ class Wav2Vec2Model(BaseModel):
                     unmasked_features.size(0), -1, unmasked_features.size(-1)
                 )
             else:
-                y = unmasked_features            
-
+                y = unmasked_features
         else:
             x = features
             y = unmasked_features

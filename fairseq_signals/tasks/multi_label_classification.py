@@ -39,7 +39,7 @@ class MultiLabelClassificationTask(ECGPretrainingTask):
         return cls(cfg)
     
     def load_dataset(self, split: str, task_cfg: Dataclass=None, **kwargs):
-        data_path  = self.cfg.data
+        data_path = self.cfg.data
         task_cfg = task_cfg or self.cfg
 
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
