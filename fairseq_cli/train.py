@@ -270,7 +270,7 @@ def train(
 
                 # reset mid-epoch stats after each log interval
                 # the end-of-epoch stats will still be preserved
-                metrics.reset_meters("train_inner")            
+                metrics.reset_meters("train_inner")
 
         end_of_epoch = not itr.has_next()
         valid_losses, should_stop = validate_and_save(
@@ -421,33 +421,26 @@ def validate(
 
         # create a new root metrics aggregator so validation metrics
         # don't pollute other aggregators (e.g., train meters)
-
-        log_outputs = []
-        for i, sample in enumerate(progress):
-            if cfg.dataset.max_valid_steps is not None and i > cfg.dataset.max_valid_steps:
-                break
-            _loss, _sample_size, log_output = trainer.valid_step(sample, subset=subset)
-            log_outputs.append(log_output)
-
-        if distributed_utils.get_data_parallel_world_size() > 1:
-            log_outputs = distributed_utils.all_gather_list(
-                log_outputs,
-                max_size = cfg.common.all_gather_list_size,
-                group = distributed_utils.get_data_parallel_group()
-            )
-            log_outputs = list(chain.from_iterable(log_outputs))
+        with metrics.aggregate(new_root=True) as agg:
+            for i, sample in enumerate(progress):
+                if cfg.dataset.max_valid_steps is not None and i > cfg.dataset.max_valid_steps:
+                    break
+                trainer.valid_step(sample, subset=subset)
 
         # log validation stats
-        with metrics.aggregate(new_root=True) as agg:
-            trainer.task.reduce_metrics(log_outputs, trainer.get_criterion())
-            log_output = agg.get_smoothed_values()
+        stats = get_valid_stats(cfg, trainer, agg.get_smoothed_values())
 
         if hasattr(task, "post_validate"):
-            task.post_validate(trainer.get_model(), log_output, agg)
-        
-        progress.print(log_output, tag = subset, step = trainer.get_num_updates())
+            task.post_validate(
+                model=trainer.get_model(),
+                log_output=stats,
+                agg=agg,
+                num_updates=trainer.get_num_updates()
+            )
 
-        valid_losses.append(log_output[cfg.checkpoint.best_checkpoint_metric])
+        progress.print(stats, tag=subset, step=trainer.get_num_updates())
+
+        valid_losses.append(stats[cfg.checkpoint.best_checkpoint_metric])
     return valid_losses
 
 def get_valid_stats(

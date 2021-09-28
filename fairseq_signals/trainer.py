@@ -563,14 +563,13 @@ class Trainer(object):
                         update_num = self.get_num_updates(),
                         ignore_grad = is_dummy_batch
                     )
-
                     del loss
+
                 logging_outputs.append(logging_output)
                 sample_size += sample_size_i
 
                 # emptying the CUDA cache after the first step can
                 # reduce the chance of OOM
-
                 if self.cuda and self.get_num_updates() == 0:
                     torch.cuda.empty_cache()
             except RuntimeError as e:
@@ -601,6 +600,7 @@ class Trainer(object):
         else:
             sample_size = float(sample_size)
 
+        # gather logging outputs from all replicas
         if self._sync_stats():
             train_time = self._local_cumulative_training_time()
             logging_outputs, (
@@ -660,6 +660,7 @@ class Trainer(object):
             with NanDetector(self.get_model()):
                 for _, sample in enumerate(samples):
                     sample, _ = self._prepare_sample(sample)
+                    breakpoint()
                     self.task.train_step(
                         sample,
                         self.model,
@@ -668,6 +669,7 @@ class Trainer(object):
                         self.get_num_updates(),
                         ignore_grad = False
                     )
+                    breakpoint()
             raise
         except OverflowError as e:
             # TODO deal with nan gradient norm. consider hyperparameters.
@@ -772,24 +774,24 @@ class Trainer(object):
                             torch.cuda.empty_cache()
                         return self.valid_step(sample, raise_oom = True)
                 raise e
-            
-        #     logging_outputs = [logging_output]
-        #     if is_dummy_batch:
-        #         if torch.is_tensor(sample_size):
-        #             sample_size.zero_()
-        #         else:
-        #             sample_size *= 0.0
+
+            logging_outputs = [logging_output]
+            if is_dummy_batch:
+                if torch.is_tensor(sample_size):
+                    sample_size.zero_()
+                else:
+                    sample_size *= 0.0
         
-        # # gather logging outputs from all replicas
-        # if self.data_parallel_world_size > 1:
-        #     logging_outputs, (sample_size, ) = self._aggregate_logging_outputs(
-        #         logging_outputs,
-        #         sample_size,
-        #         ignore = is_dummy_batch
-        #     )
+        # gather logging outputs from all replicas
+        if self.data_parallel_world_size > 1:
+            logging_outputs, (sample_size, ) = self._aggregate_logging_outputs(
+                logging_outputs,
+                sample_size,
+                ignore = is_dummy_batch
+            )
         
-        # # log validation stats
-        # logging_output = self._reduce_and_log_stats(logging_outputs, sample_size)
+        # log validation stats
+        logging_output = self._reduce_and_log_stats(logging_outputs, sample_size)
     
         return _loss, sample_size, logging_output
     

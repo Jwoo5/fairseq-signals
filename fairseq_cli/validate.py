@@ -113,7 +113,7 @@ def main(cfg: DictConfig, override_args = None):
             task.load_dataset(subset, combine = False, epoch = 1, task_cfg = cfg.task)
             dataset = task.dataset(subset)
         except KeyError:
-            raise Exception("Cannot find datast: " + subset)
+            raise Exception("Cannot find dataset: " + subset)
 
         # Initialize data iterator
         itr = task.get_batch_iterator(
@@ -142,7 +142,7 @@ def main(cfg: DictConfig, override_args = None):
             with torch.no_grad():
                 sample = utils.move_to_cuda(sample) if use_cuda else sample
                 sample = _fp_convert_sample(sample)
-                _loss, _sample_size, log_output = task.valid_step(sample, model, criterion)
+                _loss, _sample_size, log_output = task.valid_step(sample, model, criterion, subset)
                 progress.log(log_output, step = i)
                 log_outputs.append(log_output)
         
@@ -159,6 +159,9 @@ def main(cfg: DictConfig, override_args = None):
             log_output = agg.get_smoothed_values()
         
         progress.print(log_output, tag = subset, step = i)
+
+        if hasattr(task, "post_validate"):
+            task.post_validate(model, log_output, agg, num_updates=0)
 
 def cli_main():
     parser = options.get_validation_parser()
