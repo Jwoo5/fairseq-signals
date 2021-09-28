@@ -50,6 +50,10 @@ class ECGIdentificationTask(ECGPretrainingTask):
         self.require_query = True
         self.gallery_feats = None
         self.gallery_pids = None
+        self.subset = None
+
+        #XXX just for identification vis
+        self.cos_sims = []
     
     @classmethod
     def setup_task(cls, cfg: ECGIdentificationConfig, **kwargs):
@@ -109,12 +113,14 @@ class ECGIdentificationTask(ECGPretrainingTask):
             ignore_invalid_inputs=self.cfg.skip_invalid_size_inputs_valid_test,
             required_batch_size_multiple=self.cfg.required_batch_size_multiple,
             seed=self.cfg.seed,
-            num_shards=1 if (
-                self.cfg.distributed_world_size == 1 
-            ) else distributed_utils.get_data_parallel_world_size(),
-            shard_id=0 if (
-                self.cfg.distributed_world_size == 1
-            ) else distributed_utils.get_data_parallel_rank(),
+            num_shards=1,
+            # if (
+            #     self.cfg.distributed_world_size == 1 
+            # ) else distributed_utils.get_data_parallel_world_size(),
+            shard_id=0,
+            # if (
+            #     self.cfg.distributed_world_size == 1
+            # ) else distributed_utils.get_data_parallel_rank(),
             num_workers=self.cfg.num_workers,
             epoch=1,
             data_buffer_size=self.cfg.data_buffer_size,
@@ -147,16 +153,30 @@ class ECGIdentificationTask(ECGPretrainingTask):
 
         return sample, False
 
-    def post_validate(self, model, log_output, agg):
+    def post_validate(self, model, log_output, agg, num_updates, **kwargs):
         self.require_query = True
         self.gallery_feats = None
         self.gallery_pids = None
+
+        if not os.path.exists('imgs'):
+            os.mkdir('imgs')
+
+        import matplotlib.pyplot as plt
+        cos_sims = torch.cat(self.cos_sims)
+        plt.clf()
+        plt.matshow(cos_sims, cmap='RdYlBu_r', vmin=-1, vmax=1)
+        plt.colorbar()
+        plt.savefig(f"imgs/{self.subset}_{num_updates}.png")
+
+        self.cos_sims = []
+        self.subset = None
 
     def valid_step(self, sample, model, criterion, subset):
         model.eval()
         assert subset, subset
         with torch.no_grad():
             if self.require_query:
+                self.subset = subset
                 itr = self.get_gallery_iterator(subset+"_gallery").next_epoch_itr(
                     shuffle=False, set_dataset_epoch=False
                 )
@@ -172,8 +192,12 @@ class ECGIdentificationTask(ECGPretrainingTask):
 
                 self.gallery_feats = torch.cat(gallery_feats).unsqueeze(0)
                 self.gallery_pids = np.concatenate(gallery_pids)
-            self.require_query = False
             
+                self.require_query = False
+            
+            if torch.distributed.is_initialized():
+                torch.distributed.barrier(distributed_utils.get_global_group())
+
             net_output = model(**sample["net_input"])
             probe_feats = model.get_logits(net_output).float()
 
@@ -183,6 +207,9 @@ class ECGIdentificationTask(ECGPretrainingTask):
             best_pids = self.gallery_pids[select]
             
             outputs = (best_pids == sample['patient_id'])
+
+            #XXX just for identification vis
+            self.cos_sims.append(cos_sims.cpu())
 
             count = outputs.size
             corr = outputs.sum()
