@@ -9,7 +9,6 @@ common:
 checkpoint:
   save_dir: checkpoints
   best_checkpoint_metric: accuracy
-  maximize_best_checkpoint_metric: true
   save_interval: 50
   save_interval_updates: 16000
   no_epoch_checkpoints: false
@@ -37,7 +36,7 @@ distributed_training:
 criterion:
   _name: arcface
   scale: 192
-  margin: 1.0
+  margin: 0.5
   # scale: 32
   # margin: 0.5
   # scale: 1
@@ -84,17 +83,12 @@ model:
   _name: wav2vec2_id
   w2v_path: ???
   apply_mask: false
-  mask_prob: 0.0
-  mask_channel_prob: 0.0
+  mask_prob: 0.65
+  mask_channel_prob: 0.5
+  mask_channel_length: 64
 
   layerdrop: 0.1
   activation_dropout: 0.1
-  feature_grad_mult: 1.0
+  feature_grad_mult: 0.0
   freeze_finetune_updates: 0
-  no_pretrained_weights: true
-
-  # small model
-  # encoder_layers: 2
-  # encoder_embed_dim: 256
-  # encoder_ffn_embed_dim: 1024
-  # encoder_attention_heads: 8
+  no_pretrained_weights: false

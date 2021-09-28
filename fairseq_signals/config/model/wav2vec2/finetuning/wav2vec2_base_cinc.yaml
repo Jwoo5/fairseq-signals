@@ -4,7 +4,7 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  wandb_project: diagnosis-prediction
+  # wandb_project: diagnosis-prediction
 
 checkpoint:
   best_checkpoint_metric: loss # auprc?
@@ -26,13 +26,13 @@ dataset:
   valid_subset: "valid,test"
 
 distributed_training:
-  distributed_world_size: 8
+  distributed_world_size: 1
 
 criterion:
   _name: binary_cross_entropy_with_logits
   report_auc: true
-  report_score: true
-  weights_file: ???
+  # report_score: true
+  # weights_file: ???
 
 optimization:
   max_epoch: 250
