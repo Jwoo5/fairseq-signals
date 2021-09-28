@@ -494,7 +494,7 @@ class Wav2Vec2Model(BaseModel):
 
 
         if padding_mask is not None and padding_mask.any():
-            input_lengths = ( 1- padding_mask.long()).sum(-1)
+            input_lengths = (1 - padding_mask.long()).sum(-1)
             if input_lengths.dim() > 1:
                 for input_len in input_lengths:
                     assert (input_len == input_len[0]).all()

@@ -87,7 +87,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
             sample_size = sample['net_input']['mask_indices'].sum()
         else:
             sample_size = target.long().sum().item()
-        
+
         logging_output = {
             "loss": loss.item() if reduce else loss.detach(),
             "nsignals": sample["id"].numel(),

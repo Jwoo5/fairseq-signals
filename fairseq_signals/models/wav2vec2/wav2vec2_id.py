@@ -16,6 +16,7 @@ class Wav2Vec2IDModel(Wav2Vec2DcModel):
     def __init__(self, cfg: Wav2Vec2IDConfig, w2v_encoder: BaseModel):
         super().__init__(cfg, w2v_encoder)
         self.w2v_encoder.proj = None
+
         self.kernel = nn.Parameter(
             torch.Tensor(
                 cfg.output_size,
