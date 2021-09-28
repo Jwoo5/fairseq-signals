@@ -111,6 +111,8 @@ class ECGPretrainingConfig(Dataclass):
     # Legacy keys for loading old version of pre-trained model
     max_segment_size: Optional[int] = None
     min_segment_size: Optional[int] = None
+    max_patient_size: Optional[int] = None
+    min_patient_size: Optional[int] = None
     required_segment_size_multiple: Optional[int] = None
     label: Optional[bool] = None
     patient_dataset: Optional[bool] = None
