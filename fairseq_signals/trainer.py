@@ -902,13 +902,13 @@ class Trainer(object):
 
     def _fp_convert_sample(self, sample):
         def apply_half(t):
-            if t.dtype in [torch.float32, torch.int16]:
+            if t.dtype in [torch.float64, torch.float32, torch.int16]:
                 return t.to(dtype = torch.half)
             return t
             # return t.to(dtype = torch.half)
         
         def apply_float(t):
-            if t.dtype in [torch.float32, torch.int16]:
+            if t.dtype in [torch.float64, torch.float32, torch.int16]:
                 return t.to(dtype = torch.float)
             return t
 
