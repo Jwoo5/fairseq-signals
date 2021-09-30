@@ -10,6 +10,7 @@ import functools
 import math
 import linecache
 import glob
+import wfdb
 import scipy.io
 import numpy as np
 
@@ -30,11 +31,15 @@ def get_parser():
         help="comma separated list of sub-directories of data subsets to be preprocessed, "
         "each of which is labeled seperately (e.g. WFDB_CPSC2018, WFDB_CPSC2018_2, ...)"
     )
+    parser.add_argument(
+        "--leads",
+        default="0,1,2,3,4,5,6,7,8,9,10,11",
+        type=str,
+        help="comma separated list of lead numbers. (e.g. 0,1 loads only lead I and lead II)"
+        "note that the sequence of leads is [I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]"
+    )
     parser.add_argument("--dest", type=str, metavar="DIR",
                        help="output directory")
-    parser.add_argument(
-        "--predir", default=".", type=str, metavar="DIR", help="if set, create sub-root directory in --dest"
-    )
     parser.add_argument("--ext", default="mat", type=str, metavar="EXT",
                        help="extension to look for")
     parser.add_argument("--sec", default=5, type=int,
@@ -49,20 +54,29 @@ def main(args):
 
     meta_path = os.path.join(os.path.realpath(args.meta_dir), "weights.csv")
 
+    try:
+        classes, _ = ecg_utils.get_physionet_weights(meta_path)
+    except FileNotFoundError:
+        raise FileNotFoundError(
+            "cannot find the metadata file for labeling (weights.csv)"
+            "please ensure that files are located in --meta-dir "
+            "or download from https://github.com/physionetchallenges/evaluation-2021."
+            f"--meta-dir: {meta_path}"
+        )
+
+    # legacy
+    # import pandas as pd
+    # dx_codes = pd.read_csv(os.path.join(args.root, "dx_mapping_scored.csv"))
+    # dx_codes = dx_codes.append(pd.read_csv(os.path.join(args.root, "dx_mapping_unscored.csv")), ignore_index=True)
+    # classes = dx_codes[dx_codes["CPSC"] > 0]["SNOMEDCTCode"].to_numpy().astype(str)
+    # classes = [set([c]) for c in classes]
+
+    leads = args.leads.replace(' ','').split(',')
+    leads_to_load = [int(lead) for lead in leads]
     subset = args.subset.replace(' ','').split(',')
     for s in subset:
-        if not os.path.exists(os.path.join(args.dest, args.predir, s.lstrip("WFDB_"))):
-            os.makedirs(os.path.join(args.dest, args.predir, s.lstrip("WFDB_")))
-
-        try:
-            classes, _ = ecg_utils.get_physionet_weights(meta_path)
-        except FileNotFoundError:
-            raise FileNotFoundError(
-                "cannot find the metadata file for labeling (weights.csv)"
-                "please ensure that files are located in --meta-dir "
-                "or download from https://github.com/physionetchallenges/evaluation-2021."
-                f"--meta-dir: {meta_path}"
-            )
+        if not os.path.exists(os.path.join(args.dest, s.lstrip("WFDB_"))):
+            os.makedirs(os.path.join(args.dest, s.lstrip("WFDB_")))
 
         dir_path = os.path.realpath(os.path.join(args.root, s))
         search_path = os.path.join(dir_path, "**/*." + args.ext)
@@ -76,14 +90,15 @@ def main(args):
             preprocess,
             args,
             classes,
-            os.path.join(args.dest, args.predir, s.lstrip("WFDB_"))
+            os.path.join(args.dest, s.lstrip("WFDB_")),
+            leads_to_load
         )
         pool = Pool(processes = args.workers)
         pool.map(func, file_chunks)
         pool.close()
         pool.join()
 
-def preprocess(args, classes, dest_path, fnames):
+def preprocess(args, classes, dest_path, leads_to_load, fnames):
     for fname in fnames:
         fname = fname[:-(len(args.ext)+1)]
 
@@ -105,19 +120,22 @@ def preprocess(args, classes, dest_path, fnames):
         if sample_rate != 500:
             continue
 
-        record = scipy.io.loadmat(fname)
+        record = wfdb.rdrecord(
+            os.path.splitext(fname)[0]
+        ).__dict__['p_signal'].astype(np.float32).T
 
-        length = record['val'].shape[-1]
+        length = record.shape[-1]
 
+        pid = os.path.basename(fname)
         for i, seg in enumerate(range(0, length, int(args.sec * sample_rate))):
             data = {}
             data['age'] = age
             data['sex'] = sex
             data['label'] = label
-            data['patient_id'] = os.path.basename(fname)
+            data['patient_id'] = pid
             data['curr_sample_rate'] = sample_rate
             if seg + args.sec * sample_rate <= length:
-                data['feats'] = record['val'][:, seg: int(seg + args.sec * sample_rate)]
+                data['feats'] = record[leads_to_load, seg: int(seg + args.sec * sample_rate)]
                 scipy.io.savemat(os.path.join(dest_path, os.path.basename(fname) + f"_{i}.mat"), data)
 
 if __name__ == "__main__":
