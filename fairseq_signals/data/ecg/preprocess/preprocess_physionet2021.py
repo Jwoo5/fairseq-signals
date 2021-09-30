@@ -124,6 +124,10 @@ def preprocess(args, classes, dest_path, leads_to_load, fnames):
             os.path.splitext(fname)[0]
         ).__dict__['p_signal'].astype(np.float32).T
 
+        if np.isnan(record).any():
+            print(f"detected nan value at: {fname}, so skipped")
+            continue
+
         length = record.shape[-1]
 
         pid = os.path.basename(fname)
