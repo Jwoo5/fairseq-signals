@@ -1,0 +1,94 @@
+
+common:
+  fp16: false
+  log_format: json
+  log_interval: 10
+  all_gather_list_size: 2048000
+  wandb_project: ecg-identification
+
+checkpoint:
+  save_dir: checkpoints
+  best_checkpoint_metric: accuracy
+  maximize_best_checkpoint_metric: true
+  save_interval: 50
+  save_interval_updates: 16000
+  no_epoch_checkpoints: false
+  # patience: 20
+
+task:
+  _name: ecg_identification
+  num_labels: 69978
+  data: ???
+  label: true
+  normalize: false
+  enable_padding: true
+
+dataset:
+  num_workers: 6
+  max_tokens: null 
+  batch_size: 128
+  valid_subset: "valid,dev,test"
+  disable_validation: false
+
+distributed_training:
+  distributed_world_size: 1
+
+criterion:
+  _name: arcface
+  scale: 192
+  margin: 1.0
+  # scale: 32
+  # margin: 0.5
+  # scale: 1
+  # margin: 0.0
+
+optimization:
+  max_epoch: 800
+  max_update: 320000
+  # lr: [0.0001]
+  # lr: [0.00005]
+  lr: [0.00003]
+  # lr: [0.1]
+  # update_freq: null
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-08
+
+#2
+lr_scheduler:
+  _name: tri_stage
+  phase_ratio: [0.1, 0.2, 0.7]
+  final_lr_scale: 0.01
+
+#3
+# lr_scheduler:
+#   _name: tri_stage
+#   phase_ratio: [0.1, 0.0, 0.9]
+#   final_lr_scale: 0.01
+
+#1
+# lr_scheduler:
+#  _name: tri_stage
+#  phase_ratio: [0.1, 0.4, 0.5]
+#  final_lr_scale: 0.05
+
+
+# lr_scheduler:
+#   _name: fixed
+#   warmup_updates: 0
+
+model:
+  _name: wav2vec2_id
+  w2v_path: ???
+  apply_mask: false
+  mask_prob: 0.0
+  mask_channel_prob: 0.0
+
+  layerdrop: 0.1
+  activation_dropout: 0.1
+  feature_grad_mult: 1.0
+  freeze_finetune_updates: 0
+  no_pretrained_weights: true
+  in_d: 1
