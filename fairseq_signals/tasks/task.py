@@ -300,9 +300,24 @@ class Task(object):
             loss *= 0
         with torch.autograd.profiler.record_function("backward"):
             optimizer.backward(loss)
+
+        # for name, param in model.named_parameters():
+        #     if param.grad is not None:
+        #         grad_norm = torch.norm(param.grad.data, p=2, dtype=torch.float32)
+        #         if torch.isnan(grad_norm).any() or torch.isinf(grad_norm).any():
+        #             breakpoint()
+        #             print()
+
+        # for n, p in model.named_parameters():
+        #     if p.grad is None and p.requires_grad is True:
+        #         print("Parameter not used: ", n, p.shape)
+        #     else:
+        #         print("***Parameter used: ", n, p.shape)
+        # breakpoint()
+
         return loss, sample_size, logging_output
     
-    def valid_step(self, sample, model, criterion):
+    def valid_step(self, sample, model, criterion, subset=None):
         model.eval()
         with torch.no_grad():
             loss, sample_size, logging_output = criterion(model, sample)
