@@ -122,13 +122,18 @@ def preprocess(args, classes, dest_path, leads_to_load, fnames):
 
         record = wfdb.rdrecord(
             os.path.splitext(fname)[0]
-        ).__dict__['p_signal'].astype(np.float32).T
+        ).__dict__
 
-        if np.isnan(record).any():
+        sample = scipy.io.loadmat(fname)['val']
+        adc_gains = np.array(record['adc_gain'])[:, None]
+
+        if np.isnan(sample).any():
             print(f"detected nan value at: {fname}, so skipped")
             continue
 
-        length = record.shape[-1]
+        sample = sample / adc_gains
+
+        length = sample.shape[-1]
 
         pid = os.path.basename(fname)
         for i, seg in enumerate(range(0, length, int(args.sec * sample_rate))):
@@ -139,7 +144,7 @@ def preprocess(args, classes, dest_path, leads_to_load, fnames):
             data['patient_id'] = pid
             data['curr_sample_rate'] = sample_rate
             if seg + args.sec * sample_rate <= length:
-                data['feats'] = record[leads_to_load, seg: int(seg + args.sec * sample_rate)]
+                data['feats'] = sample[leads_to_load, seg: int(seg + args.sec * sample_rate)]
                 scipy.io.savemat(os.path.join(dest_path, os.path.basename(fname) + f"_{i}.mat"), data)
 
 if __name__ == "__main__":
