@@ -115,17 +115,7 @@ class ClocsModel(BaseModel):
         if len(source.shape) < 3:
             source = source.unsqueeze(1)
 
-        if self.cfg.in_d == 1:
-            bsz, csz, tsz = source.shape
-            source = source.view(-1, 1, tsz)
-            x = self.encoder(source, **kwargs)
-            dim = self.cfg.encoder_embed_dim
-            x['encoder_out'] = (
-                x['encoder_out'].view(bsz, csz, -1, dim).transpose(1,2).view(bsz, -1, csz * dim)
-            )
-
-        else:
-            x = self.encoder(source, **kwargs)
+        x = self.encoder(source, **kwargs)
 
         x['patient_id'] = patient_id
         x['segment'] = segment
@@ -293,6 +283,9 @@ class TransformerEncoder(BaseModel):
         if padding_mask is not None and padding_mask.any():
             x[padding_mask] = 0
         
+        # (bsz x csz, seq, dim) -- mean-> (bsz x csz, dim)
+        x = torch.div(x.sum(dim=1), (x != 0).sum(dim=1))
+
         return {
             "encoder_out": x,
             "padding_mask": padding_mask
