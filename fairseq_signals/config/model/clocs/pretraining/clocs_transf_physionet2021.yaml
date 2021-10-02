@@ -11,6 +11,7 @@ checkpoint:
 
 task:
   _name: ecg_pretraining
+  clocs: true
   clocs_mode: cmsc # cmsc, cmlc, cmsmlc
   data: ???
   patient_dataset: true
