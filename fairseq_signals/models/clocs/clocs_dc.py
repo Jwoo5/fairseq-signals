@@ -68,22 +68,6 @@ class ClocsDcModel(BaseModel):
     
     def get_logits(self, net_output, normalize=False, aggregate=False):
         logits = net_output["encoder_out"]
-
-        #TODO need to be chcked whether to work properly
-        if net_output["padding_mask"] is not None and net_output["padding_mask"].any():
-            logits[net_output["padding_mask"]] = 0
-        
-        # TODO aggregate over tokens to classify the whole outputs
-        # example: logits = net_output["encoder_out"].mean(1).float() # B x T x n_classes -> B x n_classes
-        #       ... mean is too naive
-        if aggregate and self.cfg.clocs_args.model.encoder_mode == 'transformer':
-            logits = torch.div(logits.sum(dim = 1), (logits != 0).sum(dim = 1))
-
-        if normalize:
-            logits = utils.log_softmax(logits.float(), dim=-1)
-        
-        logits = logits.view(-1, logits.size(-1))
-
         return logits
     
     def get_targets(self, sample, net_output):
@@ -153,6 +137,8 @@ class ClocsEncoder(BaseModel):
         dim = dim * 12 if cfg.in_d == 1 else dim
         trg_dim = cfg.output_size
 
+        self.in_d = cfg.in_d
+
         self.proj = None
         if trg_dim is not None:
             self.proj = nn.Linear(dim, trg_dim)
@@ -165,18 +151,25 @@ class ClocsEncoder(BaseModel):
         self.num_updates = num_updates
     
     def forward(self, source, patient_id=None, segment=None, padding_mask=None, **kwargs):
+        if self.in_d == 1:
+            bsz, csz, tsz = source.shape
+            source = source.view(-1, 1, tsz)
+
         clocs_args = {
             "source": source,
             "patient_id": patient_id,
             "segment": segment
         }
-        
+
         ft = self.freeze_finetune_updates <= self.num_updates
 
         with torch.no_grad() if not ft else contextlib.ExitStack():
             res = self.clocs_model(**clocs_args, **kwargs)
 
             x = res["encoder_out"]
+
+        if self.in_d == 1:
+            x = x.view(bsz, csz, -1).view(bsz, -1)
 
         x = self.final_dropout(x)
 
