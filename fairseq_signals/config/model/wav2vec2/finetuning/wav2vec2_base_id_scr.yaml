@@ -10,14 +10,15 @@ checkpoint:
   save_dir: checkpoints
   best_checkpoint_metric: accuracy
   maximize_best_checkpoint_metric: true
-  save_interval: 50
-  save_interval_updates: 16000
+  save_interval: 1
+  keep_last_epochs: 5
+  save_interval_updates: 0
   no_epoch_checkpoints: false
-  # patience: 20
+  patience: 20
 
 task:
   _name: ecg_identification
-  num_labels: 69978
+  num_labels: 69896
   data: ???
   label: true
   normalize: false
@@ -57,6 +58,12 @@ optimizer:
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-08
 
+#1
+# lr_scheduler:
+#  _name: tri_stage
+#  phase_ratio: [0.1, 0.4, 0.5]
+#  final_lr_scale: 0.05
+
 #2
 lr_scheduler:
   _name: tri_stage
@@ -68,12 +75,6 @@ lr_scheduler:
 #   _name: tri_stage
 #   phase_ratio: [0.1, 0.0, 0.9]
 #   final_lr_scale: 0.01
-
-#1
-# lr_scheduler:
-#  _name: tri_stage
-#  phase_ratio: [0.1, 0.4, 0.5]
-#  final_lr_scale: 0.05
 
 
 # lr_scheduler:
