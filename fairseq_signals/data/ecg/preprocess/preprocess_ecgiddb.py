@@ -61,6 +61,10 @@ def main(args):
         if sample_rate  != 500:
             continue
 
+        if np.isnan(record).any():
+            print(f"detected nan value at: {fname}, so skipped")
+            continue
+
         length = record.shape[-1]
 
         pid = fname.split('/')[-2][-2:]
