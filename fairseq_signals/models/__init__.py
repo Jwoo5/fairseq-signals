@@ -12,7 +12,6 @@ from fairseq_signals.dataclass.utils import merge_with_parent, populate_dataclas
 from hydra.core.config_store import ConfigStore
 
 from .disrtibuted_model import DistributedModel
-
 from .model import (
     BaseModel
 )
