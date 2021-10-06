@@ -11,14 +11,14 @@ checkpoint:
   best_checkpoint_metric: accuracy
   maximize_best_checkpoint_metric: true
   save_interval: 1
-  keep_last_epochs: 5
+  keep_last_epochs: 1
   save_interval_updates: 0
   no_epoch_checkpoints: false
-  patience: 20
+  patience: 30
 
 task:
   _name: ecg_identification
-  num_labels: 69896
+  num_labels: 69978
   data: ???
   label: true
   normalize: false

@@ -1,4 +1,3 @@
-
 common:
   fp16: false
   log_format: json
@@ -9,11 +8,10 @@ common:
 checkpoint:
   save_dir: checkpoints
   best_checkpoint_metric: accuracy
-  maximize_best_checkpoint_metric: true
+  maximize_best_checkpoint_metric: True
   save_interval: 1
   keep_last_epochs: 1
-  save_interval_updates: 0
-  no_epoch_checkpoints: false
+  no_epoch_checkpoints: False
   patience: 30
 
 task:
@@ -26,7 +24,7 @@ task:
 
 dataset:
   num_workers: 6
-  max_tokens: null 
+  max_tokens: null
   batch_size: 128
   valid_subset: "valid,test"
   disable_validation: false
@@ -49,38 +47,19 @@ optimizer:
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-08
 
-#1
-# lr_scheduler:
-#  _name: tri_stage
-#  phase_ratio: [0.1, 0.4, 0.5]
-#  final_lr_scale: 0.05
-
-#2
 lr_scheduler:
   _name: tri_stage
   phase_ratio: [0.1, 0.2, 0.7]
   final_lr_scale: 0.01
 
-#3
-# lr_scheduler:
-#   _name: tri_stage
-#   phase_ratio: [0.1, 0.0, 0.9]
-#   final_lr_scale: 0.01
-
-
-# lr_scheduler:
-#   _name: fixed
-#   warmup_updates: 0
-
 model:
-  _name: wav2vec2_id
-  w2v_path: ???
-  apply_mask: false
-  mask_prob: 0.0
-  mask_channel_prob: 0.0
+  _name: clocs_id
+  clocs_path: ???
+  freeze_finetune_updates: 0
+  no_pretrained_weights: false
+  in_d: 12
 
+  dropout: 0.0
+  feature_grad_mult: 0.0
   layerdrop: 0.1
   activation_dropout: 0.1
-  feature_grad_mult: 1.0
-  freeze_finetune_updates: 0
-  no_pretrained_weights: true
