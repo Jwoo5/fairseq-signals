@@ -34,6 +34,7 @@ def get_parser():
         "--sec", default=5, type=int,
         help="seconds to repeatedly crop to"
     )
+    parser.add_argument("--seed", default=42, type=int, metavar="N", help="random seed")
     parser.add_argument(
         "--workers", metavar="N", default=1, type=int,
         help="number of parallel workers"
@@ -50,6 +51,7 @@ def main(args):
 
     fnames = list(glob.iglob(search_path, recursive=True))
 
+    np.random.seed(args.seed)
     for fname in fnames:
         fname = os.path.splitext(fname)[0]
 
@@ -59,7 +61,7 @@ def main(args):
 
         sample_rate = annot.__dict__['fs']
 
-        # XXX add lead info?
+        # XXX should be changed (follow preprocess_physionet2021.py)
 
         # 500hz is expected
         if sample_rate  != 500:
@@ -78,10 +80,13 @@ def main(args):
 
         start = np.random.randint(length - (args.sec * sample_rate))
 
+        record = record[start: start+(args.sec * sample_rate)][None, :]
+        record = np.concatenate((record, zeros))
+
         data = {}
         data['patient_id'] = pid
         data['curr_sample_rate'] = sample_rate
-        data['feats'] = record[start: start + (args.sec * sample_rate)]
+        data['feats'] = record
         scipy.io.savemat(os.path.join(dest_path, f"{pid}_{basename}.mat"), data)
 
         # for i, seg in enumerate(range(0, length, int(args.sec * sample_rate))):
