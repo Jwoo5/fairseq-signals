@@ -71,19 +71,29 @@ def main(args):
         basename = os.path.basename(fname)
 
         #XXX
-        record *= 1000
+        # record *= 1000
+
         zeros = np.zeros((11, 2500))
         record = record.astype('float32')
-        for i, seg in enumerate(range(0, length, int(args.sec * sample_rate))):
-            data = {}
-            data['patient_id'] = pid
-            data['curr_sample_rate'] = sample_rate
-            if seg + args.sec * sample_rate <= length:
-                data['feats'] = record[seg: int(seg + args.sec * sample_rate)]
-                #XXX
-                data['feats'] = data['feats'][None, :]
-                data['feats'] = np.concatenate((data['feats'], zeros))
-                scipy.io.savemat(os.path.join(dest_path, f"{pid}_{basename}_{i}.mat"), data)
+
+        start = np.random.randint(length - (args.sec * sample_rate))
+
+        data = {}
+        data['patient_id'] = pid
+        data['curr_sample_rate'] = sample_rate
+        data['feats'] = record[start: start + (args.sec * sample_rate)]
+        scipy.io.savemat(os.path.join(dest_path, f"{pid}_{basename}.mat"), data)
+
+        # for i, seg in enumerate(range(0, length, int(args.sec * sample_rate))):
+        #     data = {}
+        #     data['patient_id'] = pid
+        #     data['curr_sample_rate'] = sample_rate
+        #     if seg + args.sec * sample_rate <= length:
+        #         data['feats'] = record[seg: int(seg + args.sec * sample_rate)]
+        #         #XXX
+        #         data['feats'] = data['feats'][None, :]
+        #         data['feats'] = np.concatenate((data['feats'], zeros))
+        #         scipy.io.savemat(os.path.join(dest_path, f"{pid}_{basename}_{i}.mat"), data)
 
 if __name__ == "__main__":
     parser = get_parser()
