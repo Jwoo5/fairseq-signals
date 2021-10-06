@@ -34,6 +34,8 @@ def get_parser():
         "--sec", default=5, type=int,
         help="seconds to repeatedly crop to"
     )
+    parser.add_argument("--seed", default=42, type=int, metavar="N", help="random seed")
+
     return parser
 
 def main(args):
@@ -46,6 +48,7 @@ def main(args):
 
     fnames = list(glob.iglob(search_path, recursive=True))
 
+    np.random.seed(args.seed)
     for fname in fnames:
         fname = os.path.splitext(fname)[0]
 
