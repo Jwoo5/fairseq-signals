@@ -1,5 +1,7 @@
 from argparse import Namespace
 import contextlib
+import logging
+
 import numpy as np
 import torch
 import torch.nn as nn
@@ -16,6 +18,8 @@ from fairseq_signals.models import (
     BaseModel,
     register_model
 )
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class ClocsDcConfig(Dataclass):
@@ -45,7 +49,7 @@ class ClocsDcConfig(Dataclass):
 
     normalize: bool = II("task.normalize")
     data: str = II("task.data")
-    output_size: int = II("dataset.n_labels")
+    output_size: int = II("task.num_labels")
     # this holds the loaded clocs args
     clocs_args: Any = None
 
@@ -126,6 +130,7 @@ class ClocsEncoder(BaseModel):
 
         if state is not None and not cfg.no_pretrained_weights:
             model.load_state_dict(state["model"], strict=True)
+            logger.info(f"Loaded pre-trained model parameters from {cfg.clocs_path}")
         
         self.clocs_model = model
 
@@ -167,6 +172,7 @@ class ClocsEncoder(BaseModel):
             res = self.clocs_model(**clocs_args, **kwargs)
 
             x = res["encoder_out"]
+            padding_mask = res["padding_mask"]
 
         if self.in_d == 1:
             x = x.view(bsz, csz, -1).view(bsz, -1)

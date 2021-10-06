@@ -1,5 +1,7 @@
 from argparse import Namespace
 import contextlib
+import logging
+
 import copy
 import math
 import numpy as np
@@ -23,6 +25,8 @@ from fairseq_signals.models.wav2vec2 import MASKING_DISTRIBUTION_CHOICES
 from fairseq_signals.modules import (
     LayerNorm,
 )
+
+logger = logging.getLogger(__name__)
 
 @dataclass
 class Wav2Vec2DcConfig(Dataclass):
@@ -280,7 +284,8 @@ class Wav2Vec2Encoder(BaseModel):
 
         if state is not None and not cfg.no_pretrained_weights:
             model.load_state_dict(state["model"], strict = True)
-        
+            logger.info(f"Loaded pre-trained model parameters from {cfg.w2v_path}")
+
         model.remove_pretraining_modules()
 
         self.w2v_model = model
