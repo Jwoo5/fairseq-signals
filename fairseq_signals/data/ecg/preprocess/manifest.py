@@ -7,6 +7,7 @@ import os
 import random
 
 import scipy.io
+import numpy as np
 
 """
     Usage: python path/to/manifest.py \
@@ -97,15 +98,15 @@ def main(args):
                 if args.path_must_contain and args.path_must_contain not in file_path:
                     continue
 
-                print(
-                    "{}".format(os.path.relpath(file_path, root_path)), file=dest, end='\t'
-                )
-
                 if args.ext == 'mat':
-                    import scipy.io
                     data = scipy.io.loadmat(file_path)
                     #NOTE you should preprocess data to have given keys: "feats", "curr_sample_rate"
+
                     length = data['feats'].shape[-1]
+
+                    print(
+                        "{}".format(os.path.relpath(file_path, root_path)), file=dest, end='\t'
+                    )
                     print(length, file=dest)
 
         for s in subset:
