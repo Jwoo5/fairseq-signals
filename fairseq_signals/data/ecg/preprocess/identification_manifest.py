@@ -38,7 +38,7 @@ def get_parser():
     return parser
 
 def main(args):
-    assert args.valid_percent >= 0 and args.valid_percent <= 0.5
+    assert args.valid_percent >= 0 and args.valid_percent <= 1.0
 
     root_path = os.path.realpath(args.root)
     search_path = os.path.join(args.root, "**/*." + args.ext)
@@ -64,9 +64,9 @@ def main(args):
         test_idx = 0
         patients = {}
         for fname in glob.iglob(search_path, recursive=True):
-
             data = scipy.io.loadmat(fname)
-            patient_id = data['patient_id'][0]                
+            patient_id = data['patient_id'][0]
+
             if patient_id in patients:
                 patients[patient_id].append(fname)
             else:
