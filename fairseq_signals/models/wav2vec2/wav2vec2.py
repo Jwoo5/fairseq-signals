@@ -11,96 +11,23 @@ import torch
 import torch.nn as nn
 
 from fairseq_signals.utils import utils
-
 from fairseq_signals.data.data_utils import compute_mask_indices
-
 from fairseq_signals.dataclass import ChoiceEnum, Dataclass
-
-from fairseq_signals.models import BaseModel, register_model
-
+from fairseq_signals.models import register_model
+from fairseq_signals.models.conv_transformer import ConvTransformerConfig, ConvTransformerModel
 from fairseq_signals.modules import (
-    Fp32GroupNorm,
-    Fp32LayerNorm,
     GradMultiply,
     GumbelVectorQuantizer,
     LayerNorm,
     TransformerEncoder,
-    TransposeLast,
 )
-
 from fairseq_signals.utils.utils import buffered_arange
 
 EXTRACTOR_MODE_CHOICES = ChoiceEnum(["default", "layer_norm"])
 MASKING_DISTRIBUTION_CHOICES = ChoiceEnum(["static", "uniform", "normal", "poisson"])
 
 @dataclass
-class Wav2Vec2Config(Dataclass):
-    extractor_mode: str  = field (
-        default = "default",
-        metadata = {
-            "help": "mode for feature extractor. default has a single group norm with d"
-            "groups in the first conv block, whereas layer_norm layer has layer norms in "
-            "every block (meant to use with normalize = True)"
-        }
-    )
-    encoder_layers: int = field(
-        default=12, metadata={"help": "num encoder layers in the transformer"}
-    )
-    encoder_embed_dim: int = field(
-        default=768, metadata={"help": "encoder embedding dimension"}
-    )
-    encoder_ffn_embed_dim: int = field(
-        default=3072, metadata={"help": "encoder embedding dimension for FFN"}
-    )
-    encoder_attention_heads: int = field(
-        default=12, metadata={"help": "num encoder attention heads"}
-    )
-    # activation_fn: ChoiceEnum(utils.get_available_activation_fns()) = field(
-    #     default="gelu", metadata={"help": "activation function to use"}
-    # )
-
-    # dropouts
-    dropout: float = field(
-        default=0.1, metadata={"help": "dropout probability for the transformer"}
-    )
-    attention_dropout: float = field(
-        default=0.1, metadata={"help": "dropout probability for attention weights"}
-    )
-    activation_dropout: float = field(
-        default=0.0, metadata={"help": "dropout probability after activation in FFN"}
-    )
-    encoder_layerdrop: float = field(
-        default=0.0, metadata={"help": "probability of dropping a transformer layer"}
-    )
-    dropout_input: float = field(
-        default=0.0,
-        metadata={"help": "dropout to apply to the input (after feat extr)"},
-    )
-    dropout_features: float = field(
-        default=0.0,
-        metadata={"help": "dropout to apply to the features (after feat extr)"},
-    )
-
-    final_dim: int = field(
-        default=0,
-        metadata={
-            "help": "project final representations and targets to this many dimensions."
-            "set to encoder_embed_dim is <= 0"
-        },
-    )
-    layer_norm_first: bool = field(
-        default=False, metadata={"help": "apply layernorm first in the transformer"}
-    )
-    conv_feature_layers: str = field(
-        default="[(256, 2, 2)] * 4",
-        metadata={
-            "help": "string describing convolutional feature extraction layers in form of a python list that contains "
-            "[(dim, kernel_size, stride), ...]"
-        },
-    )
-    conv_bias: bool = field(
-        default=False, metadata={"help": "include bias in conv encoder"}
-    )
+class Wav2Vec2Config(ConvTransformerConfig):
     logit_temp: float = field(
         default=0.1, metadata={"help": "temperature to divide logits by"}
     )
@@ -116,9 +43,6 @@ class Wav2Vec2Config(Dataclass):
     target_glu: bool = field(
         default=False, metadata={"help": "adds projection + glu to targets"}
     )
-    feature_grad_mult: float = field(
-        default=1.0, metadata={"help": "multiply feature extractor var grads by this"}
-    )
     latent_vars: int = field(
         default=320,
         metadata={"help": "number of latent variables V in each group of the codebook"},
@@ -133,55 +57,6 @@ class Wav2Vec2Config(Dataclass):
             "help": "if > 0, uses this dimensionality for latent variables. "
             "otherwise uses final_dim / latent_groups"
         },
-    )
-
-    # masking
-    mask_length: int = field(default=10, metadata={"help": "mask length"})
-    mask_prob: float = field(
-        default=0.65, metadata={"help": "probability of replacing a token with mask"}
-    )
-    mask_selection: MASKING_DISTRIBUTION_CHOICES = field(
-        default="static", metadata={"help": "how to choose mask length"}
-    )
-    mask_other: float = field(
-        default=0,
-        metadata={
-            "help": "secondary mask argument (used for more complex distributions), "
-            "see help in compute_mask_indices"
-        },
-    )
-    no_mask_overlap: bool = field(
-        default=False, metadata={"help": "whether to allow masks to overlap"}
-    )
-    mask_min_space: int = field(
-        default=1,
-        metadata={"help": "min space between spans (if no overlap is enabled)"},
-    )
-
-    # channel masking
-    mask_channel_length: int = field(
-        default=10, metadata={"help": "length of the mask for features (channels)"}
-    )
-    mask_channel_prob: float = field(
-        default=0.0, metadata={"help": "probability of replacing a feature with 0"}
-    )
-    mask_channel_selection: MASKING_DISTRIBUTION_CHOICES = field(
-        default="static",
-        metadata={"help": "how to choose mask length for channel masking"},
-    )
-    mask_channel_other: float = field(
-        default=0,
-        metadata={
-            "help": "secondary mask argument (used for more complex distributions), "
-            "see help in compute_mask_indicesh"
-        },
-    )
-    no_mask_channel_overlap: bool = field(
-        default=False, metadata={"help": "whether to allow channel masks to overlap"}
-    )
-    mask_channel_min_space: int = field(
-        default=1,
-        metadata={"help": "min space between spans (if no overlap is enabled)"},
     )
 
     # negative selection
@@ -200,16 +75,6 @@ class Wav2Vec2Config(Dataclass):
         default=0, metadata={"help": "number of negative examples codebook"}
     )
 
-    # positional embeddings
-    conv_pos: int = field(
-        default=128,
-        metadata={"help": "number of filters for convolutional positional embeddings"},
-    )
-    conv_pos_groups: int = field(
-        default=16,
-        metadata={"help": "number of groups for convolutional positional embedding"},
-    )
-
     latent_temp: Tuple[float, float, float] = field(
         default=(2, 0.5, 0.999995),
         metadata={
@@ -218,50 +83,11 @@ class Wav2Vec2Config(Dataclass):
         },
     )
 
-    in_d: int = field(
-        default = 12,
-        metadata = {"help": "input dimension"}
-    )
-
 @register_model("wav2vec2", dataclass=Wav2Vec2Config)
-class Wav2Vec2Model(BaseModel):
+class Wav2Vec2Model(ConvTransformerModel):
     def __init__(self, cfg: Wav2Vec2Config):
         super().__init__()
         self.cfg = cfg
-
-        feature_enc_layers = eval(cfg.conv_feature_layers)
-        self.embed = feature_enc_layers[-1][0]
-
-        self.feature_extractor = ConvFeatureExtraction(
-            conv_layers = feature_enc_layers,
-            in_d = cfg.in_d,
-            dropout = 0.0,
-            mode = cfg.extractor_mode,
-            conv_bias = cfg.conv_bias
-        )
-
-        self.post_extract_proj = (
-            nn.Linear(self.embed, cfg.encoder_embed_dim)
-            if self.embed != cfg.encoder_embed_dim and not cfg.quantize_input
-            else None
-        )
-
-        self.mask_prob = cfg.mask_prob
-        self.mask_selection = cfg.mask_selection
-        self.mask_other = cfg.mask_other
-        self.mask_length = cfg.mask_length
-        self.no_mask_overlap = cfg.no_mask_overlap
-        self.mask_min_space = cfg.mask_min_space
-
-        self.mask_channel_prob = cfg.mask_channel_prob
-        self.mask_channel_selection = cfg.mask_channel_selection
-        self.mask_channel_other = cfg.mask_channel_other
-        self.mask_channel_length = cfg.mask_channel_length
-        self.no_mask_channel_overlap = cfg.no_mask_channel_overlap
-        self.mask_channel_min_space = cfg.mask_channel_min_space
-
-        self.dropout_input = nn.Dropout(cfg.dropout_input)
-        self.dropout_features = nn.Dropout(cfg.dropout_features)
 
         self.quantizer = None
         self.input_quantizer = None
@@ -273,12 +99,8 @@ class Wav2Vec2Model(BaseModel):
 
         self.logit_temp = cfg.logit_temp
 
-        self.feature_grad_mult = cfg.feature_grad_mult
-
-        final_dim = cfg.final_dim if cfg.final_dim > 0 else cfg.encoder_embed_dim
-
         if cfg.quantize_targets:
-            vq_dim = cfg.latent_dim if cfg.latent_dim > 0 else final_dim
+            vq_dim = cfg.latent_dim if cfg.latent_dim > 0 else self.final_dim
             self.quantizer = GumbelVectorQuantizer(
                 dim=self.embed,
                 num_vars=cfg.latent_vars,
@@ -288,13 +110,13 @@ class Wav2Vec2Model(BaseModel):
                 vq_dim=vq_dim,
                 time_first=True,
             )
-            self.project_q = nn.Linear(vq_dim, final_dim)
+            self.project_q = nn.Linear(vq_dim, self.final_dim)
         else:
-            self.project_q = nn.Linear(self.embed, final_dim)
+            self.project_q = nn.Linear(self.embed, self.final_dim)
 
         if cfg.quantize_input:
             if cfg.same_quantizer and self.quantizer is not None:
-                vq_dim = final_dim
+                vq_dim = self.final_dim
                 self.input_quantizer = self.quantizer
             else:
                 vq_dim = cfg.latent_dim if cfg.latent_dim > 0 else cfg.embed_dim
@@ -309,20 +131,11 @@ class Wav2Vec2Model(BaseModel):
                 )
             self.project_inp = nn.Linear(vq_dim, self.embed_dim)
 
-        self.mask_emb = nn.Parameter(
-            torch.FloatTensor(cfg.encoder_embed_dim).uniform_()
-        )
-
-        self.encoder = TransformerEncoder(cfg)
-        self.layer_norm = LayerNorm(self.embed)
-
         self.target_glu = None
         if cfg.target_glu:
             self.target_glu = nn.Sequential(
-                nn.Linear(final_dim, final_dim * 2), nn.GLU()
+                nn.Linear(self.final_dim, self.final_dim * 2), nn.GLU()
             )
-        
-        self.final_proj = nn.Linear(cfg.encoder_embed_dim, final_dim)
 
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
@@ -333,53 +146,6 @@ class Wav2Vec2Model(BaseModel):
     def build_model(cls, cfg, task=None):
         """Build a new model instance."""
         return cls(cfg)
-    
-    def apply_mask(
-        self,
-        x,
-        padding_mask,
-        mask_indices = None,
-        ):
-        B, T, C = x.shape
-        
-        if self.mask_prob > 0:
-            if mask_indices is None:
-                mask_indices = compute_mask_indices(
-                    (B, T),
-                    padding_mask,
-                    self.mask_prob,
-                    self.mask_length,
-                    self.mask_selection,
-                    self.mask_other,
-                    min_masks = 2,
-                    no_overlap = self.no_mask_overlap,
-                    min_space = self.mask_min_space,
-                )
-                mask_indices = torch.from_numpy(mask_indices).to(x.device)
-            x[mask_indices] = self.mask_emb
-        else:
-            mask_indices = None
-        
-        if self.mask_channel_prob > 0:
-            mask_channel_indices = compute_mask_indices(
-                (B, C),
-                None,
-                self.mask_channel_prob,
-                self.mask_channel_length,
-                self.mask_channel_selection,
-                self.mask_channel_other,
-                no_overlap = self.no_mask_channel_overlap,
-                min_space = self.mask_channel_min_space
-            )
-            mask_channel_indices = (
-                torch.from_numpy(mask_channel_indices)
-                .to(x.device)
-                .unsqueeze(1)
-                .expand(-1, T, -1)
-            )
-            x[mask_channel_indices] = 0
-        
-        return x, mask_indices
 
     def sample_negatives(self, y, num):
 
@@ -543,7 +309,7 @@ class Wav2Vec2Model(BaseModel):
                 features,
                 padding_mask,
                 mask_indices = mask_indices
-                )
+            )
             if mask_indices is not None:
                 y = unmasked_features[mask_indices].view(
                     unmasked_features.size(0), -1, unmasked_features.size(-1)
@@ -556,6 +322,7 @@ class Wav2Vec2Model(BaseModel):
             mask_indices = None
         
         x = self.encoder(x, padding_mask = padding_mask)
+
         if features_only:
             return {"x": x, "padding_mask" : padding_mask, "features": unmasked_features}
         
@@ -652,84 +419,4 @@ class Wav2Vec2Model(BaseModel):
         self.quantizer = None
         self.project_q = None
         self.target_glu = None
-        self.final_proj = None   
-
-class ConvFeatureExtraction(nn.Module):
-    def __init__(
-        self,
-        conv_layers: List[Tuple[int, int, int]],
-        in_d: int = 1,
-        dropout: float = 0.0,
-        mode: str = "default",
-        conv_bias: bool = False
-    ):
-        super().__init__()
-
-        assert mode in {"default", "layer_norm"}
-
-        def block(
-            n_in,
-            n_out,
-            k,
-            stride,
-            is_layer_norm = False,
-            is_group_norm = False,
-            conv_bias = False,
-        ):
-            def make_conv():
-                conv = nn.Conv1d(n_in, n_out, k, stride = stride, bias = conv_bias)
-                nn.init.kaiming_normal_(conv.weight)
-                return conv
-            
-            assert (
-                is_layer_norm and is_group_norm
-            ) == False, "layer norm and group norm are exclusive"
-
-            if is_layer_norm:
-                return nn.Sequential(
-                    make_conv(),
-                    nn.Dropout(p=dropout),
-                    nn.Sequential(
-                        TransposeLast(),
-                        Fp32LayerNorm(dim, dim, affine = True),
-                        TransposeLast()
-                    ),
-                    nn.GELU(),
-                )
-            elif is_group_norm:
-                return nn.Sequential(
-                    make_conv(),
-                    nn.Dropout(p=dropout),
-                    Fp32GroupNorm(dim, dim, affine=True),
-                    nn.GELU(),
-                )
-            else:
-                return nn.Sequential(make_conv(), nn.Dropout(p=dropout), nn.GELU())
-
-        self.conv_layers = nn.ModuleList()
-        for i, cl in enumerate(conv_layers):
-            assert len(cl) == 3, "invalid conv definition: " + str(cl)
-            (dim, k, stride) = cl
-
-            self.conv_layers.append(
-                block(
-                    in_d,
-                    dim,
-                    k,
-                    stride,
-                    is_layer_norm = mode == "layer_norm",
-                    is_group_norm = mode == "default" and i == 0,
-                    conv_bias = conv_bias,
-                )
-            )
-            in_d = dim
-    
-    def forward(self, x):
-        # B x T -> B x C x T
-        if len(x.shape) < 3:
-            x = x.unsqueeze(1)
-
-        for conv in self.conv_layers:
-            x = conv(x)
-
-        return x
+        self.final_proj = None
