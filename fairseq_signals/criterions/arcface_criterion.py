@@ -1,17 +1,19 @@
 import math
+import logging
+
 from dataclasses import dataclass, field
 from typing import List, Optional
 from fairseq_signals.logging.metrics import aggregate
 
 import torch
-from torch.futures import S
 import torch.nn.functional as F
-from fairseq_signals import logging, metrics
+from fairseq_signals import metrics
 from fairseq_signals.utils import utils
 from fairseq_signals.criterions import BaseCriterion, register_criterion
 from fairseq_signals.dataclass import Dataclass
 from fairseq_signals.logging.meters import safe_round
 
+logger = logging.getLogger(__name__)
 @dataclass
 class ArcFaceCriterionConfig(Dataclass):
     scale: float = field(
@@ -74,7 +76,7 @@ class ArcFaceCriterion(BaseCriterion):
         idx = torch.arange(0, cos_theta.size(0))
 
         logits[idx, target] = cos_theta_m[idx, target]
-        logits *= self.scale        
+        logits *= self.scale
 
         loss = F.cross_entropy(
             input=logits,
@@ -100,7 +102,7 @@ class ArcFaceCriterion(BaseCriterion):
             else:
                 assert logits.dim() > 1, logits.shape
                 
-                outputs = logits.argmax(-1)
+                outputs = (cos_theta.data * 1.0).argmax(-1)
                 count = float(outputs.numel())
                 corr = (outputs == target).sum().item()
             
