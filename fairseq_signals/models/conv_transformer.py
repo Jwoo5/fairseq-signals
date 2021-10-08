@@ -165,7 +165,7 @@ class ConvTransformerConfig(Dataclass):
     # this holds the loaded pre-trained model args
     args: Any = None
 
-@register_model(name="conv_transformer", dataclass=...)
+@register_model(name="conv_transformer", dataclass=ConvTransformerConfig)
 class ConvTransformerModel(BaseModel):
     def __init__(self, cfg: ConvTransformerConfig):
         super().__init__()
@@ -182,7 +182,7 @@ class ConvTransformerModel(BaseModel):
             conv_bias=cfg.conv_bias
         )
 
-        self.post_extractor_proj = (
+        self.post_extract_proj = (
             nn.Linear(self.embed, cfg.encoder_embed_dim)
             if self.embed != cfg.encoder_embed_dim
             else None
@@ -294,8 +294,9 @@ class ConvTransformerModel(BaseModel):
         self,
         source,
         padding_mask=None,
-        mask=True,
+        mask=False,
         mask_indices=None,
+        **kwargs
     ):
         if self.feature_grad_mult > 0:
             features = self.feature_extractor(source)
@@ -334,8 +335,8 @@ class ConvTransformerModel(BaseModel):
         else:
             padding_mask = None
         
-        if self.post_extractor_proj is not None:
-            features = self.post_extractor_proj(features)
+        if self.post_extract_proj is not None:
+            features = self.post_extract_proj(features)
         
         features = self.dropout_input(features)
         unmasked_features = self.dropout_features(unmasked_features)
@@ -391,7 +392,7 @@ class ConvTransformerModel(BaseModel):
             "mask_channel_selection": cfg.mask_channel_selection,
             "mask_channel_other": cfg.mask_channel_other,
             "no_mask_channel_overlap": cfg.no_mask_channel_overlap,
-            "encoder_layerdrop": cfg.layerdrop,
+            "encoder_layerdrop": cfg.encoder_layerdrop,
             "feature_grad_mult": cfg.feature_grad_mult,
         }
 

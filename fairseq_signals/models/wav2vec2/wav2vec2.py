@@ -10,21 +10,14 @@ from omegaconf import II
 import torch
 import torch.nn as nn
 
-from fairseq_signals.utils import utils
-from fairseq_signals.data.data_utils import compute_mask_indices
-from fairseq_signals.dataclass import ChoiceEnum, Dataclass
+from fairseq_signals.dataclass import ChoiceEnum
 from fairseq_signals.models import register_model
 from fairseq_signals.models.conv_transformer import ConvTransformerConfig, ConvTransformerModel
 from fairseq_signals.modules import (
     GradMultiply,
     GumbelVectorQuantizer,
-    LayerNorm,
-    TransformerEncoder,
 )
 from fairseq_signals.utils.utils import buffered_arange
-
-EXTRACTOR_MODE_CHOICES = ChoiceEnum(["default", "layer_norm"])
-MASKING_DISTRIBUTION_CHOICES = ChoiceEnum(["static", "uniform", "normal", "poisson"])
 
 @dataclass
 class Wav2Vec2Config(ConvTransformerConfig):
