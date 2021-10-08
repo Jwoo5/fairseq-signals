@@ -79,7 +79,7 @@ class Wav2Vec2Config(ConvTransformerConfig):
 @register_model("wav2vec2", dataclass=Wav2Vec2Config)
 class Wav2Vec2Model(ConvTransformerModel):
     def __init__(self, cfg: Wav2Vec2Config):
-        super().__init__()
+        super().__init__(cfg)
         self.cfg = cfg
 
         self.quantizer = None
@@ -129,6 +129,8 @@ class Wav2Vec2Model(ConvTransformerModel):
             self.target_glu = nn.Sequential(
                 nn.Linear(self.final_dim, self.final_dim * 2), nn.GLU()
             )
+
+        self.final_proj = nn.Linear(cfg.encoder_embed_dim, self.final_dim)
 
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)

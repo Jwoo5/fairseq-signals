@@ -215,8 +215,6 @@ class ConvTransformerModel(BaseModel):
 
         self.encoder = TransformerEncoder(cfg)
         self.layer_norm = LayerNorm(self.embed)
-
-        self.final_proj = nn.Linear(cfg.encoder_embed_dim, self.final_dim)
     
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
