@@ -32,7 +32,7 @@ def get_parser():
     )
     parser.add_argument(
         "--sec", default=5, type=int,
-        help="seconds to repeatedly crop to"
+        help="seconds to randomly crop to"
     )
     parser.add_argument("--seed", default=42, type=int, metavar="N", help="random seed")
 
@@ -53,7 +53,7 @@ def main(args):
         fname = os.path.splitext(fname)[0]
 
         # take a raw signal (index 1 is for a filtered signal)
-        record = wfdb.rdrecord(fname).__dict__['p_signal'][:,0]
+        record = wfdb.rdrecord(fname).__dict__['p_signal'][:,1]
         annot = wfdb.rdann(fname, 'atr')
 
         sample_rate = annot.__dict__['fs']
