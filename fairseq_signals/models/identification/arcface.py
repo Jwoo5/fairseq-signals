@@ -7,7 +7,8 @@ from dataclasses import dataclass, field
 from typing import Optional
 from omegaconf import II
 
-from fairseq_signals.models import BaseModel, register_model
+from fairseq_signals.models import register_model
+from fairseq_signals.models.finetuning_model import FinetuningConfig, FinetuningModel
 from fairseq_signals.models.conv_transformer import (
     MASKING_DISTRIBUTION_CHOICES,
     ConvTransformerModel,
@@ -18,16 +19,7 @@ from fairseq_signals.tasks import Task
 
 
 @dataclass
-class ArcFaceConfig(ConvTransformerConfig):
-    model_path: Optional[str] = field(
-        default=None, metadata={"help": "path to pretrained model"}
-    )
-    no_pretrained_weights: bool = field(
-        default=False, metadata={"help": "if true, does not load pretrained weights"}
-    )
-    freeze_finetune_updates: int = field(
-        default = 0, metadata = {"help": "dont finetune wav2vec2 for this many updates"}
-    )
+class ArcFaceConfig(FinetuningConfig, ConvTransformerConfig):
     apply_mask: bool = field(
         default=False, metadata={"help": "apply masking during fine-tuning"}
     )
@@ -56,12 +48,11 @@ class ArcFaceConfig(ConvTransformerConfig):
 
     output_size: int = II("task.num_labels")
 
+#TODO add encoder options (conv_transformer, conv_rnn, convnet, ...)
 @register_model("arcface", dataclass=ArcFaceConfig)
-class ArcFaceModel(BaseModel):
+class ArcFaceModel(FinetuningModel):
     def __init__(self, cfg: ArcFaceConfig, encoder: ConvTransformerModel):
-        super().__init__()
-        self.cfg = cfg
-        self.encoder = encoder
+        super().__init__(cfg, encoder)
 
         if not cfg.apply_mask:
             if hasattr(self.encoder, "mask_emb"):
@@ -77,7 +68,7 @@ class ArcFaceModel(BaseModel):
                 cfg.encoder_embed_dim
             )
         )
-        self.kenrel.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
+        self.kernel.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
 
     def set_num_updates(self, num_updates):
         """Set the number of parameters updates."""
@@ -113,7 +104,7 @@ class ArcFaceModel(BaseModel):
         return logits
     
     def get_targets(self, sample, net_output):
-        return sample["label"].float()
+        return sample["label"].long()
     
     def get_normalized_probs(self, net_output, log_probs):
         """Get normalized probabilities (or log probs) from a net's output."""
@@ -137,7 +128,7 @@ class ArcFaceModel(BaseModel):
         x = self.final_dropout(x)
         x = torch.div(x.sum(dim=1), (x != 0).sum(dim=1))
 
-        # if self.cfg.in_d == 1:
+        # if self.cfg.in_d == 1: # TODO: in case of padded lead
         #     concat
         #     ...
 
