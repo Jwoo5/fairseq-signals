@@ -428,7 +428,7 @@ def validate(
                 trainer.valid_step(sample, subset=subset)
 
         # log validation stats
-        stats = get_valid_stats(cfg, trainer, agg.get_smoothed_values())
+        stats = get_valid_stats(cfg, trainer, subset, agg.get_smoothed_values())
 
         if hasattr(task, "post_validate"):
             task.post_validate(
@@ -444,16 +444,31 @@ def validate(
     return valid_losses
 
 def get_valid_stats(
-    cfg: DictConfig, trainer: Trainer, stats: Dict[str, Any]
+    cfg: DictConfig, trainer: Trainer, subset: str, stats: Dict[str, Any]
 ) -> Dict[str, Any]:
     stats["num_updates"] = trainer.get_num_updates()
-    if hasattr(checkpoint_utils.save_checkpoint, "best"):
-        key = "best_{0}".format(cfg.checkpoint.best_checkpoint_metric)
-        best_function = max if cfg.checkpoint.maximize_best_checkpoint_metric else min
-        stats[key] = best_function(
-            checkpoint_utils.save_checkpoint.best,
-            stats[cfg.checkpoint.best_checkpoint_metric],
-        )
+
+    if not hasattr(get_valid_stats, "best"):
+        get_valid_stats.best = dict()
+
+    prev_best = getattr(get_valid_stats, "best").get(
+        subset, stats[cfg.checkpoint.best_checkpoint_metric]
+    )
+    best_function = max if cfg.checkpoint.maximize_best_checkpoint_metric else min
+    get_valid_stats.best[subset] = best_function(
+        stats[cfg.checkpoint.best_checkpoint_metric], prev_best
+    )
+
+    key = "best_{0}".format(cfg.checkpoint.best_checkpoint_metric)
+    stats[key] = get_valid_stats.best[subset]
+
+    # if hasattr(checkpoint_utils.save_checkpoint, "best"):
+    #     key = "best_{0}".format(cfg.checkpoint.best_checkpoint_metric)
+    #     best_function = max if cfg.checkpoint.maximize_best_checkpoint_metric else min
+    #     stats[key] = best_function(
+    #         checkpoint_utils.save_checkpoint.best,
+    #         stats[cfg.checkpoint.best_checkpoint_metric],
+    #     )
     return stats
 
 def cli_main(
