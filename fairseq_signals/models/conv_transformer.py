@@ -1,3 +1,5 @@
+
+import contextlib
 from dataclasses import dataclass, field
 from typing import Any
 import logging
@@ -355,6 +357,10 @@ class ConvTransformerModel(BaseModel):
 
         return {"x": x, "padding_mask": padding_mask, "features": unmasked_features}
 
+    def extract_features(self, source, padding_mask, mask=False):
+        res = self.forward(source, padding_mask, mask=mask)
+        return res
+
     def get_logits(self, net_output):
         raise NotImplementedError()
 
@@ -411,7 +417,7 @@ class ConvTransformerModel(BaseModel):
 
         args.task.data = cfg.data
         task = tasks.setup_task(args.task)
-        model = task.build_model("conv_transformer")
+        model = task.build_model(args.model)
 
         if hasattr(model, "remove_pretraining_modules"):
             model.remove_pretraining_modules()
@@ -458,6 +464,7 @@ class ConvTransformerFinetuningModel(FinetuningModel):
         if not cfg.apply_mask:
             if hasattr(self.encoder, "mask_emb"):
                 self.encoder.mask_emb = None
+        self.apply_mask = cfg.apply_mask
         
         self.final_dropout = nn.Dropout(cfg.final_dropout)
         self.freeze_finetune_updates = cfg.freeze_finetune_updates
@@ -476,7 +483,7 @@ class ConvTransformerFinetuningModel(FinetuningModel):
     def build_model(cls, cfg: ConvTransformerFinetuningConfig, task: Task):
         """Build a new model instance."""
         if cfg.model_path and not cfg.no_pretrained_weights:
-            encoder = ConvTransformerModel.from_pretrained(cfg.model_path,cfg)
+            encoder = ConvTransformerModel.from_pretrained(cfg.model_path, cfg)
         else:
             encoder = ConvTransformerModel(cfg)
         
@@ -508,3 +515,17 @@ class ConvTransformerFinetuningModel(FinetuningModel):
             return utils.log_softmax(logits.float(), dim=-1)
         else:
             return utils.softmax(logits.float(), dim=-1)
+    
+    def forward(self, source, padding_mask=None, **kwargs):
+        w2v_args = {
+            "source": source,
+            "padding_mask": padding_mask,
+            "mask": self.apply_mask and self.training
+        }
+
+        ft = self.freeze_finetune_updates <= self.num_updates
+
+        with torch.no_grad() if not ft else contextlib.ExitStack():
+            res = self.encoder.extract_features(**w2v_args)
+
+        return res

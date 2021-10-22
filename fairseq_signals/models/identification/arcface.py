@@ -51,14 +51,11 @@ class ArcFaceModel(ConvTransformerFinetuningModel):
         return sample["label"].long()
     
     def forward(self, **kwargs):
-        ft = self.freeze_finetune_updates <= self.num_updates
+        res = super().forward(**kwargs)
 
-        with torch.no_grad() if not ft else contextlib.ExitStack():
-            res = self.encoder(**kwargs)
+        x = res["x"]
+        padding_mask = res["padding_mask"]
 
-            x = res["x"]
-            padding_mask = res["padding_mask"]
-        
         x = self.final_dropout(x)
         x = torch.div(x.sum(dim=1), (x != 0).sum(dim=1))
 
