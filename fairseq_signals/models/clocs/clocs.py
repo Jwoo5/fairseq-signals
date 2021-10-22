@@ -36,7 +36,7 @@ class ClocsModel(ConvTransformerModel):
         return cls(cfg)
     
     def get_logits(self, net_output, normalize=False, aggregate=False):
-        logits = net_output["encoder_out"]
+        logits = net_output["x"]
 
         if net_output["padding_mask"] is not None and net_output["padding_mask"].any():
             logits[net_output["padding_mask"]] = 0
@@ -65,7 +65,7 @@ class ClocsModel(ConvTransformerModel):
         # x = torch.div(x.sum(dim=1), (x!=0).sum(dim=1))
 
         return {
-            "encoder_out": x,
+            "x": x,
             "padding_mask": padding_mask,
             "patient_id": patient_id,
             "segment": segment
