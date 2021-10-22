@@ -56,7 +56,7 @@ def main(args):
         fname = os.path.splitext(fname)[0]
 
         # take a raw signal (index 1 is for a filtered signal)
-        record = wfdb.rdrecord(fname).__dict__['p_signal'][:,0]
+        record = wfdb.rdrecord(fname).__dict__['p_signal'][:,1]
         annot = wfdb.rdann(fname, 'atr')
 
         sample_rate = annot.__dict__['fs']
