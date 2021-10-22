@@ -7,10 +7,12 @@ import torch
 import torch.nn as nn
 
 from fairseq_signals import tasks
-from fairseq_signals.utils import checkpoint_utils
+from fairseq_signals.utils import checkpoint_utils, utils
 from fairseq_signals.data.data_utils import compute_mask_indices
 from fairseq_signals.dataclass.utils import convert_namespace_to_omegaconf
 from fairseq_signals.models import BaseModel, register_model
+from fairseq_signals.models.finetuning_model import FinetuningConfig, FinetuningModel
+from fairseq_signals.tasks import Task
 from fairseq_signals.modules import (
     GradMultiply,
     LayerNorm,
@@ -418,3 +420,91 @@ class ConvTransformerModel(BaseModel):
         logger.info(f"Loaded pre-trained model parameters from {model_path}")
 
         return model
+
+@dataclass
+class ConvTransformerFinetuningConfig(FinetuningConfig, ConvTransformerConfig):
+    apply_mask: bool = field(
+        default=False, metadata={"help": "apply masking during fine-tuning"}
+    )
+
+    final_dropout: float = field(
+        default=0.0,
+        metadata={"help": "dropout after transformer and before final projection"},
+    )
+
+    # overriding arguments
+    dropout: float = 0.0
+    activation_dropout: float = 0.0
+    attention_dropout: float = 0.0
+    mask_length: int = 10
+    mask_prob: float = 0.5
+    mask_selection: MASKING_DISTRIBUTION_CHOICES = "static"
+    mask_other: float = 0
+    no_mask_overlap: bool = False
+    mask_channel_length: int = 10
+    mask_channel_prob: float = 0.0
+    mask_channel_selection: MASKING_DISTRIBUTION_CHOICES = "static"
+    mask_channel_other: float = 0
+    no_mask_channel_overlap: bool = False
+    encoder_layerdrop: float = 0.0
+    feature_grad_mult: float = 0.0
+
+    output_size: int = II("task.num_labels")
+
+class ConvTransformerFinetuningModel(FinetuningModel):
+    def __init__(self, cfg: ConvTransformerFinetuningConfig, encoder: ConvTransformerModel):
+        super().__init__(cfg, encoder)
+
+        if not cfg.apply_mask:
+            if hasattr(self.encoder, "mask_emb"):
+                self.encoder.mask_emb = None
+        
+        self.final_dropout = nn.Dropout(cfg.final_dropout)
+        self.freeze_finetune_updates = cfg.freeze_finetune_updates
+        self.num_updates = 0
+    
+    def set_num_updates(self, num_updates):
+        """Set the number of parameters updates."""
+        super().set_num_updates(num_updates)
+        self.num_updates = num_updates
+
+    def upgrade_state_dict_named(self, state_dict, name):
+        super().upgrade_state_dict_named(state_dict, name)
+        return state_dict
+
+    @classmethod
+    def build_model(cls, cfg: ConvTransformerFinetuningConfig, task: Task):
+        """Build a new model instance."""
+        if cfg.model_path and not cfg.no_pretrained_weights:
+            encoder = ConvTransformerModel.from_pretrained(cfg.model_path,cfg)
+        else:
+            encoder = ConvTransformerModel(cfg)
+        
+        return cls(cfg, encoder)
+    
+    def get_logits(self, net_output, normalize=False, aggregate=False):
+        logits = net_output["encoder_out"]
+
+        if net_output["padding_mask"] is not None and net_output["padding_mask"].any():
+            logits[net_output["padding_mask"]] = 0
+
+        if aggregate:
+            logits = torch.div(logits.sum(dim=1), (logits != 0).sum(dim=1))
+        
+        if normalize:
+            logits = utils.log_softmax(logits.float(), dim=-1)
+        
+        return logits
+    
+    def get_targets(self, sample, net_output):
+        raise NotImplementedError()
+    
+    def get_normalized_probs(self, net_output, log_probs):
+        """Get normalized probabilities (or log probs) from a net's output."""
+
+        logits = self.get_logits(net_output)
+
+        if log_probs:
+            return utils.log_softmax(logits.float(), dim=-1)
+        else:
+            return utils.softmax(logits.float(), dim=-1)

@@ -12,26 +12,21 @@ from fairseq_signals.models.conv_transformer import (
     ConvTransformerFinetuningModel,
     ConvTransformerFinetuningConfig
 )
+
 from fairseq_signals.utils import utils
 
-
 @dataclass
-class ArcFaceConfig(ConvTransformerFinetuningConfig):
+class LinearProjectionConfig(ConvTransformerFinetuningConfig):
     pass
 
-#TODO need to add encoder options? (conv_transformer, conv_rnn, convnet, ...)
-@register_model("arcface", dataclass=ArcFaceConfig)
-class ArcFaceModel(ConvTransformerFinetuningModel):
+@register_model("linear_projection", dataclass=LinearProjectionConfig)
+class LinearProjectionModel(ConvTransformerFinetuningModel):
     def __init__(self, cfg, encoder):
         super().__init__(cfg, encoder)
 
-        self.kernel = nn.Parameter(
-            torch.Tensor(
-                cfg.output_size,
-                cfg.encoder_embed_dim
-            )
-        )
-        self.kernel.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
+        self.proj = nn.Linear(cfg.encoder_embed_dim, cfg.output_size)
+        nn.init.xavier_uniform_(self.proj.weight)
+        nn.init.constant_(self.proj.bias, 0.0)
 
     def get_logits(self, net_output, normalize=False, aggregate=False):
         logits = net_output["encoder_out"]
@@ -48,7 +43,7 @@ class ArcFaceModel(ConvTransformerFinetuningModel):
         return logits
 
     def get_targets(self, sample, net_output):
-        return sample["label"].long()
+        return sample["label"].float()
     
     def forward(self, **kwargs):
         ft = self.freeze_finetune_updates <= self.num_updates
@@ -62,20 +57,9 @@ class ArcFaceModel(ConvTransformerFinetuningModel):
         x = self.final_dropout(x)
         x = torch.div(x.sum(dim=1), (x != 0).sum(dim=1))
 
-        # if self.cfg.in_d == 1: # TODO: in case of padded lead
-        #     concat
-        #     ...
-
-        norm = torch.norm(x, dim=1, keepdim=True)
-        x = torch.div(x, norm)
+        x = self.proj(x)
 
         return {
             "encoder_out": x,
             "padding_mask": padding_mask
         }
-    
-    def get_cosine_similarity(self, logits):
-        norm = torch.norm(self.kernel, dim=1, keepdim=True)
-        weights = torch.div(self.kernel, norm)
-
-        return torch.mm(logits, weights.T).clamp(-1,1)
