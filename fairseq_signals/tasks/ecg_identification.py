@@ -94,6 +94,8 @@ class ECGIdentificationTask(ECGPretrainingTask):
                 max_sample_size=self.cfg.max_sample_size,
                 min_sample_size=self.cfg.min_sample_size,
                 pad=task_cfg.enable_padding,
+                pad_leads=task_cfg.enable_padding_leads,
+                leads_to_load=task_cfg.leads_to_load,
                 label=True,
                 normalize=task_cfg.normalize,
                 num_buckets=self.cfg.num_batch_buckets,

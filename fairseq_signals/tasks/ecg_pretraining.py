@@ -64,6 +64,14 @@ class ECGPretrainingConfig(Dataclass):
     #                 "the number of samples per patient is various."
     #     }
     # )
+    leads_to_load: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "comma separated list of leads numbers. (e.g. 0,1 loads only lead I and lead II)"
+            "note that the sequence of leads is [I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]"
+            "if not set, load all the available leads of samples"
+        }
+    )
     sample_rate: int = field(
         default = 500,
         metadata = {
@@ -76,6 +84,9 @@ class ECGPretrainingConfig(Dataclass):
     )
     enable_padding: bool = field(
         default = False, metadata = {"help": "pad shorter samples instead of cropping"}
+    )
+    enable_padding_leads: bool = field(
+        default=False, metadata={"help": "pad unavailable leads of samples"}
     )
     max_sample_size: Optional[int] = field(
         default = None, metadata = {"help": "max sample size to crop to for batching"}
@@ -163,6 +174,8 @@ class ECGPretrainingTask(Task):
                 min_sample_size = self.cfg.min_sample_size,
                 clocs_mode=task_cfg.clocs_mode,
                 pad = task_cfg.enable_padding,
+                pad_leads=task_cfg.enable_padding_leads,
+                leads_to_load=task_cfg.leads_to_load,
                 label = False,
                 normalize = task_cfg.normalize,
                 num_buckets = self.cfg.num_batch_buckets,
@@ -176,6 +189,8 @@ class ECGPretrainingTask(Task):
                 max_sample_size = self.cfg.max_sample_size,
                 min_sample_size = self.cfg.min_sample_size,
                 pad = task_cfg.enable_padding,
+                pad_leads=task_cfg.enable_padding_leads,
+                leads_to_load=task_cfg.leads_to_load,
                 label = False,
                 normalize = task_cfg.normalize,
                 num_buckets = self.cfg.num_batch_buckets,

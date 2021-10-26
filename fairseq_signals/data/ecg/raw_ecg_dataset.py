@@ -17,13 +17,15 @@ class RawECGDataset(BaseDataset):
     def __init__(
         self,
         sample_rate,
-        max_sample_size = None,
-        min_sample_size = 0,
-        shuffle = True,
-        pad = False,
-        label = False,
-        normalize = False,
-        compute_mask_indices = False,
+        max_sample_size=None,
+        min_sample_size=0,
+        shuffle=True,
+        pad=False,
+        pad_leads=False,
+        leads_to_load=None,
+        label=False,
+        normalize=False,
+        compute_mask_indices=False,
         **mask_compute_kwargs,
     ):
         super().__init__()
@@ -35,6 +37,11 @@ class RawECGDataset(BaseDataset):
         )
         self.min_sample_size = min_sample_size
         self.pad = pad
+        self.pad_leads = pad_leads
+        self.leads_to_load = list(
+            int(lead) for lead in leads_to_load.replace(' ','').split(',')
+        ) if leads_to_load else None
+
         self.label = label
         self.shuffle = shuffle
         self.normalize = normalize
@@ -59,6 +66,13 @@ class RawECGDataset(BaseDataset):
             raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
         
         # assert feats.dim() == 1, feats.dim()
+
+        if self.leads_to_load:
+            feats = feats[self.leads_to_load, :]
+            if self.pad_leads:
+                padded = np.zeros((12, feats.size(-1)))
+                padded[self.leads_to_load] = feats
+                feats = padded
 
         if self.normalize:
             feats = feats.float()
@@ -248,6 +262,8 @@ class FileECGDataset(RawECGDataset):
         min_sample_size = 0,
         shuffle = True,
         pad = False,
+        pad_leads=False,
+        leads_to_load=None,
         label = False,
         normalize = False,
         num_buckets = 0,
@@ -260,6 +276,8 @@ class FileECGDataset(RawECGDataset):
             min_sample_size = min_sample_size,
             shuffle = shuffle,
             pad = pad,
+            pad_leads=pad_leads,
+            leads_to_load=leads_to_load,
             label = label,
             normalize = normalize,
             compute_mask_indices = compute_mask_indices,
@@ -311,9 +329,8 @@ class FileECGDataset(RawECGDataset):
 
         res = {'id': index}
 
-        #TODO handle files not in case of .mat
         ecg = scipy.io.loadmat(path)
-        
+
         #NOTE preprocess data to match with given keys: "feats", "curr_sample_rate", "label"
         feats = torch.from_numpy(ecg['feats'])
         curr_sample_rate = ecg['curr_sample_rate']
@@ -326,7 +343,6 @@ class FileECGDataset(RawECGDataset):
 
         if self.label:
             res["label"] = torch.from_numpy(ecg['label'])
-
 
         return res
 
