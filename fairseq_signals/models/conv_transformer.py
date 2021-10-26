@@ -422,6 +422,9 @@ class ConvTransformerModel(BaseModel):
         if hasattr(model, "remove_pretraining_modules"):
             model.remove_pretraining_modules()
 
+        # hack for loading legacy pre-trained clocs model.
+        # state["model"] = {k.replace('encoder.w2v_model.',''): v for k, v in state["model"].items() if k.startswith('encoder.w2v_model.')}
+
         model.load_state_dict(state["model"], strict = True)
         logger.info(f"Loaded pre-trained model parameters from {model_path}")
 
@@ -517,7 +520,7 @@ class ConvTransformerFinetuningModel(FinetuningModel):
             return utils.softmax(logits.float(), dim=-1)
     
     def forward(self, source, padding_mask=None, **kwargs):
-        w2v_args = {
+        args = {
             "source": source,
             "padding_mask": padding_mask,
             "mask": self.apply_mask and self.training
@@ -526,6 +529,6 @@ class ConvTransformerFinetuningModel(FinetuningModel):
         ft = self.freeze_finetune_updates <= self.num_updates
 
         with torch.no_grad() if not ft else contextlib.ExitStack():
-            res = self.encoder.extract_features(**w2v_args)
+            res = self.encoder.extract_features(**args)
 
         return res
