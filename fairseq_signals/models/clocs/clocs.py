@@ -16,14 +16,18 @@ CLOCS_MODE_CHOICES = ChoiceEnum(["cmsc", "cmlc", "cmsmlc"])
 class ClocsConfig(ConvTransformerConfig):
     apply_mask: bool = False
 
+    # hold the legacy keys (deprecated)
+    encoder_mode: Any = None
+    conv_layers: Any = None
+    sample_size: Any = None
+    w2v_path: Any = None
+    w2v_args: Any = None
+
 @register_model("clocs", dataclass = ClocsConfig)
 class ClocsModel(ConvTransformerModel):
     def __init__(self, cfg: ClocsConfig):
         super().__init__(cfg)
         self.cfg = cfg
-
-        if not cfg.apply_mask:
-            self.mask_emb = None
 
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
