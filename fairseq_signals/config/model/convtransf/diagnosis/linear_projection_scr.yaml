@@ -49,10 +49,10 @@ optimizer:
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-08
 
-lr_scheduler:
-  _name: tri_stage
-  phase_ratio: [0.1, 0.2, 0.7]
-  final_lr_scale: 0.01
+# lr_scheduler:
+#   _name: tri_stage
+#   phase_ratio: [0.1, 0.2, 0.7]
+#   final_lr_scale: 0.01
 
 lr_scheduler:
   _name: fixed
