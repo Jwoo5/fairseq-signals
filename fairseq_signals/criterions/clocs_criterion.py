@@ -45,7 +45,7 @@ class ClocsCriterion(BaseCriterion):
         assert self.mode in ["cmsc", "cmlc", "cmsmlc"], self.mode
 
         net_output = model(**sample["net_input"])
-        logits = model.get_logits(net_output).float()
+        logits = model.get_logits(net_output, aggregate=True).float()
         logits /= torch.max(
             logits.detach().norm(dim=1).unsqueeze(1),
             self.eps * torch.ones_like(logits)

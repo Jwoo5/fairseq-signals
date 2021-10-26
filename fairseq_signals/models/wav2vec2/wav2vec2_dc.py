@@ -21,10 +21,7 @@ from fairseq_signals.models import (
     BaseModel,
     register_model
 )
-from fairseq_signals.models.wav2vec2 import MASKING_DISTRIBUTION_CHOICES
-from fairseq_signals.modules import (
-    LayerNorm,
-)
+from fairseq_signals.models.conv_transformer import MASKING_DISTRIBUTION_CHOICES
 
 logger = logging.getLogger(__name__)
 

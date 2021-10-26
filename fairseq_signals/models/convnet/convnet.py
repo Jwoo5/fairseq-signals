@@ -6,7 +6,7 @@ import torch.nn as nn
 
 from fairseq_signals.dataclass import Dataclass
 from fairseq_signals.models import register_model, BaseModel
-from fairseq_signals.models.wav2vec2 import ConvFeatureExtraction
+from fairseq_signals.modules import ConvFeatureExtraction
 
 @dataclass
 class ConvNetConfig(Dataclass):
