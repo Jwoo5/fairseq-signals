@@ -4,12 +4,12 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  # wandb_project: diagnosis-prediction
+  wandb_project: diagnosis-prediction
 
 checkpoint:
   save_dir: checkpoints
-  best_checkpoint_metric: loss
-  maximize_best_checkpoint_metric: false
+  best_checkpoint_metric: cinc_score
+  maximize_best_checkpoint_metric: true
   save_interval: 1
   keep_last_epochs: 1
   save_interval_updates: 0
@@ -31,7 +31,7 @@ dataset:
   valid_subset: "valid,test"
 
 distributed_training:
-  distributed_world_size: 8
+  distributed_world_size: 1
 
 criterion:
   _name: binary_cross_entropy_with_logits
@@ -40,19 +40,23 @@ criterion:
   weights_file: ???
 
 optimization:
-  max_epoch: 250
+  max_epoch: 800
   max_update: 320000
-  lr: [0.00003]
+  lr: [0.00005]
 
 optimizer:
   _name: adam
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-08
 
+# lr_scheduler:
+#   _name: tri_stage
+#   phase_ratio: [0.1, 0.2, 0.7]
+#   final_lr_scale: 0.01
+
 lr_scheduler:
-  _name: tri_stage
-  phase_ratio: [0.1, 0.2, 0.7]
-  final_lr_scale: 0.01
+  _name: fixed
+  warmup_updates: 0
 
 model:
   _name: linear_projection
