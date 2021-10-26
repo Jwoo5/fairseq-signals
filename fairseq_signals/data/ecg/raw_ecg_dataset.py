@@ -67,10 +67,11 @@ class RawECGDataset(BaseDataset):
         
         # assert feats.dim() == 1, feats.dim()
 
+        feats = feats.float()
         if self.leads_to_load:
             feats = feats[self.leads_to_load, :]
             if self.pad_leads:
-                padded = np.zeros((12, feats.size(-1)))
+                padded = torch.zeros((12, feats.size(-1)))
                 padded[self.leads_to_load] = feats
                 feats = padded
 
