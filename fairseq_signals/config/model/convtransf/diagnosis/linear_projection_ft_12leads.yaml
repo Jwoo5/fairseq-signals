@@ -23,6 +23,9 @@ task:
   label: true
   normalize: false
   enable_padding: true
+  enable_padding_leads: false
+  leads_to_load: null
+    # I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6
 
 dataset:
   num_workers: 6
@@ -60,18 +63,19 @@ lr_scheduler:
 
 model:
   _name: linear_projection
-  model_path: null
-  no_pretrained_weights: true
+  model_path: ???
+  no_pretrained_weights: false
 
   apply_mask: false
-  mask_prob: 0.0
-  mask_channel_prob: 0.0
+  mask_prob: 0.65
+  mask_channel_prob: 0.5
+  mask_channel_length: 64
 
   dropout: 0.0
   attention_dropout: 0.0
   activation_dropout: 0.1
-  encoder_layerdrop: 0.0
+  encoder_layerdrop: 0.1
 
-  feature_grad_mult: 1.0
+  feature_grad_mult: 0.0
   freeze_finetune_updates: 0
   in_d: 12
