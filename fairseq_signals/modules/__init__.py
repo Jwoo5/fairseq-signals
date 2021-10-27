@@ -5,6 +5,7 @@
 
 from .fp32_group_norm import Fp32GroupNorm
 from .grad_multiply import GradMultiply
+from .gather_layer import GatherLayer
 from .gumbel_vector_quantizer import GumbelVectorQuantizer
 from .layer_norm import Fp32LayerNorm, LayerNorm
 from .multi_head_attention import MultiHeadAttention
@@ -17,6 +18,7 @@ from .conv_feature_extraction import ConvFeatureExtraction
 __all__ = [
     "Fp32GroupNorm",
     "GradMultiply",
+    "GatherLayer",
     "GumbelVectorQuantizer",
     "Fp32LayerNorm",
     "LayerNorm",
