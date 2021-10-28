@@ -74,6 +74,11 @@ def main(args):
     leads = args.leads.replace(' ','').split(',')
     leads_to_load = [int(lead) for lead in leads]
     subset = args.subset.replace(' ','').split(',')
+
+    pid_table = dict()
+    for i, fname in enumerate(glob.iglob(os.path.join(args.root, "**/*."+args.ext))):
+        pid_table[os.path.basename(fname)[:-4]] = i
+
     for s in subset:
         if not os.path.exists(os.path.join(args.dest, s.lstrip("WFDB_"))):
             os.makedirs(os.path.join(args.dest, s.lstrip("WFDB_")))
@@ -89,6 +94,7 @@ def main(args):
         func = functools.partial(
             preprocess,
             args,
+            pid_table,
             classes,
             os.path.join(args.dest, s.lstrip("WFDB_")),
             leads_to_load
@@ -98,7 +104,7 @@ def main(args):
         pool.close()
         pool.join()
 
-def preprocess(args, classes, dest_path, leads_to_load, fnames):
+def preprocess(args, pid_table, classes, dest_path, leads_to_load, fnames):
     for fname in fnames:
         fname = fname[:-(len(args.ext)+1)]
 
@@ -135,7 +141,7 @@ def preprocess(args, classes, dest_path, leads_to_load, fnames):
 
         length = sample.shape[-1]
 
-        pid = os.path.basename(fname)
+        pid = pid_table[os.path.basename(fname)]
         for i, seg in enumerate(range(0, length, int(args.sec * sample_rate))):
             data = {}
             data['age'] = age

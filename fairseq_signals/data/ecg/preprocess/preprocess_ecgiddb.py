@@ -48,7 +48,10 @@ def main(args):
 
     fnames = list(glob.iglob(search_path, recursive=True))
 
+    pid_table = dict()
+
     np.random.seed(args.seed)
+    i = 0
     for fname in fnames:
         fname = os.path.splitext(fname)[0]
 
@@ -71,6 +74,11 @@ def main(args):
         length = record.shape[-1]
 
         pid = fname.split('/')[-2][-2:]
+        if pid not in pid_table:
+            pid_table[pid] = i
+            i += 1
+        pid = pid_table[pid]
+
         basename = os.path.basename(fname)
         record = record.astype(np.float32)
 

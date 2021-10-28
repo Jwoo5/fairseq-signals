@@ -90,7 +90,7 @@ def main(args):
                 continue
             
             length = record.shape[-1]
-            pid = str(int(pid))
+            pid = int(pid)
 
             start = np.random.randint(length - (args.sec * sample_rate))
 
