@@ -10,6 +10,7 @@ import numpy as np
 
 from fairseq_signals import metrics
 from fairseq_signals.utils import utils
+from fairseq_signals.distributed import utils as dist_utils
 from fairseq_signals.criterions import BaseCriterion, register_criterion
 from fairseq_signals.dataclass import Dataclass, ChoiceEnum
 from fairseq_signals.tasks import Task
@@ -51,32 +52,47 @@ class ClocsCriterion(BaseCriterion):
             self.eps * torch.ones_like(logits)
         )
 
+        patient_id = sample['patient_id']
+        segment = sample['segment']
+        if dist_utils.get_data_parallel_world_size() > 1:
+            group = dist_utils.get_data_parallel_group()
+            patient_id = torch.cat(
+                    dist_utils.batch_all_gather(
+                    patient_id,
+                    group=group
+                )
+            )
+            segment = torch.cat(
+                    dist_utils.batch_all_gather(
+                    segment,
+                    group=group
+                )
+            )
+
         losses = []
         loss = 0
 
         if self.mode == "cmsc":
-            indices = torch.where(net_output["segment"] == 0)[0]
+            indices = torch.where(segment == 0)[0]
             mat1 = logits[indices, :]
             p1 = (
-                net_output["patient_id"][indices.cpu()]
+                patient_id[indices]
             ) if len(indices) > 1 else (
-                np.array([net_output["patient_id"][indices.cpu()]])
+                torch.tensor([patient_id[indices]])
             )
 
-            indices = torch.where(net_output["segment"] == 1)[0]
+            indices = torch.where(segment == 1)[0]
             mat2 = logits[indices, :]
             p2 = (
-                net_output["patient_id"][indices.cpu()]
+                patient_id[indices]
             ) if len(indices) > 1 else (
-                np.array([net_output["patient_id"][indices.cpu()]])
+                torch.tensor([patient_id[indices]])
             )
 
             logits = torch.matmul(mat1, mat2.transpose(0,1))
             logits /= self.temp
 
-            target = torch.from_numpy(
-                np.array([p == p2 for p in p1])
-            ).to(logits.device)
+            target = torch.stack([p == p2 for p in p1]).to(logits.device)
         else:
             raise NotImplementedError()
         # elif self.mode == "cmlc":

@@ -128,9 +128,9 @@ class ClocsECGDataset(RawECGDataset):
                 collated_sources[i] = self.crop_to_max_size(source, target_size)        
 
         input = {"source": collated_sources}
-        input["patient_id"] = torch.IntTensor([s["patient_id"] for s in collated_samples])
-        input["segment"] = torch.LongTensor([s["segment"] for s in collated_samples])
         out = {"id": torch.LongTensor([s["id"] for s in collated_samples])}
+        out["patient_id"] = torch.IntTensor([s["patient_id"] for s in collated_samples])
+        out["segment"] = torch.IntTensor([s["segment"] for s in collated_samples])
         if self.label:
             out["label"] = torch.cat([s["label"] for s in collated_samples])
 

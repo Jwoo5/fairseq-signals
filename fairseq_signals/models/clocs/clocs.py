@@ -9,6 +9,8 @@ from fairseq_signals.dataclass import ChoiceEnum
 from fairseq_signals.utils import utils
 from fairseq_signals.models import register_model
 from fairseq_signals.models.conv_transformer import ConvTransformerConfig, ConvTransformerModel
+from fairseq_signals.modules import GatherLayer
+from fairseq_signals.distributed import utils as dist_utils
 
 CLOCS_MODE_CHOICES = ChoiceEnum(["cmsc", "cmlc", "cmsmlc"])
 
@@ -28,6 +30,9 @@ class ClocsModel(ConvTransformerModel):
     def __init__(self, cfg: ClocsConfig):
         super().__init__(cfg)
         self.cfg = cfg
+
+        if not cfg.apply_mask:
+            self.mask_emb = None
 
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
@@ -67,6 +72,12 @@ class ClocsModel(ConvTransformerModel):
         
         # # (bsz x csz, seq, dim) -- mean -- > (bsz x csz, dim)
         # x = torch.div(x.sum(dim=1), (x!=0).sum(dim=1))
+
+        if dist_utils.get_data_parallel_world_size() > 1:
+            assert padding_mask is None, (
+                "padding_mask should be None for all_gather within training"
+            )
+            x = torch.cat(GatherLayer.apply(x), dim=0)
 
         return {
             "x": x,
