@@ -159,7 +159,6 @@ class RawECGDataset(BaseDataset):
         
         input = {"source": collated_sources}
         out = {"id": torch.LongTensor([s["id"] for s in samples])}
-        out["patient_id"] = np.array([s["patient_id"] for s in samples])
         if self.label:
             out["label"] = torch.cat([s["label"] for s in samples])
 
@@ -338,7 +337,6 @@ class FileECGDataset(RawECGDataset):
         res["source"] = self.postprocess(feats, curr_sample_rate)
         #XXX
         # res["file_id"] = ecg['file_id'][0]
-        res["patient_id"] = ecg['patient_id'][0]
         # res["age"] = torch.from_numpy(ecg['age'][0])
         # res["sex"] = torch.from_numpy(ecg['sex'][0])
 

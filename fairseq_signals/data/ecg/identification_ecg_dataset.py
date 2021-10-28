@@ -75,7 +75,14 @@ class IdentificationECGDataset(RawECGDataset):
             pass
         
         self.set_bucket_info(num_buckets)
-            
+    
+    def collator(self, samples):
+        out = super().collator(samples)
+        samples = [s for s in samples if s["source"] is not None]
+        out["patient_id"] = torch.IntTensor([s["patient_id"] for s in samples])
+
+        return out
+
     def __getitem__(self, index):
         path = os.path.join(self.root_dir, str(self.fnames[index]))
 
@@ -87,7 +94,7 @@ class IdentificationECGDataset(RawECGDataset):
         
         curr_sample_rate = ecg["curr_sample_rate"]
         res["source"] = self.postprocess(feats, curr_sample_rate)
-        res["patient_id"] = ecg["patient_id"][0]
+        res["patient_id"] = ecg["patient_id"][0,0]
 
         if self.label:
             res["label"] = torch.tensor([self.pids[index]])
