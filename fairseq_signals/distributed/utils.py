@@ -231,6 +231,42 @@ def all_gather(tensor, group, return_tensor = False):
     else:
         return tensor_list
 
+def batch_all_gather(tensor, group, return_tensor=False):
+    """Perform an all-gather operation considering tensors with different batch size"""
+    world_size = get_world_size(group=group)
+    rank = get_rank(group=group)
+
+    size_list = [
+        tensor.new_zeros(tensor.dim(), dtype=torch.int64) for _ in range(world_size)
+    ]
+    local_size = tensor.new_tensor(tensor.shape, dtype=torch.int64)
+    dist.all_gather(size_list, local_size, group=group)
+
+    max_size = torch.stack(size_list).max(dim=0)[0][0]
+    size_offsets = [max_size - size[0] for size in size_list]
+
+    if local_size[0] != max_size:
+        offset = torch.cat(
+            (
+                tensor.new_tensor([max_size - local_size[0]]),
+                local_size[1:]
+            )
+        )
+        padding = tensor.new_zeros(tuple(int(dim) for dim in offset), dtype=torch.uint8)
+        tensor = torch.cat((tensor, padding), dim=0)
+
+    tensor_list = [
+        tensor if i == rank else torch.empty_like(tensor) for i in range(world_size)
+    ]
+    dist.all_gather(tensor_list, tensor, group=group)
+    tensor_list = [
+        tensor[:max_size-size_offsets[i]] for i, tensor in enumerate(tensor_list)
+    ]
+    if return_tensor:
+        return torch.stack(tensor_list, dim=0)
+    else:
+        return tensor_list
+
 def all_gather_list(data, group = None, max_size = 16384):
     """Gathers arbitrary data from all nodes into a list.
 
