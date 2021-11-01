@@ -193,7 +193,7 @@ class ECGIdentificationTask(ECGPretrainingTask):
                     gallery_pids.append(gallery_sample['patient_id'])
 
                 self.gallery_feats = torch.cat(gallery_feats).unsqueeze(0)
-                self.gallery_pids = np.concatenate(gallery_pids)
+                self.gallery_pids = torch.cat(gallery_pids)
             
                 self.require_query = False
             
@@ -213,13 +213,13 @@ class ECGIdentificationTask(ECGPretrainingTask):
             #XXX just for identification vis
             self.cos_sims.append(cos_sims.cpu())
 
-            count = outputs.size
+            count = outputs.numel()
             corr = outputs.sum()
 
             if 'sample_size' in sample:
                 sample_size = sample['sample_size']
             else:
-                sample_size = outputs.size
+                sample_size = outputs.numel()
 
             logging_output = {
                 "loss": 0,
