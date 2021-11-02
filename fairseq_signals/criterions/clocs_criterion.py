@@ -54,20 +54,21 @@ class ClocsCriterion(BaseCriterion):
 
         patient_id = sample['patient_id']
         segment = sample['segment']
-        if dist_utils.get_data_parallel_world_size() > 1:
-            group = dist_utils.get_data_parallel_group()
-            patient_id = torch.cat(
-                    dist_utils.batch_all_gather(
-                    patient_id,
-                    group=group
-                )
-            )
-            segment = torch.cat(
-                    dist_utils.batch_all_gather(
-                    segment,
-                    group=group
-                )
-            )
+        # for all-gather tensor across distributed devices
+        # if dist_utils.get_data_parallel_world_size() > 1:
+        #     group = dist_utils.get_data_parallel_group()
+        #     patient_id = torch.cat(
+        #             dist_utils.batch_all_gather(
+        #             patient_id,
+        #             group=group
+        #         )
+        #     )
+        #     segment = torch.cat(
+        #             dist_utils.batch_all_gather(
+        #             segment,
+        #             group=group
+        #         )
+        #     )
 
         losses = []
         loss = 0
