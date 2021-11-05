@@ -1,42 +1,45 @@
-from argparse import Namespace
 from dataclasses import dataclass, field
-from typing import List, Tuple, Optional, Any
+from typing  import List, Tuple
 from omegaconf import II
 
 import torch
+import torch.nn as nn
 
-from fairseq_signals.dataclass import ChoiceEnum
 from fairseq_signals.utils import utils
 from fairseq_signals.models import register_model
 from fairseq_signals.models.conv_transformer import ConvTransformerConfig, ConvTransformerModel
 from fairseq_signals.modules import GatherLayer
 from fairseq_signals.distributed import utils as dist_utils
 
-CLOCS_MODE_CHOICES = ChoiceEnum(["cmsc", "cmlc", "cmsmlc"])
-
 @dataclass
-class ClocsConfig(ConvTransformerConfig):
+class _3KGConfig(ConvTransformerConfig):
     apply_mask: bool = False
 
-    # hold the legacy keys (deprecated)
-    encoder_mode: Any = None
-    conv_layers: Any = None
-    sample_size: Any = None
-    w2v_path: Any = None
-    w2v_args: Any = None
+    angle: int = field(
+        default=45,
+        metadata={"help": "angle of random rotation in VCG view"}
+    )
+    scale: float = field(
+        default=1.5,
+        metadata={"help": "random scaling factor"}
+    )
+    mask_ratio: float = field(
+        default=0.5,
+        metadata={"help": "ratio of random time masking for each lead"}
+    )
 
-@register_model("clocs", dataclass = ClocsConfig)
-class ClocsModel(ConvTransformerModel):
-    def __init__(self, cfg: ClocsConfig):
+@register_model("3kg", dataclass=_3KGConfig)
+class _3KGModel(ConvTransformerModel):
+    def __init__(self, cfg: _3KGConfig):
         super().__init__(cfg)
         self.cfg = cfg
 
         if not cfg.apply_mask:
             self.mask_emb = None
-
+    
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)
-        """Upgrade a (possibly old) state dict for new versions."""
+        """Upgrade a (possibly old) state dict for new versions. """
         return state_dict
     
     @classmethod
@@ -58,10 +61,10 @@ class ClocsModel(ConvTransformerModel):
 
         return logits
     
-    def forward(self, source,**kwargs):
+    def forward(self, source, **kwargs):
         if len(source.shape) < 3:
             source = source.unsqueeze(1)
-
+        
         res = super().forward(source, **kwargs)
 
         x = res["x"]
@@ -70,10 +73,6 @@ class ClocsModel(ConvTransformerModel):
         if padding_mask is not None and padding_mask.any():
             x[padding_mask] = 0
         
-        # # (bsz x csz, seq, dim) -- mean -- > (bsz x csz, dim)
-        # x = torch.div(x.sum(dim=1), (x!=0).sum(dim=1))
-
-        # for all-gather tensor across distributed devices
         if dist_utils.get_data_parallel_world_size() > 1:
             assert padding_mask is None, (
                 "padding_mask should be None if applying all_gather within training"
@@ -82,5 +81,5 @@ class ClocsModel(ConvTransformerModel):
 
         return {
             "x": x,
-            "padding_mask": padding_mask
+            "padding_mask": padding_mask,
         }

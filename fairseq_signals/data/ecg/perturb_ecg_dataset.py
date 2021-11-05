@@ -4,6 +4,7 @@ import sys
 
 import math
 import numpy as np
+import scipy.io
 from scipy.spatial.transform import Rotation as R
 import torch
 import torch.nn.functional as F
@@ -21,7 +22,6 @@ class PerturbECGDataset(FileECGDataset):
         min_sample_size=0,
         shuffle=True,
         pad=False,
-        label=False,
         normalize=False,
         num_buckets=0,
         compute_mask_indices=False,
@@ -34,7 +34,6 @@ class PerturbECGDataset(FileECGDataset):
             min_sample_size=min_sample_size,
             shuffle=shuffle,
             pad=pad,
-            label=label,
             normalize=normalize,
             num_buckets=num_buckets,
             compute_mask_indices=compute_mask_indices,
@@ -50,9 +49,12 @@ class PerturbECGDataset(FileECGDataset):
         if self.sample_rate > 0 and curr_sample_rate != self.sample_rate:
             raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
 
-        feats = feats.float()
-
         feats = self.perturb(feats)
+
+        if isinstance(feats, tuple):
+            feats = tuple(f.float() for f in feats)
+        else:
+            feats = feats.float()
 
         if self.normalize:
             with torch.no_grad():
@@ -71,8 +73,7 @@ class _3KGECGDataset(PerturbECGDataset):
         max_sample_size=None,
         min_sample_size=0,
         shuffle=True,
-        leads_to_load=None,
-        label=False,
+        pad=False,
         normalize=False,
         num_buckets=0,
         compute_mask_indices=False,
@@ -84,8 +85,7 @@ class _3KGECGDataset(PerturbECGDataset):
             max_sample_rate=max_sample_size,
             min_sample_size=min_sample_size,
             shuffle=shuffle,
-            leads_to_load=leads_to_load,
-            label=label,
+            pad=pad,
             normalize=normalize,
             num_buckets=num_buckets,
             compute_mask_indices=compute_mask_indices,
@@ -97,7 +97,7 @@ class _3KGECGDataset(PerturbECGDataset):
         self.mask_ratio = mask_ratio
     
     def _get_other_four_leads(self, I, II):
-        """calculate other four leads (III, aVR, aVL, aVF) with the first two leads (I, II)"""
+        """calculate other four leads (III, aVR, aVL, aVF) from the first two leads (I, II)"""
         III = -I + II
         aVR = -(I + II) / 2
         aVL = I - II/2
@@ -123,8 +123,8 @@ class _3KGECGDataset(PerturbECGDataset):
 
         if self.angle:
             angles = np.random.uniform(-self.angle, self.angle, size=6)
-            R1 = R.from_euler('zyx', angles[:3], degrees=True)
-            R2 = R.from_euler('zyx', angles[3:], degrees=True)
+            R1 = R.from_euler('zyx', angles[:3], degrees=True).as_dcm()
+            R2 = R.from_euler('zyx', angles[3:], degrees=True).as_dcm()
         else:
             R1 = np.diag((1,1,1))
             R2 = np.diag((1,1,1))
@@ -169,18 +169,42 @@ class _3KGECGDataset(PerturbECGDataset):
                 ]
             )
 
-            """
-            start_indices : [24,]
-            end_indices: [24,]
-            leftovers: [24,]
-
-            TODO
-            ecg1: [12, 2500]
-            -> [each leads, start_indices[each leads]:end_indices[each leads]] = 0
-            + [each leads, 0:leftover[each leads]]
-            (considering leftover)
-
-            synthesize_vcg.py 참고
-            """
+            for i in range(12):
+                ecg1[i, start_indices[i]:end_indices[i]] = 0
+                ecg1[i, 0:leftovers[i]] = 0
             
-            ecg1[range(0,12)]
+                ecg2[i, start_indices[i+12]:end_indices[i+12]] = 0
+                ecg2[i, 0:leftovers[i+12]] = 0
+        
+        ecg1 = torch.from_numpy(ecg1)
+        ecg2 = torch.from_numpy(ecg2)
+        return (ecg1, ecg2)
+    
+    def collator(self, samples):
+        flattened_samples = [s[i] for s in samples for i in range(len(s))]
+        flattened_samples = [s for s in flattened_samples if s["source"] is not None]
+
+        out = super().collator(flattened_samples)
+        out["patient_id"] = torch.IntTensor([s["patient_id"] for s in flattened_samples])
+
+        return out
+
+    def __getitem__(self, index):
+        path = os.path.join(self.root_dir, str(self.fnames[index]))
+
+        ecg = scipy.io.loadmat(path)
+
+        feats = ecg["feats"]
+        curr_sample_rate = ecg["curr_sample_rate"]
+
+        sources = self.postprocess(feats, curr_sample_rate)
+
+        patient_id = ecg["patient_id"][0,0]
+
+        return [
+            {
+                "id": index,
+                "source": sources[i],
+                "patient_id": patient_id
+            } for i in range(len(sources))
+        ]

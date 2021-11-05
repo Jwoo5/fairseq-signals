@@ -17,7 +17,8 @@ from omegaconf import MISSING, II, OmegaConf
 
 from fairseq_signals.data import (    
     FileECGDataset,
-    ClocsECGDataset
+    ClocsECGDataset,
+    _3KGECGDataset
 )
 from fairseq_signals.dataclass import Dataclass
 from fairseq_signals.models.clocs import CLOCS_MODE_CHOICES
@@ -48,6 +49,13 @@ class InferredW2vConfig:
 
     conv_feature_layers: Optional[str] = II("model.conv_feature_layers")
     encoder_embed_dim: Optional[int] = II("model.encoder_embed_dim")
+
+@dataclass
+class Inferred3KGConfig:
+    # The following are needed to perturb data samples in 3KG model
+    angle: Optional[int] = II("model.angle")
+    scale: Optional[float] = II("model.scale")
+    mask_ratio: Optional[float] = II("model.mask_ratio")
 
 @dataclass
 class ECGPretrainingConfig(Dataclass):
@@ -105,19 +113,19 @@ class ECGPretrainingConfig(Dataclass):
         }
     )
 
-    clocs: Optional[bool] = field(
-        default=False, metadata={"help": "whether to train in clocs manner"}
-    )
-    clocs_mode: Optional[str] = field(
-        default=None, metadata={"help": "coding mode for clocs model"}
-    )
-
     inferred_w2v_config: Optional[InferredW2vConfig] = field(
         default = None,
         metadata = {
             "help": "wav2vec 2.0 masking arguments used to pre-compute masks (required for TPU)"
         }
     )
+    inferred_3kg_config: Optional[Inferred3KGConfig] = field(
+        default=None,
+        metadata={
+            "help": "3kg model arguments used to perturb data samples"
+        }
+    )
+    model_name: str = II("model._name")
 
     # Legacy keys for loading old version of pre-trained model
     max_segment_size: Optional[int] = None
@@ -127,6 +135,8 @@ class ECGPretrainingConfig(Dataclass):
     required_segment_size_multiple: Optional[int] = None
     label: Optional[bool] = None
     patient_dataset: Optional[bool] = None
+    clocs: Optional[bool] = None
+    clocs_mode: Optional[str] = None
 
 @register_task("ecg_pretraining", dataclass = ECGPretrainingConfig)
 class ECGPretrainingTask(Task):
@@ -165,10 +175,9 @@ class ECGPretrainingTask(Task):
 
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
 
-        if getattr(task_cfg, "clocs", False):
+        if task_cfg.model_name == 'clocs':
             self.datasets[split] = ClocsECGDataset(
                 manifest_path = manifest_path,
-                split = split,
                 sample_rate = task_cfg.get("sample_rate", self.cfg.sample_rate),
                 max_sample_size = self.cfg.max_sample_size,
                 min_sample_size = self.cfg.min_sample_size,
@@ -176,10 +185,30 @@ class ECGPretrainingTask(Task):
                 pad = task_cfg.enable_padding,
                 pad_leads=task_cfg.enable_padding_leads,
                 leads_to_load=task_cfg.leads_to_load,
-                label = False,
                 normalize = task_cfg.normalize,
                 num_buckets = self.cfg.num_batch_buckets,
                 compute_mask_indices = self.cfg.precompute_mask_indices,
+                **self._get_mask_precompute_kwargs(task_cfg)
+            )
+        elif task_cfg.model_name == '3kg':
+            if task_cfg.leads_to_load is not None:
+                raise AssertionError(
+                    "pre-training 3kg must contain all the 12-leads. "
+                    "please set --leads_to_load to null"
+                )
+            inferred_3kg_config = OmegaConf.to_container(
+                self.cfg.inferred_3kg_config, resolve=True, enum_to_str=True
+            )
+            self.datasets[split] = _3KGECGDataset(
+                manifest_path=manifest_path,
+                sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
+                max_sample_size=self.cfg.max_sample_size,
+                min_sample_size=self.cfg.min_sample_size,
+                pad=task_cfg.enable_padding,
+                normalize=task_cfg.normalize,
+                num_buckets=self.cfg.num_batch_buckets,
+                compute_mask_indices=self.cfg.precompute_mask_indices,
+                **inferred_3kg_config,
                 **self._get_mask_precompute_kwargs(task_cfg)
             )
         else:
@@ -191,7 +220,6 @@ class ECGPretrainingTask(Task):
                 pad = task_cfg.enable_padding,
                 pad_leads=task_cfg.enable_padding_leads,
                 leads_to_load=task_cfg.leads_to_load,
-                label = False,
                 normalize = task_cfg.normalize,
                 num_buckets = self.cfg.num_batch_buckets,
                 compute_mask_indices = self.cfg.precompute_mask_indices,

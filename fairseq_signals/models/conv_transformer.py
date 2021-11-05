@@ -358,7 +358,7 @@ class ConvTransformerModel(BaseModel):
         return {"x": x, "padding_mask": padding_mask, "features": unmasked_features}
 
     def extract_features(self, source, padding_mask, mask=False):
-        res = self.forward(source, padding_mask, mask=mask)
+        res = self.forward(source, padding_mask=padding_mask, mask=mask)
         return res
 
     def get_logits(self, net_output):

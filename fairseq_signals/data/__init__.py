@@ -7,6 +7,7 @@ from .dataset import BaseDataset
 
 from .ecg.raw_ecg_dataset import FileECGDataset
 from .ecg.clocs_ecg_dataset import ClocsECGDataset
+from .ecg.perturb_ecg_dataset import _3KGECGDataset
 from .ecg.identification_ecg_dataset import IdentificationECGDataset
 
 from .iterators import (
@@ -22,5 +23,6 @@ __all__ = [
     "ShardedIterator",
     "FileECGDataset",
     "ClocsECGDataset",
+    "_3KGECGDataset",
     "IdentificationECGDataset"
 ]
