@@ -74,11 +74,11 @@ class ClocsModel(ConvTransformerModel):
         # x = torch.div(x.sum(dim=1), (x!=0).sum(dim=1))
 
         # for all-gather tensor across distributed devices
-        if dist_utils.get_data_parallel_world_size() > 1:
-            assert padding_mask is None, (
-                "padding_mask should be None if applying all_gather within training"
-            )
-            x = torch.cat(GatherLayer.apply(x), dim=0)
+        # if dist_utils.get_data_parallel_world_size() > 1:
+        #     assert padding_mask is None, (
+        #         "padding_mask should be None if applying all_gather within training"
+        #     )
+        #     x = torch.cat(GatherLayer.apply(x), dim=0)
 
         return {
             "x": x,
