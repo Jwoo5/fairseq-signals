@@ -1109,6 +1109,7 @@ class Trainer(object):
         with metrics.aggregate() as agg:
             if logging_outputs is not None:
                 self.task.reduce_metrics(logging_outputs, self.get_criterion())
+                loss_1 = logging_outputs[0]['loss_1']
                 del logging_outputs
             
             # extra warning for criterions that don't properly log a loss value
@@ -1127,6 +1128,7 @@ class Trainer(object):
             for key_to_delete in ["ppl", "wps", "wpb", "bsz"]:
                 if key_to_delete in logging_output:
                     del logging_output[key_to_delete]
+            logging_output["loss_1"] = loss_1
             return logging_output
     
 
