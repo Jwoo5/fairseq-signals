@@ -36,7 +36,7 @@ class Wav2VecCriterionConfig(Dataclass):
 class Wav2VecCriterion(BaseCriterion):
     def __init__(self, task, infonce = False, loss_weights = None, log_keys = None):
         super().__init__(task)
-        self.infonce = infonce
+        self.infonce = infonce #infonceloss
         self.loss_weights = loss_weights
         self.log_keys = [] if log_keys is None else log_keys
 
@@ -68,7 +68,7 @@ class Wav2VecCriterion(BaseCriterion):
             loss = F.binary_cross_entropy_with_logits(
                 logits, target.float(), weights, reduction = reduction
             )
-        
+
         if 'sample_size' in sample:
             sample_size = sample['sample_size']
         elif 'mask_indices' in sample['net_input']:
@@ -76,6 +76,11 @@ class Wav2VecCriterion(BaseCriterion):
         else:
             sample_size = target.numel() if self.infonce else target.long().sum().item()
         losses.append(loss.detach().clone())
+
+        L1loss= torch.nn.L1Loss()
+        loss2 = L1loss(sample['net_input']['source'], net_output['n'])
+        loss += loss2
+        losses.append(loss2.detach())
 
         if self.loss_weights is not None:
             assert hasattr(model, "get_extra_losses")
@@ -92,6 +97,8 @@ class Wav2VecCriterion(BaseCriterion):
                     p = coef * p.float() * sample_size
                     loss += p
                     losses.append(p)
+            # loss += MSE_losses
+            # losses.append(MSE_losses)
         
         logging_output = {
             "loss": loss.item() if reduce else loss.detach(),
