@@ -9,6 +9,7 @@ from omegaconf import II
 
 import torch
 import torch.nn as nn
+import numpy as np
 
 from fairseq_signals.dataclass import ChoiceEnum
 from fairseq_signals.models import register_model
@@ -91,6 +92,8 @@ class Wav2Vec2Model(ConvTransformerModel):
         self.negatives_from_everywhere = cfg.negatives_from_everywhere
 
         self.logit_temp = cfg.logit_temp
+        self.linear = nn.Linear(768, 256)
+
 
         if cfg.quantize_targets:
             vq_dim = cfg.latent_dim if cfg.latent_dim > 0 else self.final_dim
@@ -238,21 +241,31 @@ class Wav2Vec2Model(ConvTransformerModel):
         features_only = False,
         mask_indices = None,
     ):
-        if self.feature_grad_mult > 0:
-            features = self.feature_extractor(source)
+        #Masked source
+        source_clone = source.clone() #[64, 12, 2500]
+        masked_content = torch.zeros_like(source_clone)
+        source_clone[:,11,:] = masked_content[:, 11, :]
+
+        if self.feature_grad_mult > 0: #0.1
+            features = self.feature_extractor(source) #4 conv blocks of stride=2 #[64, 256, 156]
+            masked_features = self.feature_extractor(source_clone)
             if self.feature_grad_mult != 1.0:
-                features = GradMultiply.apply(features, self.feature_grad_mult)
+                features = GradMultiply.apply(features, self.feature_grad_mult) #multiply features by 0.1
+                masked_features = GradMultiply.apply(masked_features, self.feature_grad_mult)  # multiply features by 0.1
         else:
             with torch.no_grad():
                 features = self.feature_extractor(source)
-
+                masked_features = self.feature_extractor(source_clone)
 
         features_pen = features.float().pow(2).mean()
 
-        features = features.transpose(1,2)
-        features = self.layer_norm(features)
-        unmasked_features = features.clone()
+        features = features.transpose(1,2) #[64, 156, 256]
+        features = self.layer_norm(features) #features 축을 가장 뒤로 보낸 뒤, 해당 축에 대한 normalization 진행
+        unmasked_features = features.clone() #clone the features (for unmasked features)
+        features_unmasked = features.clone()
 
+        masked_features =masked_features.transpose(1,2)
+        masked_features = self.layer_norm(masked_features)
 
         if padding_mask is not None and padding_mask.any():
             input_lengths = (1 - padding_mask.long()).sum(-1)
@@ -265,6 +278,9 @@ class Wav2Vec2Model(ConvTransformerModel):
 
             padding_mask = torch.zeros(
                 features.shape[:2], dtype = features.dtype, device = features.device
+            )
+            padding_mask = torch.zeros(
+                masked_features.shape[:2], dtype = masked_features.dtype, device = masked_features.device
             )
 
             # these two operations makes sure that all values
@@ -279,11 +295,15 @@ class Wav2Vec2Model(ConvTransformerModel):
         else:
             padding_mask = None
 
-        if self.post_extract_proj is not None:
+        if self.post_extract_proj is not None: #feature을 더 높은 차원으로 임베딩 256 -> 768
             features = self.post_extract_proj(features)
-        
-        features = self.dropout_input(features)
+            features_unmasked = self.post_extract_proj(features_unmasked)
+            masked_features = self.post_extract_proj(masked_features)
+
+        features_unmasked = self.dropout_input(features_unmasked)
+        features = self.dropout_input(features) #[64, 156, 768] 0.1프로의 확률로 dropout 적용
         unmasked_features = self.dropout_features(unmasked_features)
+        masked_features = self.dropout_input(masked_features)  # [64, 156, 768] 0.1프로의 확률로 dropout 적용
 
         num_vars = None
         code_ppl = None
@@ -305,31 +325,39 @@ class Wav2Vec2Model(ConvTransformerModel):
                 padding_mask,
                 mask_indices = mask_indices
             )
+            n = masked_features
             if mask_indices is not None:
                 y = unmasked_features[mask_indices].view(
-                    unmasked_features.size(0), -1, unmasked_features.size(-1)
+                    unmasked_features.size(0), -1, unmasked_features.size(-1) #[64, 59, 256]
                 )
             else:
                 y = unmasked_features
         else:
+            n = masked_features
             x = features
             y = unmasked_features
+            features_unmasked = features_unmasked
             mask_indices = None
         
-        x = self.encoder(x, padding_mask = padding_mask)
+        x = self.encoder(x, padding_mask = padding_mask) #[64, 156, 768]
+        features_unmasked = self.encoder(features_unmasked)
+        n = self.encoder(n, padding_mask = padding_mask)
+
+        #deconvolution
+        n = self.transpose_feature(n)
 
         if features_only:
             return {"x": x, "padding_mask" : padding_mask, "features": unmasked_features}
         
         if self.quantizer:
             q = self.quantizer(y, produce_targets=False)
-            y = q["x"]
+            y = q["x"] #[64, 59, 256]
             num_vars = q["num_vars"]
             code_ppl = q["code_perplexity"]
             prob_ppl = q["prob_perplexity"]
             curr_temp = q["temp"]
 
-            y = self.project_q(y)
+            y = self.project_q(y) #[64, 59, 256]
 
             if self.negatives_from_everywhere:
                 neg_cands, *_ = self.quantizer(unmasked_features, produce_targets = False)
@@ -356,7 +384,7 @@ class Wav2Vec2Model(ConvTransformerModel):
             else:
                 negs, _ = self.sample_negatives(y, y.size(1))
 
-        x = x[mask_indices].view(x.size(0), -1, x.size(-1))
+        x = x[mask_indices].view(x.size(0), -1, x.size(-1)) #[64, 59, 768]
 
         if self.target_glu:
             y = self.target_glu(y)
@@ -365,13 +393,14 @@ class Wav2Vec2Model(ConvTransformerModel):
         x = self.final_proj(x)
         x = self.compute_preds(x, y, negs)
 
-        result = {"x": x, "padding_mask": padding_mask, "features_pen": features_pen}
+        result = {"x": x, "padding_mask": padding_mask, "features_pen": features_pen, "n": n}
 
         if prob_ppl is not None:
             result["prob_perplexity"] = prob_ppl
             result["code_perplexity"] = code_ppl
             result["num_vars"] = num_vars
             result["temp"] = curr_temp
+            result["n"] = n
 
         return result
     
@@ -409,6 +438,12 @@ class Wav2Vec2Model(ConvTransformerModel):
             pen.append(net_output["features_pen"])
 
         return pen
+
+    def MSE_losses(self, deconv_output_unmasked, deconv_output):
+        MSEloss = torch.nn.MSELoss()
+        error = MSEloss(deconv_output_unmasked, deconv_output)
+
+        return error
 
     def remove_pretraining_modules(self):
         self.quantizer = None

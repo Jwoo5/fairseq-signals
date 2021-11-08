@@ -86,3 +86,90 @@ class ConvFeatureExtraction(nn.Module):
             x = conv(x)
 
         return x
+
+
+class ConvFeatureTranspose(nn.Module):
+    def __init__(
+            self,
+            conv_layers: List[Tuple[int, int, int, int]],
+            in_d: int = 1,
+            dropout: float = 0.0,
+            mode: str = "default",
+            conv_bias: bool = False,
+    ):
+        super().__init__()
+
+        assert mode in {"default", "layer_norm"}
+
+        def block(
+                n_in,
+                n_out,
+                k,
+                stride,
+                output_padding,
+                is_layer_norm=False,
+                is_group_norm=False,
+                conv_bias=False,
+        ):
+            def make_transconv():
+                conv = nn.ConvTranspose1d(n_in, n_out, k, output_padding=output_padding, stride=stride, bias=conv_bias)
+                nn.init.kaiming_normal_(conv.weight)
+                return conv
+
+            assert (
+                           is_layer_norm and is_group_norm
+                   ) == False, "layer norm and group norm are exclusive"
+
+            if is_layer_norm:
+                return nn.Sequential(
+                    make_transconv(),
+                    nn.Dropout(p=dropout),
+                    nn.Sequential(
+                        TransposeLast(),
+                        Fp32LayerNorm(dim, dim, affine=True),
+                        TransposeLast()
+                    ),
+                    nn.GELU(),
+                )
+            elif is_group_norm:
+                return nn.Sequential(
+                    make_transconv(),
+                    nn.Dropout(p=dropout),
+                    Fp32GroupNorm(dim, dim, affine=True),
+                    nn.GELU(),
+                )
+            else:
+                return nn.Sequential(make_transconv(), nn.Dropout(p=dropout), nn.GELU())
+
+        self.transconv_layers = nn.ModuleList()
+        for i, cl in enumerate(conv_layers):
+            assert len(cl) == 4, "invalid conv definition: " + str(cl)
+            (dim, k, stride, output_padding) = cl
+
+            self.transconv_layers.append(
+                block(
+                    in_d,
+                    dim,
+                    k,
+                    stride,
+                    output_padding=output_padding,
+                    is_layer_norm=mode == "layer_norm",
+                    is_group_norm=mode == "default" and i == 0,
+                    conv_bias=conv_bias,
+                )
+            )
+            in_d = dim
+
+    def forward(self, x):
+        # B x T -> B x C x T
+        if len(x.shape) < 3:
+            x = x.unsqueeze(1)
+
+        x = x.transpose(1, 2)
+        for transconv in self.transconv_layers:
+            x = transconv(x)
+
+
+
+
+        return x
