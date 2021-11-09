@@ -65,17 +65,16 @@ class _3KGCriterion(BaseCriterion):
 
         sim_matrix = torch.matmul(logits, logits.T)        
 
-
         mask = 1 - torch.eye(bsz*2, dtype=torch.uint8).to(logits.device)
         sim_matrix = torch.masked_select(
             sim_matrix, mask==1
-        ).view(sim_matrix.size(0), -1)[2*torch.arange(bsz)]
+        ).view(sim_matrix.size(0), -1)
 
         pos_mask = torch.masked_select(
             torch.stack([p == pids for p in pids]), mask==1
-        ).view(logits.size(0), -1)[2*torch.arange(bsz)]
+        ).view(logits.size(0), -1)
 
-        neg_mask = logits.new_ones((bsz, bsz*2-1), dtype=torch.uint8)
+        neg_mask = logits.new_ones((bsz*2, bsz*2-1), dtype=torch.uint8)
         neg_mask[pos_mask] = 0
 
         positives = sim_matrix[pos_mask].unsqueeze(1)
@@ -101,7 +100,7 @@ class _3KGCriterion(BaseCriterion):
         elif 'mask_indices' in sample['net_input']:
             sample_size = sample['net_input']['mask_indices'].sum()
         else:
-            sample_size = target.long().sum().item()
+            sample_size = target.numel()
         losses.append(loss.detach().clone())
 
         logging_output = {
