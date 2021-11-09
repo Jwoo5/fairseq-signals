@@ -183,6 +183,8 @@ class _3KGECGDataset(PerturbECGDataset):
     def collator(self, samples):
         flattened_samples = [s[i] for s in samples for i in range(len(s))]
         flattened_samples = [s for s in flattened_samples if s["source"] is not None]
+        if len(flattened_samples) == 0:
+            return {}
 
         out = super().collator(flattened_samples)
         out["patient_id"] = torch.IntTensor([s["patient_id"] for s in flattened_samples])
