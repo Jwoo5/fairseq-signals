@@ -116,7 +116,7 @@ class ECGPretrainingConfig(Dataclass):
     )
 
     perturbation_mode: PERTURBATION_CHOICES = field(
-        default="none",
+        default="random_leads_masking",
         metadata={
             "help": "mode for perturbation before samples being forwarded. "
             "none is for 'do nothing about perturbation'"
@@ -214,6 +214,7 @@ class ECGPretrainingTask(Task):
     def load_dataset(self, split: str, task_cfg: Dataclass = None, **kwargs):
         data_path = self.cfg.data
         task_cfg = task_cfg or self.cfg
+        perturbation_mode = self.cfg.perturbation_mode
 
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
 
@@ -254,7 +255,6 @@ class ECGPretrainingTask(Task):
         elif self.cfg.perturbation_mode != "none":
             self.datasets[split] = PerturbECGDataset(
                 manifest_path=manifest_path,
-                perturbation_mode=self.cfg.perturbation_mode,
                 sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
                 max_sample_size=self.cfg.max_sample_size,
                 min_sample_size = self.cfg.min_sample_size,
