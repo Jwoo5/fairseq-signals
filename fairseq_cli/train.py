@@ -10,6 +10,7 @@ Train a new model on one or across multiple GPUs.
 import argparse
 import logging
 import math
+import random
 import os
 import sys
 from itertools import chain
@@ -60,6 +61,7 @@ def main(cfg: Config) -> None:
         logger.addHandler(handler)
     
     np.random.seed(cfg.common.seed)
+    random.seed(cfg.common.seed)
     utils.set_torch_seed(cfg.common.seed)
 
     if distributed_utils.is_master(cfg.distributed_training):
