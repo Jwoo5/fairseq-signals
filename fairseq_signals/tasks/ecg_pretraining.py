@@ -22,8 +22,6 @@ from fairseq_signals.data import (
     _3KGECGDataset
 )
 from fairseq_signals.dataclass import Dataclass
-from fairseq_signals.models.clocs import CLOCS_MODE_CHOICES
-from fairseq_signals.data.ecg.perturb_ecg_dataset import PERTURBATION_CHOICES, MASKING_LEADS_STRATEGY_CHOICES
 
 from . import Task, register_task
 from ..utils import utils
@@ -115,14 +113,14 @@ class ECGPretrainingConfig(Dataclass):
         }
     )
 
-    perturbation_mode: PERTURBATION_CHOICES = field(
+    perturbation_mode: str = field(
         default="random_leads_masking",
         metadata={
             "help": "mode for perturbation before samples being forwarded. "
             "none is for 'do nothing about perturbation'"
         }
     )
-    mask_leads_selection: MASKING_LEADS_STRATEGY_CHOICES = field(
+    mask_leads_selection: str = field(
         default="random",
         metadata={
             "help": "how to choose leads to be masked. random is masking every "
