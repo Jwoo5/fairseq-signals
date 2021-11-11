@@ -13,7 +13,7 @@ from .same_pad import SamePad
 from .transformer_encoder_layer import TransformerEncoderLayer
 from .transformer_encoder import TransformerEncoder
 from .transpose_last import TransposeLast
-from .conv_feature_extraction import ConvFeatureExtraction
+from .conv_feature_extraction import ConvFeatureExtraction, TransposedConvFeatureExtraction
 
 __all__ = [
     "Fp32GroupNorm",
@@ -27,5 +27,6 @@ __all__ = [
     "TransformerEncoderLayer",
     "TransformerEncoder",
     "TransposeLast",
-    "ConvFeatureExtraction"
+    "ConvFeatureExtraction",
+    "TransposedConvFeatureExtraction"
 ]
