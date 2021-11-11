@@ -192,9 +192,8 @@ class ECGPretrainingTask(Task):
     def _get_mask_leads_kwargs(self):
         if self.cfg.perturbation_mode == "random_leads_masking":
             return {
-                "perturbation_mode": self.cfg.perturbation_mode,
                 "mask_leads_selection": self.cfg.mask_leads_selection,
-                "mask_leads_porb": self.cfg.mask_leads_prob,
+                "mask_leads_prob": self.cfg.mask_leads_prob,
                 "mask_leads_condition": self.cfg.mask_leads_condition
             }
         else:
@@ -214,7 +213,6 @@ class ECGPretrainingTask(Task):
     def load_dataset(self, split: str, task_cfg: Dataclass = None, **kwargs):
         data_path = self.cfg.data
         task_cfg = task_cfg or self.cfg
-        perturbation_mode = self.cfg.perturbation_mode
 
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
 
@@ -255,6 +253,7 @@ class ECGPretrainingTask(Task):
         elif self.cfg.perturbation_mode != "none":
             self.datasets[split] = PerturbECGDataset(
                 manifest_path=manifest_path,
+                perturbation_mode=self.cfg.perturbation_mode,
                 sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
                 max_sample_size=self.cfg.max_sample_size,
                 min_sample_size = self.cfg.min_sample_size,

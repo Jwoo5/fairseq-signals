@@ -102,11 +102,11 @@ class PerturbECGDataset(FileECGDataset):
         if len(out) == 0:
             return {}
         
-        if "padding_mask" in out["net_input"]:
-            #TODO also need to pad original samples
+        if "padding_mask" in out["net_input"] and out["net_input"]["padding_mask"].any():
+            #TODO in this case, you also need to pad original samples
             raise NotImplementedError()
         else:
-            original = torch.FloatTensor([s["original"] for s in samples])
+            original = torch.stack([s["original"] for s in samples])
 
         out["original"] = original
 
@@ -117,7 +117,7 @@ class PerturbECGDataset(FileECGDataset):
 
         ecg = scipy.io.loadmat(path)
 
-        feats = ecg["feats"]
+        feats = torch.from_numpy(ecg["feats"])
         curr_sample_rate = ecg["curr_sample_rate"]
 
         source, original = self.postprocess(feats, curr_sample_rate)
