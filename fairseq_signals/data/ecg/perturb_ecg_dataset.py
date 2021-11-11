@@ -3,6 +3,7 @@ import os
 import sys
 
 import math
+import random
 import numpy as np
 import scipy.io
 from scipy.spatial.transform import Rotation as R
@@ -10,13 +11,18 @@ import torch
 import torch.nn.functional as F
 
 from .raw_ecg_dataset import FileECGDataset
+from fairseq_signals.dataclass import ChoiceEnum
 
 logger = logging.getLogger(__name__)
+
+PERTURBATION_CHOICES = ChoiceEnum(["3kg", "random_leads_masking", "none"])
+MASKING_LEADS_STRATEGY_CHOICES = ChoiceEnum(["random", "conditional"])
 
 class PerturbECGDataset(FileECGDataset):
     def __init__(
         self,
         manifest_path,
+        perturbation_mode: PERTURBATION_CHOICES,
         sample_rate,
         max_sample_size=None,
         min_sample_size=0,
@@ -25,7 +31,7 @@ class PerturbECGDataset(FileECGDataset):
         normalize=False,
         num_buckets=0,
         compute_mask_indices=False,
-        **mask_compute_kwargs
+        **mask_leads_kwargs
     ):
         super().__init__(
             manifest_path=manifest_path,
@@ -37,11 +43,45 @@ class PerturbECGDataset(FileECGDataset):
             normalize=normalize,
             num_buckets=num_buckets,
             compute_mask_indices=compute_mask_indices,
-            **mask_compute_kwargs
         )
+        self.perturbation_mode = perturbation_mode
+
+        if perturbation_mode == "random_leads_masking":
+            self.mask_leads_selection = mask_leads_kwargs["mask_leads_selection"]
+            self.mask_leads_prob = mask_leads_kwargs["mask_leads_prob"]
+            self.mask_leads_condtion = mask_leads_kwargs["mask_leads_condition"]
 
     def perturb(self, feats):
-        raise NotImplementedError()
+        if self.perturbation_mode == "random_leads_masking":
+            perturbed, original = self._mask_random_leads(feats)
+        else:
+            raise ValueError(
+                f"self.perturbation_mode={self.perturbation_mode}"
+            )
+
+        return perturbed, original
+
+    def _mask_random_leads(self, feats):
+        perturbed_feats = feats.new_zeros(feats.size())
+        if self.mask_leads_selection == "random":
+            survivors = np.random.uniform(0, 1, size=12) > self.mask_leads_prob
+            perturbed_feats[survivors] = feats[survivors]
+        elif self.mask_leads_selection == "conditional":
+            (n1, n2) = self.mask_leads_condition
+            assert (
+                (0 <= n1 and n1 <=6)
+                and (0 <= n2 and n2 <= 6)
+            ), (n1, n2)
+            s1 = np.array(
+                random.sample(list(np.arange(6)), 6-n1)
+            )
+            s2 = np.array(
+                random.sample(list(np.arange(6)), 6-n2)
+            ) + 6
+            perturbed_feats[s1] = feats[s1]
+            perturbed_feats[s2] = feats[s2]
+        
+        return perturbed_feats, feats
 
     def postprocess(self, feats, curr_sample_rate):
         assert feats.shape[0] == 12, feats.shape[0]
@@ -49,19 +89,44 @@ class PerturbECGDataset(FileECGDataset):
         if self.sample_rate > 0 and curr_sample_rate != self.sample_rate:
             raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
 
-        feats = self.perturb(feats)
-
-        if isinstance(feats, tuple):
-            feats = tuple(f.float() for f in feats)
-        else:
-            feats = feats.float()
-
         if self.normalize:
             with torch.no_grad():
                 feats = F.layer_norm(feats, feats.shape)
-        
-        return feats
 
+        perturbed, original = self.perturb(feats)
+        
+        return perturbed.float(), original.float()
+
+    def collator(self, samples):
+        out = super().collator(samples)
+        if len(out) == 0:
+            return {}
+        
+        if "padding_mask" in out["net_input"] and out["net_input"]["padding_mask"].any():
+            #TODO in this case, you also need to pad original samples
+            raise NotImplementedError()
+        else:
+            original = torch.stack([s["original"] for s in samples])
+
+        out["original"] = original
+
+        return out
+
+    def __getitem__(self, index):
+        path = os.path.join(self.root_dir, str(self.fnames[index]))
+
+        ecg = scipy.io.loadmat(path)
+
+        feats = torch.from_numpy(ecg["feats"])
+        curr_sample_rate = ecg["curr_sample_rate"]
+
+        source, original = self.postprocess(feats, curr_sample_rate)
+
+        return {
+            "id": index,
+            "source": source,
+            "original": original
+        }
 class _3KGECGDataset(PerturbECGDataset):
     def __init__(
         self,
@@ -179,7 +244,24 @@ class _3KGECGDataset(PerturbECGDataset):
         ecg1 = torch.from_numpy(ecg1)
         ecg2 = torch.from_numpy(ecg2)
         return (ecg1, ecg2)
-    
+
+    def postprocess(self, feats, curr_sample_rate):
+        assert feats.shape[0] == 12, feats.shape[0]
+
+        if self.sample_rate > 0 and curr_sample_rate != self.sample_rate:
+            raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
+
+        if self.normalize:
+            with torch.no_grad():
+                feats = F.layer_norm(feats.float(), feats.shape)
+
+        feats = self.perturb(feats)
+
+        assert isinstance(feats, tuple), feats
+        feats = tuple(f.float() for f in feats)
+
+        return feats
+
     def collator(self, samples):
         flattened_samples = [s[i] for s in samples for i in range(len(s))]
         flattened_samples = [s for s in flattened_samples if s["source"] is not None]

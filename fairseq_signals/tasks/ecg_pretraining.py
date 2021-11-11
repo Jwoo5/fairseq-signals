@@ -12,16 +12,18 @@ import torch
 
 from argparse import Namespace
 from dataclasses import dataclass, field
-from typing import Optional, Any
+from typing import Optional, Any, Tuple
 from omegaconf import MISSING, II, OmegaConf
 
 from fairseq_signals.data import (    
     FileECGDataset,
     ClocsECGDataset,
+    PerturbECGDataset,
     _3KGECGDataset
 )
 from fairseq_signals.dataclass import Dataclass
 from fairseq_signals.models.clocs import CLOCS_MODE_CHOICES
+from fairseq_signals.data.ecg.perturb_ecg_dataset import PERTURBATION_CHOICES, MASKING_LEADS_STRATEGY_CHOICES
 
 from . import Task, register_task
 from ..utils import utils
@@ -113,6 +115,35 @@ class ECGPretrainingConfig(Dataclass):
         }
     )
 
+    perturbation_mode: PERTURBATION_CHOICES = field(
+        default="random_leads_masking",
+        metadata={
+            "help": "mode for perturbation before samples being forwarded. "
+            "none is for 'do nothing about perturbation'"
+        }
+    )
+    mask_leads_selection: MASKING_LEADS_STRATEGY_CHOICES = field(
+        default="random",
+        metadata={
+            "help": "how to choose leads to be masked. random is masking every "
+            "lead with the probability of --mask_leads_prob. conditional is masking "
+            "specific number of leads according to --mask_leads_condition"
+        }
+    )
+    mask_leads_prob: float = field(
+        default=0.5,
+        metadata={
+            "help": "probability of replacing a lead with 0"
+        }
+    )
+    mask_leads_condition: Tuple[int, int] = field(
+        default=(4, 5),
+        metadata={
+            "help": "specific number of leads to be masked. "
+            "tuple of 2 values (# out of the first 6 leads, # out of the last 6 leads)"
+        }
+    )
+
     inferred_w2v_config: Optional[InferredW2vConfig] = field(
         default = None,
         metadata = {
@@ -158,6 +189,16 @@ class ECGPretrainingTask(Task):
 
         return cls(cfg)
     
+    def _get_mask_leads_kwargs(self):
+        if self.cfg.perturbation_mode == "random_leads_masking":
+            return {
+                "mask_leads_selection": self.cfg.mask_leads_selection,
+                "mask_leads_prob": self.cfg.mask_leads_prob,
+                "mask_leads_condition": self.cfg.mask_leads_condition
+            }
+        else:
+            return {}
+
     def _get_mask_precompute_kwargs(self, cfg):
         if self.cfg.precompute_mask_indices:
             assert(
@@ -207,9 +248,19 @@ class ECGPretrainingTask(Task):
                 pad=task_cfg.enable_padding,
                 normalize=task_cfg.normalize,
                 num_buckets=self.cfg.num_batch_buckets,
-                compute_mask_indices=self.cfg.precompute_mask_indices,
                 **inferred_3kg_config,
-                **self._get_mask_precompute_kwargs(task_cfg)
+            )
+        elif self.cfg.perturbation_mode != "none":
+            self.datasets[split] = PerturbECGDataset(
+                manifest_path=manifest_path,
+                perturbation_mode=self.cfg.perturbation_mode,
+                sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
+                max_sample_size=self.cfg.max_sample_size,
+                min_sample_size = self.cfg.min_sample_size,
+                pad=task_cfg.enable_padding,
+                normalize=task_cfg.normalize,
+                num_buckets=self.cfg.num_batch_buckets,
+                **self._get_mask_leads_kwargs()
             )
         else:
             self.datasets[split] = FileECGDataset(
