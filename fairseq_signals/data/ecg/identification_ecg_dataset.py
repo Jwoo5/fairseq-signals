@@ -28,6 +28,7 @@ class IdentificationECGDataset(RawECGDataset):
     ):
         super().__init__(
             sample_rate=sample_rate,
+            perturbation_mode='none',
             max_sample_size=max_sample_size,
             min_sample_size=min_sample_size,
             shuffle=shuffle,
@@ -78,6 +79,8 @@ class IdentificationECGDataset(RawECGDataset):
     
     def collator(self, samples):
         out = super().collator(samples)
+        if len(out) == 0:
+            return {}
         samples = [s for s in samples if s["source"] is not None]
         out["patient_id"] = torch.IntTensor([s["patient_id"] for s in samples])
 

@@ -18,7 +18,6 @@ from omegaconf import MISSING, II, OmegaConf
 from fairseq_signals.data import (    
     FileECGDataset,
     ClocsECGDataset,
-    PerturbECGDataset,
     _3KGECGDataset
 )
 from fairseq_signals.dataclass import Dataclass
@@ -114,7 +113,7 @@ class ECGPretrainingConfig(Dataclass):
     )
 
     perturbation_mode: str = field(
-        default="random_leads_masking",
+        default="none",
         metadata={
             "help": "mode for perturbation before samples being forwarded. "
             "none is for 'do nothing about perturbation'"
@@ -216,18 +215,20 @@ class ECGPretrainingTask(Task):
 
         if task_cfg.model_name == 'clocs':
             self.datasets[split] = ClocsECGDataset(
-                manifest_path = manifest_path,
-                sample_rate = task_cfg.get("sample_rate", self.cfg.sample_rate),
-                max_sample_size = self.cfg.max_sample_size,
-                min_sample_size = self.cfg.min_sample_size,
+                manifest_path=manifest_path,
+                sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
+                perturbation_mode=self.cfg.perturbation_mode,
+                max_sample_size=self.cfg.max_sample_size,
+                min_sample_size=self.cfg.min_sample_size,
                 clocs_mode=task_cfg.clocs_mode,
-                pad = task_cfg.enable_padding,
+                pad=task_cfg.enable_padding,
                 pad_leads=task_cfg.enable_padding_leads,
                 leads_to_load=task_cfg.leads_to_load,
-                normalize = task_cfg.normalize,
-                num_buckets = self.cfg.num_batch_buckets,
-                compute_mask_indices = self.cfg.precompute_mask_indices,
-                **self._get_mask_precompute_kwargs(task_cfg)
+                normalize=task_cfg.normalize,
+                num_buckets=self.cfg.num_batch_buckets,
+                compute_mask_indices=self.cfg.precompute_mask_indices,
+                **self._get_mask_precompute_kwargs(task_cfg),
+                **self._get_mask_leads_kwargs()
             )
         elif task_cfg.model_name == '3kg':
             if task_cfg.leads_to_load is not None:
@@ -248,31 +249,21 @@ class ECGPretrainingTask(Task):
                 num_buckets=self.cfg.num_batch_buckets,
                 **inferred_3kg_config,
             )
-        elif self.cfg.perturbation_mode != "none":
-            self.datasets[split] = PerturbECGDataset(
-                manifest_path=manifest_path,
-                perturbation_mode=self.cfg.perturbation_mode,
-                sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
-                max_sample_size=self.cfg.max_sample_size,
-                min_sample_size = self.cfg.min_sample_size,
-                pad=task_cfg.enable_padding,
-                normalize=task_cfg.normalize,
-                num_buckets=self.cfg.num_batch_buckets,
-                **self._get_mask_leads_kwargs()
-            )
         else:
             self.datasets[split] = FileECGDataset(
-                manifest_path = manifest_path,
-                sample_rate = task_cfg.get("sample_rate", self.cfg.sample_rate),
-                max_sample_size = self.cfg.max_sample_size,
-                min_sample_size = self.cfg.min_sample_size,
-                pad = task_cfg.enable_padding,
+                manifest_path=manifest_path,
+                sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
+                perturbation_mode=self.cfg.perturbation_mode,
+                max_sample_size=self.cfg.max_sample_size,
+                min_sample_size=self.cfg.min_sample_size,
+                pad=task_cfg.enable_padding,
                 pad_leads=task_cfg.enable_padding_leads,
                 leads_to_load=task_cfg.leads_to_load,
-                normalize = task_cfg.normalize,
-                num_buckets = self.cfg.num_batch_buckets,
-                compute_mask_indices = self.cfg.precompute_mask_indices,
-                **self._get_mask_precompute_kwargs(task_cfg)
+                normalize=task_cfg.normalize,
+                num_buckets=self.cfg.num_batch_buckets,
+                compute_mask_indices=self.cfg.precompute_mask_indices,
+                **self._get_mask_precompute_kwargs(task_cfg),
+                **self._get_mask_leads_kwargs()
             )
 
 
