@@ -23,6 +23,9 @@ class ConvTransformerReconstructionModel(ConvTransformerModel):
     def __init__(self, cfg):
         super().__init__(cfg)
         self.cfg = cfg
+        
+        if cfg.mask_prob <= 0:
+            self.mask_emb = None
 
         conv_layers = eval(self.cfg.conv_feature_layers)
         conv_layers.reverse()

@@ -44,6 +44,12 @@ def get_parser():
         "--sec", default=5, type=int,
         help="seconds to randomly crop to"
     )
+    parser.add_argument(
+        "--only-norm",
+        default=False,
+        type=bool,
+        help="whether to preprocess only normal samples"
+    )
     parser.add_argument("--seed", default=42, type=int, metavar="N", help="random seed")
 
     return parser
@@ -62,13 +68,20 @@ def main(args):
 
     patient_ids = csv['patient_id'].to_numpy()
     fnames = csv['filename_hr'].to_numpy()
+    scp_codes = csv['scp_codes']
 
     table = dict()
-    for fname, patient_id in zip(fnames, patient_ids):
-        if patient_id in table:
-            table[patient_id] += ',' + os.path.join(dir_path, fname)
+    for fname, patient_id, scp_code in zip(fnames, patient_ids, scp_codes):
+        if args.only_norm and 'NORM' in eval(scp_code):
+            if patient_id in table:
+                table[patient_id] += ',' + os.path.join(dir_path, fname)
+            else:
+                table[patient_id] = os.path.join(dir_path, fname)
         else:
-            table[patient_id] = os.path.join(dir_path, fname)
+            if patient_id in table:
+                table[patient_id] += ',' + os.path.join(dir_path, fname)
+            else:
+                table[patient_id] = os.path.join(dir_path, fname)
     
     filtered = {k: v for k, v in table.items() if len(v.split(',')) >= 2}
 
