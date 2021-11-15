@@ -4,7 +4,7 @@ import torch
 import torch.nn as nn
 
 from dataclasses import dataclass, field
-from typing import Optional
+from typing import Any, Optional
 from omegaconf import II
 
 from fairseq_signals.models import register_model
@@ -17,6 +17,13 @@ from fairseq_signals.utils import utils
 
 @dataclass
 class ArcFaceConfig(ConvTransformerFinetuningConfig):
+    # legacy keys for loading old-version model
+    # w2v_path: Optional[str] = None
+    # clocs_path: Optional[str] = None
+    # layerdrop: Optional[float] = None
+    # mask_channel_before: Optional[bool] = None
+    # w2v_args: Any = None
+    # clocs_args: Any = None
     pass
 
 #TODO need to add encoder options? (conv_transformer, conv_rnn, convnet, ...)
