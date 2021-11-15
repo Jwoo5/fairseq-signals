@@ -110,8 +110,6 @@ class ClocsECGDataset(RawECGDataset):
 
         sizes = [s.size(-1) for s in sources]
 
-        breakpoint()
-
         if self.pad:
             target_size = min(max(sizes), self.max_sample_size)
         else:
