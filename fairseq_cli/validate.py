@@ -71,6 +71,13 @@ def main(cfg: DictConfig, override_args = None):
     model = task.build_model(model_cfg)
 
     if state is not None:
+        # for legacy wav2vec model
+        # state["model"] = {k.replace('w2v_encoder.w2v_model.','encoder.'): v for k, v in state["model"].items()}
+
+        # for legacy clocs model
+        # state["model"] = {k.replace('clocs_encoder.clocs_model.encoder.w2v_model.','encoder.'): v for k, v in state["model"].items()}
+        # state["model"].pop("encoder.mask_emb")
+
         model.load_state_dict(state["model"], strict = True)
     else:
         raise FileNotFoundError(cfg.common_eval.path)
