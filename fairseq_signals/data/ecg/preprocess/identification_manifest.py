@@ -65,7 +65,7 @@ def main(args):
         patients = {}
         for fname in glob.iglob(search_path, recursive=True):
             data = scipy.io.loadmat(fname)
-            patient_id = data['patient_id'][0]
+            patient_id = data['patient_id'][0,0]
 
             if patient_id in patients:
                 patients[patient_id].append(fname)
