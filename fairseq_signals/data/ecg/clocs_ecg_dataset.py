@@ -3,8 +3,10 @@ import os
 import sys
 
 import numpy as np
+import scipy.io
 import torch
 
+from fairseq_signals.data.ecg import PERTURBATION_CHOICES
 from .raw_ecg_dataset import RawECGDataset
 
 logger = logging.getLogger(__name__)
@@ -14,33 +16,35 @@ class ClocsECGDataset(RawECGDataset):
         self,
         manifest_path,
         sample_rate,
-        max_sample_size = None,
-        min_sample_size = 0,
-        clocs_mode = "cmsc",
-        shuffle = True,
-        pad = False,
+        perturbation_mode: PERTURBATION_CHOICES="none",
+        max_sample_size=None,
+        min_sample_size=0,
+        clocs_mode="cmsc",
+        shuffle=True,
+        pad=False,
         pad_leads=False,
         leads_to_load=None,
-        label = False,
-        normalize = False,
-        num_buckets = 0,
-        compute_mask_indices = False,
+        label=False,
+        normalize=False,
+        num_buckets=0,
+        compute_mask_indices=False,
         **mask_compute_kwargs
     ):
         super().__init__(
-            sample_rate = sample_rate,
-            max_sample_size = max_sample_size,
-            min_sample_size = min_sample_size,
-            shuffle = shuffle,
-            pad = pad,
+            sample_rate=sample_rate,
+            perturbation_mode=perturbation_mode,
+            max_sample_size=max_sample_size,
+            min_sample_size=min_sample_size,
+            shuffle=shuffle,
+            pad=pad,
             pad_leads=pad_leads,
             leads_to_load=leads_to_load,
-            label = label,
-            normalize = normalize,
-            compute_mask_indices = compute_mask_indices,
+            label=label,
+            normalize=normalize,
+            compute_mask_indices=compute_mask_indices,
             **mask_compute_kwargs
         )
-        #XXX only cmsc
+        #XXX we use only cmsc
         assert clocs_mode in ["cmsc", "cmlc", "cmsmlc"]
         self.clocs_mode = clocs_mode
         self.max_segment_size = sys.maxsize
@@ -59,7 +63,7 @@ class ClocsECGDataset(RawECGDataset):
             self.ext = f.readline().strip()
             for i, line in enumerate(f):
                 items = line.strip().split("\t")
-                #XXX only cmsc
+                #XXX we use only cmsc
                 assert len(items) == 4, line
                 sz = int(items[1])
                 seg = [int(s) for s in items[3].split(',')][:self.max_segment_size]
@@ -96,14 +100,17 @@ class ClocsECGDataset(RawECGDataset):
         self.set_bucket_info(num_buckets)
     
     def collator(self, samples):
-        collated_samples = [s[i] for s in samples for i in range(len(s))]
-        collated_samples = [s for s in collated_samples if s["source"] is not None]
-        if len(collated_samples) == 0:
+        flattened_samples = [s[i] for s in samples for i in range(len(s))]
+        flattened_samples = [s for s in flattened_samples if s["source"] is not None]
+        if len(flattened_samples) == 0:
             return {}
 
-        sources = [s["source"] for s in collated_samples]
+        sources = [s["source"] for s in flattened_samples]
+        originals = [s["original"] for s in flattened_samples] if self.apply_perturb else None
 
         sizes = [s.size(-1) for s in sources]
+
+        breakpoint()
 
         if self.pad:
             target_size = min(max(sizes), self.max_sample_size)
@@ -111,6 +118,7 @@ class ClocsECGDataset(RawECGDataset):
             target_size = min(min(sizes), self.max_sample_size)
         
         collated_sources = sources[0].new_zeros((len(sources), len(sources[0]), target_size))
+        collated_originals = collated_sources.clone() if self.apply_perturb else None
         padding_mask = (
             torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
         )
@@ -123,23 +131,32 @@ class ClocsECGDataset(RawECGDataset):
                 collated_sources[i] = torch.cat(
                     [source, source.new_full((source.shape[0], -diff,), 0.0)], dim=-1
                 )
+                if self.apply_perturb:
+                    collated_originals[i] = torch.cat(
+                        [originals[i], originals[i].new_full((originals[i].shape[0], -diff,), 0.0)], dim=-1
+                    )
                 padding_mask[i, :, diff:] = True
             else:
                 collated_sources[i] = self.crop_to_max_size(source, target_size)        
+                if originals is not None:
+                    collated_originals[i] = self.crop_to_max_size(originals[i], target_size)
 
         input = {"source": collated_sources}
-        out = {"id": torch.LongTensor([s["id"] for s in collated_samples])}
-        out["patient_id"] = torch.IntTensor([s["patient_id"] for s in collated_samples])
-        out["segment"] = torch.IntTensor([s["segment"] for s in collated_samples])
+        out = {"id": torch.LongTensor([s["id"] for s in flattened_samples])}
+        out["patient_id"] = torch.IntTensor([s["patient_id"] for s in flattened_samples])
+        out["segment"] = torch.IntTensor([s["segment"] for s in flattened_samples])
         if self.label:
-            out["label"] = torch.cat([s["label"] for s in collated_samples])
+            out["label"] = torch.cat([s["label"] for s in flattened_samples])
+
+        if self.apply_perturb:
+            out["original"] = collated_originals
 
         if self.pad:
             input["padding_mask"] = padding_mask
         
         if hasattr(self, "num_buckets") and self.num_buckets > 0:
             assert self.pad, "Cannot bucket without padding first."
-            bucket = max(self._buckted_sizes[s["id"]] for s in collated_samples)
+            bucket = max(self._buckted_sizes[s["id"]] for s in flattened_samples)
             num_pad = bucket - collated_sources.size(-1)
             if num_pad:
                 input["source"] = self._bucket_tensor(collated_sources, num_pad, 0)
@@ -176,50 +193,35 @@ class ClocsECGDataset(RawECGDataset):
                 str(fn + f"_{i}.{self.ext}")
                 ) for i in self.segments[index]
         ]
-        #XXX only cmsc
+        #XXX we use only cmsc
         # lead = self.leads[index] if self.clocs_mode == "cmsc" else None
         lead = None
-
-        feats = []
-        labels = []
-        patient_ids = []
-        ages = []
-        sexes = []
-        segments = []
         
-        import scipy.io
-
-        #TODO handle files not in case of .mat
+        res = []
         for i, path in enumerate(paths):
+            out = {"id": index}
             ecg = scipy.io.loadmat(path)
         
-            feat = torch.from_numpy(ecg['feats'])
-            feat = feat[lead].unsqueeze(0) if lead is not None else feat
+            feats = torch.from_numpy(ecg['feats'])
+            feats = feats[lead].unsqueeze(0) if lead is not None else feats
             curr_sample_rate = ecg['curr_sample_rate']
 
-            feats.append(
-                self.postprocess(feat, curr_sample_rate)
-            )
+            if self.apply_perturb:
+                source, original = self.postprocess(feats, curr_sample_rate)
+                out["source"] = source
+                out["original"] = original
+            else:
+                out["source"] = self.postprocess(feats, curr_sample_rate)
             if self.label:
-                labels.append(
-                    torch.from_numpy(ecg['label'])
-                )
-            patient_ids.append(ecg['patient_id'][0,0])
-            ages.append(ecg['age'][0,0])
-            sexes.append(ecg['sex'][0,0])
-            segments.append(i % 2)
+                out["label"] = torch.from_numpy(ecg["label"])
+            out["patient_id"] = ecg["patient_id"][0,0]
+            out["age"] = ecg["age"][0,0]
+            out["sex"] = ecg["sex"][0,0]
+            out["segment"] = i % 2
 
-        return [
-                {
-                    "id": index,
-                    "source": feats[i],
-                    "label": labels[i] if self.label else None,
-                    "patient_id": patient_ids[i],
-                    "age": ages[i],
-                    "sex": sexes[i],
-                    "segment": segments[i]
-            } for i in range(len(feats))
-        ]
+            res.append(out)
+
+        return res
     
     def __len__(self):
         return len(self.fnames)

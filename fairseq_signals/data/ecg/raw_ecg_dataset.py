@@ -4,9 +4,12 @@ import sys
 import io
 
 import scipy.io
+import random
 import numpy as np
 import torch
 import torch.nn.functional as F
+
+from fairseq_signals.data.ecg import PERTURBATION_CHOICES, MASKING_LEADS_STRATEGY_CHOICES
 
 from .. import BaseDataset
 from ..data_utils import compute_mask_indices, get_buckets, get_bucketed_sizes
@@ -17,6 +20,7 @@ class RawECGDataset(BaseDataset):
     def __init__(
         self,
         sample_rate,
+        perturbation_mode: PERTURBATION_CHOICES = "none",
         max_sample_size=None,
         min_sample_size=0,
         shuffle=True,
@@ -31,6 +35,12 @@ class RawECGDataset(BaseDataset):
         super().__init__()
 
         self.sample_rate = sample_rate
+        self.perturbation_mode = perturbation_mode
+
+        if perturbation_mode == "random_leads_masking":
+            self.mask_leads_selection = mask_compute_kwargs["mask_leads_selection"]
+            self.mask_leads_prob = mask_compute_kwargs["mask_leads_prob"]
+            self.mask_leads_condition = mask_compute_kwargs["mask_leads_condition"]
         self.sizes = []
         self.max_sample_size = (
              max_sample_size if max_sample_size is not None else sys.maxsize
@@ -58,14 +68,49 @@ class RawECGDataset(BaseDataset):
     def __len__(self):
         return len(self.sizes)
     
-    def postprocess(self, feats, curr_sample_rate):
-        # if feats.dim() == 2:
-        #     feats = feats.mean(-1)
+    @property
+    def apply_perturb(self):
+        return self.perturbation_mode != 'none'
+
+    def perturb(self, feats):
+        if self.perturbation_mode == "random_leads_masking":
+            perturbed, original = self._mask_random_leads(feats)
+        else:
+            raise AssertionError(
+                f"self.perturbation_mode={self.perturbation_mode}"
+            )
         
+        return perturbed, original
+
+    def _mask_random_leads(self, feats):
+        perturbed_feats = feats.new_zeros(feats.size())
+        if self.mask_leads_selection == "random":
+            survivors = np.random.uniform(0, 1, size=12) > self.mask_leads_prob
+            perturbed_feats[survivors] = feats[survivors]
+        elif self.mask_leads_selection == "conditional":
+            (n1, n2) = self.mask_leads_condition
+            assert (
+                (0 <= n1 and n1 <=6)
+                and (0 <= n2 and n2 <= 6)
+            ), (n1, n2)
+            s1 = np.array(
+                random.sample(list(np.arange(6)), 6-n1)
+            )
+            s2 = np.array(
+                random.sample(list(np.arange(6)), 6-n2)
+            ) + 6
+            perturbed_feats[s1] = feats[s1]
+            perturbed_feats[s2] = feats[s2]
+        else:
+            raise AssertionError(
+                f"mask_leads_selection={self.mask_leads_selection}"
+            )
+        
+        return perturbed_feats, feats
+
+    def postprocess(self, feats, curr_sample_rate):
         if self.sample_rate > 0 and curr_sample_rate != self.sample_rate:
             raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
-        
-        # assert feats.dim() == 1, feats.dim()
 
         feats = feats.float()
         if self.leads_to_load:
@@ -79,6 +124,10 @@ class RawECGDataset(BaseDataset):
             feats = feats.float()
             with torch.no_grad():
                 feats = F.layer_norm(feats, feats.shape)
+        
+        if self.apply_perturb:
+            feats = self.perturb(feats)
+
         return feats
     
     def crop_to_max_size(self, wav, target_size):
@@ -133,6 +182,7 @@ class RawECGDataset(BaseDataset):
             return {}
         
         sources = [s["source"] for s in samples]
+        originals = [s["original"] for s in samples] if self.apply_perturb else None
         sizes = [s.size(-1) for s in sources]
 
         if self.pad:
@@ -141,6 +191,7 @@ class RawECGDataset(BaseDataset):
             target_size = min(min(sizes), self.max_sample_size)
         
         collated_sources = sources[0].new_zeros((len(sources), len(sources[0]), target_size))
+        collated_originals = collated_sources.clone() if self.apply_perturb else None
         padding_mask = (
             torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
         )
@@ -153,14 +204,23 @@ class RawECGDataset(BaseDataset):
                 collated_sources[i] = torch.cat(
                     [source, source.new_full((source.shape[0], -diff,), 0.0)], dim=-1
                 )
+                if self.apply_perturb:
+                    collated_originals[i] = torch.cat(
+                        [originals[i], originals[i].new_full((originals[i].shape[0], -diff,), 0.0)], dim=-1
+                    )
                 padding_mask[i, :, diff:] = True
             else:
                 collated_sources[i] = self.crop_to_max_size(source, target_size)
-        
+                if originals is not None:
+                    collated_originals[i] = self.crop_to_max_size(originals[i], target_size)
+
         input = {"source": collated_sources}
         out = {"id": torch.LongTensor([s["id"] for s in samples])}
         if self.label:
             out["label"] = torch.cat([s["label"] for s in samples])
+
+        if self.apply_perturb:
+            out["original"] = collated_originals
 
         if self.pad:
             input["padding_mask"] = padding_mask
@@ -258,6 +318,7 @@ class FileECGDataset(RawECGDataset):
         self,
         manifest_path,
         sample_rate,
+        perturbation_mode: PERTURBATION_CHOICES="none",
         max_sample_size=None,
         min_sample_size=0,
         shuffle=True,
@@ -271,16 +332,17 @@ class FileECGDataset(RawECGDataset):
         **mask_compute_kwargs
     ):
         super().__init__(
-            sample_rate = sample_rate,
-            max_sample_size = max_sample_size,
-            min_sample_size = min_sample_size,
-            shuffle = shuffle,
-            pad = pad,
+            sample_rate=sample_rate,
+            perturbation_mode=perturbation_mode,
+            max_sample_size=max_sample_size,
+            min_sample_size=min_sample_size,
+            shuffle=shuffle,
+            pad=pad,
             pad_leads=pad_leads,
             leads_to_load=leads_to_load,
-            label = label,
-            normalize = normalize,
-            compute_mask_indices = compute_mask_indices,
+            label=label,
+            normalize=normalize,
+            compute_mask_indices=compute_mask_indices,
             **mask_compute_kwargs
         )
 
@@ -288,7 +350,6 @@ class FileECGDataset(RawECGDataset):
         self.fnames = []
         sizes = []
         self.skipped_indices = set()
-
 
         with open(manifest_path, "r") as f:
             self.root_dir = f.readline().strip()
@@ -321,21 +382,19 @@ class FileECGDataset(RawECGDataset):
     def __getitem__(self, index):
         path = os.path.join(self.root_dir, str(self.fnames[index]))
 
-        # _path, slice_ptr = parse_path(path_or_fp)        
-        # if len(slice_ptr) == 2:
-        #     byte_data = read_from_stored_zip(_path, slice_ptr[0], slice_ptr[1])
-        #     assert is_sf_audio_data(byte_data)
-        #     path_or_fp = io.BytesIO(byte_data)
-
         res = {'id': index}
 
         ecg = scipy.io.loadmat(path)
 
-        #NOTE preprocess data to match with given keys: "feats", "curr_sample_rate", "label"
-        feats = torch.from_numpy(ecg['feats'])
         curr_sample_rate = ecg['curr_sample_rate']
-        res["source"] = self.postprocess(feats, curr_sample_rate)
-        #XXX
+        feats = torch.from_numpy(ecg['feats'])
+        if self.apply_perturb:
+            source, original = self.postprocess(feats, curr_sample_rate)
+            res["source"] = source
+            res["original"] = original
+        else:
+            res["source"] = self.postprocess(feats, curr_sample_rate)
+
         # res["file_id"] = ecg['file_id'][0]
         # res["age"] = torch.from_numpy(ecg['age'][0])
         # res["sex"] = torch.from_numpy(ecg['sex'][0])
