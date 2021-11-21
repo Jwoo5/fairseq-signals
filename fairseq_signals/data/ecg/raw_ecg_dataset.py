@@ -50,7 +50,7 @@ class RawECGDataset(BaseDataset):
         self.pad_leads = pad_leads
         self.leads_to_load = list(
             int(lead) for lead in leads_to_load.replace(' ','').split(',')
-        ) if leads_to_load else None
+        ) if leads_to_load is not None else None
 
         self.label = label
         self.shuffle = shuffle
