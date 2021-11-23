@@ -36,6 +36,7 @@ class RawECGDataset(BaseDataset):
 
         self.sample_rate = sample_rate
         self.perturbation_mode = perturbation_mode
+        self.retain_original = True
 
         if perturbation_mode == "random_leads_masking":
             self.mask_leads_selection = mask_compute_kwargs["mask_leads_selection"]
@@ -182,7 +183,7 @@ class RawECGDataset(BaseDataset):
             return {}
         
         sources = [s["source"] for s in samples]
-        originals = [s["original"] for s in samples] if self.apply_perturb else None
+        originals = [s["original"] for s in samples] if self.retain_original else None
         sizes = [s.size(-1) for s in sources]
 
         if self.pad:
@@ -191,7 +192,7 @@ class RawECGDataset(BaseDataset):
             target_size = min(min(sizes), self.max_sample_size)
         
         collated_sources = sources[0].new_zeros((len(sources), len(sources[0]), target_size))
-        collated_originals = collated_sources.clone() if self.apply_perturb else None
+        collated_originals = collated_sources.clone() if self.retain_original else None
         padding_mask = (
             torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
         )
@@ -204,7 +205,7 @@ class RawECGDataset(BaseDataset):
                 collated_sources[i] = torch.cat(
                     [source, source.new_full((source.shape[0], -diff,), 0.0)], dim=-1
                 )
-                if self.apply_perturb:
+                if self.retain_original:
                     collated_originals[i] = torch.cat(
                         [originals[i], originals[i].new_full((originals[i].shape[0], -diff,), 0.0)], dim=-1
                     )
@@ -219,7 +220,7 @@ class RawECGDataset(BaseDataset):
         if self.label:
             out["label"] = torch.cat([s["label"] for s in samples])
 
-        if self.apply_perturb:
+        if self.retain_original:
             out["original"] = collated_originals
 
         if self.pad:
@@ -391,7 +392,8 @@ class FileECGDataset(RawECGDataset):
         if self.apply_perturb:
             source, original = self.postprocess(feats, curr_sample_rate)
             res["source"] = source
-            res["original"] = original
+            if self.retain_original:
+                res["original"] = original
         else:
             res["source"] = self.postprocess(feats, curr_sample_rate)
 

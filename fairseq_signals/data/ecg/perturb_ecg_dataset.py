@@ -10,12 +10,98 @@ from scipy.spatial.transform import Rotation as R
 import torch
 import torch.nn.functional as F
 
-from .raw_ecg_dataset import RawECGDataset
+from fairseq_signals.data.ecg import PERTURBATION_CHOICES, MASKING_LEADS_STRATEGY_CHOICES
+
+from .raw_ecg_dataset import FileECGDataset
 from fairseq_signals.dataclass import ChoiceEnum
 
 logger = logging.getLogger(__name__)
 
-class _3KGECGDataset(RawECGDataset):
+class PerturbECGDataset(FileECGDataset):
+    def __init__(
+        self,
+        manifest_path,
+        sample_rate,
+        perturbation_mode: PERTURBATION_CHOICES="random_leads_masking",
+        max_sample_size=None,
+        min_sample_size=0,
+        shuffle=True,
+        pad=False,
+        pad_leads=False,
+        leads_to_load=None,
+        label=False,
+        normalize=False,
+        num_buckets=0,
+        compute_mask_indices=False,
+        **mask_compute_kwargs
+    ):
+        super().__init__(
+            manifest_path=manifest_path,
+            sample_rate=sample_rate,
+            perturbation_mode=perturbation_mode,
+            max_sample_size=max_sample_size,
+            min_sample_size=min_sample_size,
+            shuffle=shuffle,
+            pad=pad,
+            pad_leads=pad_leads,
+            leads_to_load=leads_to_load,
+            label=label,
+            normalize=normalize,
+            num_buckets=num_buckets,
+            compute_mask_indices=compute_mask_indices,
+            **mask_compute_kwargs
+        )
+        self.retain_original = False
+
+    def perturb(self, feats):
+        first, _ = super().perturb(feats)
+        second, _ = super().perturb(feats)
+
+        return first, second
+
+    def postprocess(self, feats, curr_sample_rate):
+        assert feats.shape[0] == 12, feats.shape[0]
+
+        if self.sample_rate > 0 and curr_sample_rate != self.sample_rate:
+            raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
+
+        if self.normalize:
+            with torch.no_grad():
+                feats = F.layer_norm(feats.float(), feats.shape)
+
+        feats = self.perturb(feats)
+
+        assert isinstance(feats, tuple), feats
+        feats = tuple(f.float() for f in feats)
+
+        return feats
+    
+    def collator(self, samples):
+        flattened_samples = [s[i] for s in samples for i in range(len(s))]
+        flattened_samples = [s for s in flattened_samples if s["source"] is not None]
+        if len(flattened_samples) == 0:
+            return {}
+
+        out = super().collator(flattened_samples)
+        return out
+
+    def __getitem__(self, index):
+        path = os.path.join(self.root_dir, str(self.fnames[index]))
+
+        ecg = scipy.io.loadmat(path)
+
+        curr_sample_rate = ecg['curr_sample_rate']
+        feats = torch.from_numpy(ecg['feats'])
+
+        sources = self.postprocess(feats, curr_sample_rate)
+
+        return [
+            {
+                "id": index,
+                "source": sources[i],
+            } for i in range(len(sources))
+        ]
+class _3KGECGDataset(PerturbECGDataset):
     def __init__(
         self,
         manifest_path,
@@ -35,11 +121,14 @@ class _3KGECGDataset(RawECGDataset):
         super().__init__(
             manifest_path=manifest_path,
             sample_rate=sample_rate,
-            perturbation_mode="none",
+            perturbation_mode="3kg",
             max_sample_rate=max_sample_size,
             min_sample_size=min_sample_size,
             shuffle=shuffle,
             pad=pad,
+            pad_leads=False,
+            leads_to_load=None,
+            label=False,
             normalize=normalize,
             num_buckets=num_buckets,
             compute_mask_indices=compute_mask_indices,
@@ -134,30 +223,13 @@ class _3KGECGDataset(RawECGDataset):
         ecg2 = torch.from_numpy(ecg2)
         return (ecg1, ecg2)
 
-    def postprocess(self, feats, curr_sample_rate):
-        assert feats.shape[0] == 12, feats.shape[0]
-
-        if self.sample_rate > 0 and curr_sample_rate != self.sample_rate:
-            raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
-
-        if self.normalize:
-            with torch.no_grad():
-                feats = F.layer_norm(feats.float(), feats.shape)
-
-        feats = self.perturb(feats)
-
-        assert isinstance(feats, tuple), feats
-        feats = tuple(f.float() for f in feats)
-
-        return feats
-
     def collator(self, samples):
-        flattened_samples = [s[i] for s in samples for i in range(len(s))]
-        flattened_samples = [s for s in flattened_samples if s["source"] is not None]
-        if len(flattened_samples) == 0:
+        out = super().collator(samples)
+        if len(out) == 0:
             return {}
 
-        out = super().collator(flattened_samples)
+        flattened_samples = [s[i] for s in samples for i in range(len(s))]
+        flattened_samples = [s for s in flattened_samples if s["source"] is not None]
         out["patient_id"] = torch.IntTensor([s["patient_id"] for s in flattened_samples])
 
         return out
