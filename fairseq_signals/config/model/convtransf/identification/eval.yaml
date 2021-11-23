@@ -7,7 +7,7 @@ common:
 
 common_eval:
   path: ???
-  model_overrides: "{'_name': 'arcface'}"
+  model_overrides: "{'_name': 'arcface', 'no_pretrained_weights': True, 'apply_mask': False}"
 
 task:
   _name: ecg_identification
