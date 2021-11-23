@@ -71,8 +71,6 @@ class SimCLRCriterion(BaseCriterion):
         logits = torch.cat((positives, negatives), dim=1)
         logits /= self.temp
 
-        print(logits.shape)
-
         target = torch.zeros((logits.size(0), ), dtype=torch.long).to(logits.device)
 
         reduction = "none" if not reduce else "sum"
