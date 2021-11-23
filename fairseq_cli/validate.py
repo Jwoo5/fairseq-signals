@@ -71,6 +71,7 @@ def main(cfg: DictConfig, override_args = None):
     model = task.build_model(model_cfg)
 
     if state is not None:
+        #XXX
         # for legacy wav2vec model
         # state["model"] = {k.replace('w2v_encoder.w2v_model.','encoder.'): v for k, v in state["model"].items()}
 
