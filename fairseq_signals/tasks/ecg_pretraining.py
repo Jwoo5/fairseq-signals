@@ -18,6 +18,7 @@ from omegaconf import MISSING, II, OmegaConf
 from fairseq_signals.data import (    
     FileECGDataset,
     ClocsECGDataset,
+    PerturbECGDataset,
     _3KGECGDataset
 )
 from fairseq_signals.dataclass import Dataclass
@@ -248,6 +249,22 @@ class ECGPretrainingTask(Task):
                 normalize=task_cfg.normalize,
                 num_buckets=self.cfg.num_batch_buckets,
                 **inferred_3kg_config,
+            )
+        elif task_cfg.model_name == 'simclr':
+            self.datasets[split] = PerturbECGDataset(
+                manifest_path=manifest_path,
+                sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
+                perturbation_mode=self.cfg.perturbation_mode,
+                max_sample_size=self.cfg.max_sample_size,
+                min_sample_size=self.cfg.min_sample_size,
+                pad=task_cfg.enable_padding,
+                pad_leads=task_cfg.enable_padding_leads,
+                leads_to_load=task_cfg.leads_to_load,
+                normalize=task_cfg.normalize,
+                num_buckets=self.cfg.num_batch_buckets,
+                compute_mask_indices=self.cfg.precompute_mask_indices,
+                **self._get_mask_precompute_kwargs(task_cfg),
+                **self._get_mask_leads_kwargs()
             )
         else:
             self.datasets[split] = FileECGDataset(
