@@ -16,7 +16,7 @@ from fairseq_signals.dataclass import Dataclass
 from fairseq_signals.logging.meters import safe_round
 
 @dataclass
-class Wav2VecCriterionConfig(Dataclass):
+class Wav2Vec2CriterionConfig(Dataclass):
     infonce: bool = field(
         default = False,
         metadata = {
@@ -32,8 +32,8 @@ class Wav2VecCriterionConfig(Dataclass):
         metadata = {"help": "output keys to log"}
     )
 
-@register_criterion("wav2vec", dataclass = Wav2VecCriterionConfig)
-class Wav2VecCriterion(BaseCriterion):
+@register_criterion("wav2vec2", dataclass = Wav2Vec2CriterionConfig)
+class Wav2Vec2Criterion(BaseCriterion):
     def __init__(self, task, infonce = False, loss_weights = None, log_keys = None):
         super().__init__(task)
         self.infonce = infonce
