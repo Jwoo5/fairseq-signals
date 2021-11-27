@@ -183,7 +183,9 @@ class RawECGDataset(BaseDataset):
             return {}
         
         sources = [s["source"] for s in samples]
-        originals = [s["original"] for s in samples] if self.retain_original else None
+        originals = None
+        if self.apply_perturb and self.retain_original:
+            originals = [s["original"] for s in samples]
         sizes = [s.size(-1) for s in sources]
 
         if self.pad:
@@ -192,7 +194,7 @@ class RawECGDataset(BaseDataset):
             target_size = min(min(sizes), self.max_sample_size)
         
         collated_sources = sources[0].new_zeros((len(sources), len(sources[0]), target_size))
-        collated_originals = collated_sources.clone() if self.retain_original else None
+        collated_originals = collated_sources.clone() if originals else None
         padding_mask = (
             torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
         )
@@ -205,14 +207,14 @@ class RawECGDataset(BaseDataset):
                 collated_sources[i] = torch.cat(
                     [source, source.new_full((source.shape[0], -diff,), 0.0)], dim=-1
                 )
-                if self.retain_original:
+                if originals:
                     collated_originals[i] = torch.cat(
                         [originals[i], originals[i].new_full((originals[i].shape[0], -diff,), 0.0)], dim=-1
                     )
                 padding_mask[i, :, diff:] = True
             else:
                 collated_sources[i] = self.crop_to_max_size(source, target_size)
-                if originals is not None:
+                if originals:
                     collated_originals[i] = self.crop_to_max_size(originals[i], target_size)
 
         input = {"source": collated_sources}
@@ -220,7 +222,7 @@ class RawECGDataset(BaseDataset):
         if self.label:
             out["label"] = torch.cat([s["label"] for s in samples])
 
-        if self.retain_original:
+        if originals:
             out["original"] = collated_originals
 
         if self.pad:
