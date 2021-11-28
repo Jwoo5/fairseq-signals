@@ -147,6 +147,20 @@ class Wav2Vec2WithClocsConfig(BaseCriterion):
             "sample_size": sample_size
         }
 
+        for lk in self.log_keys:
+            # Only store "logits" and "target" for computing mAP and mAUC
+            # during validation
+            if lk == "logits":
+                if not self.training:
+                    logging_output["logits"] = logits.cpu().numpy()
+            elif lk == "target":
+                if not self.training:
+                    logging_output["target"] = w2v_target.cpu().numpy()
+            elif lk in net_output:
+                value = net_output[lk]
+                value = float(value)
+                logging_output[lk] = value
+
         for i, l in enumerate(losses):
             logging_output[f"loss_{i}"] = l.item()
 
