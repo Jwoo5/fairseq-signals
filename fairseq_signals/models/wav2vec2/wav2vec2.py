@@ -233,10 +233,11 @@ class Wav2Vec2Model(ConvTransformerModel):
     def forward(
         self,
         source,
-        padding_mask = None,
-        mask = True,
-        features_only = False,
-        mask_indices = None,
+        padding_mask=None,
+        mask=True,
+        features_only=False,
+        return_features=False,
+        mask_indices=None,
     ):
         if self.feature_grad_mult > 0:
             features = self.feature_extractor(source)
@@ -321,6 +322,9 @@ class Wav2Vec2Model(ConvTransformerModel):
         if features_only:
             return {"x": x, "padding_mask" : padding_mask, "features": unmasked_features}
         
+        if return_features:
+            features = x.clone()
+
         if self.quantizer:
             q = self.quantizer(y, produce_targets=False)
             y = q["x"]
@@ -366,6 +370,9 @@ class Wav2Vec2Model(ConvTransformerModel):
         x = self.compute_preds(x, y, negs)
 
         result = {"x": x, "padding_mask": padding_mask, "features_pen": features_pen}
+        if return_features:
+            result["features"] = features
+            # result["unmasked_features"] = unmasked_features
 
         if prob_ppl is not None:
             result["prob_perplexity"] = prob_ppl

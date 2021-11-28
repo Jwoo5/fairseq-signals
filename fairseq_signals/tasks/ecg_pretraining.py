@@ -214,7 +214,7 @@ class ECGPretrainingTask(Task):
 
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
 
-        if task_cfg.model_name == 'clocs':
+        if 'clocs' in task_cfg.model_name:
             self.datasets[split] = ClocsECGDataset(
                 manifest_path=manifest_path,
                 sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
