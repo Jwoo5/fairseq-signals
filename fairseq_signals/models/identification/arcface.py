@@ -17,7 +17,7 @@ from fairseq_signals.utils import utils
 
 @dataclass
 class ArcFaceConfig(ConvTransformerFinetuningConfig):
-    # legacy keys for loading old-version model
+    # hold the legacy keys
     # w2v_path: Optional[str] = None
     # clocs_path: Optional[str] = None
     # layerdrop: Optional[float] = None
