@@ -32,7 +32,7 @@ dataset:
   num_workers: 6
   max_tokens: null 
   batch_size: 128
-  valid_subset: "valid,ptbxl"
+  valid_subset: "valid,ptbxl,ptbxlnorm"
   disable_validation: false
 
 distributed_training:
