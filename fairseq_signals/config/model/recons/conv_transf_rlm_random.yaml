@@ -2,7 +2,7 @@ common:
   fp16: false
   log_format: json
   log_interval: 50
-  # wandb_project: rlm-pretraining
+  wandb_project: rlm-pretraining
 
 checkpoint:
   save_dir: checkpoints
@@ -31,7 +31,7 @@ dataset:
   disable_validation: true
 
 distributed_training:
-  distributed_world_size: 1
+  distributed_world_size: 8
 
 criterion:
   _name: mse
