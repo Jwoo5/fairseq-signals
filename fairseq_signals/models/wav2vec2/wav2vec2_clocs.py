@@ -41,6 +41,10 @@ class Wav2Vec2ClocsModel(Wav2Vec2Model):
     def build_model(cls, cfg, task=None):
         """Build a new model instance."""
         return cls(cfg)
+
+    def extract_features(self, source, padding_mask, mask=False):
+        res = super().forward(source, padding_mask, mask=mask, features_only=True)
+        return res
     
     def forward(self, **w2v_kwargs):
         w2v_out = super().forward(return_features=True, **w2v_kwargs)
