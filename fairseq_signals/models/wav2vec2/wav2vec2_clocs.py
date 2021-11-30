@@ -22,7 +22,7 @@ class Wav2Vec2ClocsModel(Wav2Vec2Model):
         self.cfg = cfg
     
     def upgrade_state_dict_named(self, state_dict, name):
-        super().upgrade_state_dict(state_dict, name)
+        super().upgrade_state_dict_named(state_dict, name)
         """Upgrade a (possibly old) state dict for new versions"""
         return state_dict
     
