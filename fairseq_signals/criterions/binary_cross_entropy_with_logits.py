@@ -199,15 +199,18 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
             y_true = y_true[:, valid_labels]
             y_score = y_score[:, valid_labels]
 
-            auroc = roc_auc_score(y_true = y_true, y_score = y_score, average="micro")
-            metrics.log_scalar(
-                "auroc", auroc, round = 3
-            )
+            try:
+                auroc = roc_auc_score(y_true = y_true, y_score = y_score, average="micro")
+                metrics.log_scalar(
+                    "auroc", auroc, round = 3
+                )
 
-            auprc = average_precision_score(y_true = y_true, y_score = y_score, average="micro")
-            metrics.log_scalar(
-                "auprc", auprc, round = 3
-            )
+                auprc = average_precision_score(y_true = y_true, y_score = y_score, average="micro")
+                metrics.log_scalar(
+                    "auprc", auprc, round = 3
+                )
+            except:
+                pass
 
         observed_score = sum(log.get("o_score", 0) for log in logging_outputs)
         metrics.log_scalar("_o_score", observed_score)
