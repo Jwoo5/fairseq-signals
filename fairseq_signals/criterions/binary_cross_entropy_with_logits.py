@@ -65,7 +65,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
         3) logging outputs to display while training
         """
         net_output = model(**sample["net_input"])
-        logits = model.get_logits(net_output, aggregate = True).float()
+        logits = model.get_logits(net_output).float()
         target = model.get_targets(sample, net_output)
 
         reduction = "none" if not reduce else "sum"

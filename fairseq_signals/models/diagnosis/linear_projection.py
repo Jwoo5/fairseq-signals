@@ -28,14 +28,8 @@ class LinearProjectionModel(ConvTransformerFinetuningModel):
         nn.init.xavier_uniform_(self.proj.weight)
         nn.init.constant_(self.proj.bias, 0.0)
 
-    def get_logits(self, net_output, normalize=False, aggregate=False):
-        logits = net_output["encoder_out"]
-
-        if net_output["padding_mask"] is not None and net_output["padding_mask"].any():
-            logits[net_output["padding_mask"]] = 0
-
-        if aggregate:
-            pass
+    def get_logits(self, net_output, normalize=False):
+        logits = net_output["out"]
         
         if normalize:
             logits = utils.log_softmax(logits.float(), dim=-1)
@@ -57,6 +51,7 @@ class LinearProjectionModel(ConvTransformerFinetuningModel):
         x = self.proj(x)
 
         return {
-            "encoder_out": x,
-            "padding_mask": padding_mask
+            "encoder_out": res["x"].detach(),
+            "padding_mask": padding_mask,
+            "out": x,
         }

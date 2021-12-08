@@ -40,14 +40,8 @@ class ArcFaceModel(ConvTransformerFinetuningModel):
         )
         self.kernel.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
 
-    def get_logits(self, net_output, normalize=False, aggregate=False):
-        logits = net_output["encoder_out"]
-
-        if net_output["padding_mask"] is not None and net_output["padding_mask"].any():
-            logits[net_output["padding_mask"]] = 0
-
-        if aggregate:
-            pass
+    def get_logits(self, net_output, normalize=False):
+        logits = net_output["out"]
         
         if normalize:
             logits = utils.log_softmax(logits.float(), dim=-1)
@@ -66,16 +60,13 @@ class ArcFaceModel(ConvTransformerFinetuningModel):
         x = self.final_dropout(x)
         x = torch.div(x.sum(dim=1), (x != 0).sum(dim=1))
 
-        # if self.cfg.in_d == 1: # TODO: in case of padded lead
-        #     concat
-        #     ...
-
         norm = torch.norm(x, dim=1, keepdim=True)
         x = torch.div(x, norm)
 
         return {
-            "encoder_out": x,
-            "padding_mask": padding_mask
+            "encoder_out": res["x"].detach(),
+            "padding_mask": padding_mask,
+            "out": x
         }
     
     def get_cosine_similarity(self, logits):
