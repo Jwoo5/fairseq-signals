@@ -132,14 +132,14 @@ class RawECGDataset(BaseDataset):
         return feats
     
     def crop_to_max_size(self, wav, target_size):
-        size = len(wav)
+        size = wav.shape[-1]
         diff = size - target_size
         if diff <= 0:
             return wav
         
         start = np.random.randint(0, diff + 1)
         end = size - diff + start
-        return wav[start:end]
+        return wav[:,start:end]
     
     def _compute_mask_indices(self, dims, padding_mask):
         B, T, C = dims
