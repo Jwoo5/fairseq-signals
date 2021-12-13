@@ -285,8 +285,6 @@ class Wav2Vec2Model(ConvTransformerModel):
         
         features = self.dropout_input(features)
         unmasked_features = self.dropout_features(unmasked_features)
-        if return_features:
-            raw_features = features.clone()
 
         num_vars = None
         code_ppl = None
@@ -325,7 +323,7 @@ class Wav2Vec2Model(ConvTransformerModel):
             return {"x": x, "padding_mask" : padding_mask, "features": unmasked_features}
         
         if return_features:
-            features = self.encoder(raw_features, padding_mask=padding_mask)
+            features = x.clone()
 
         if self.quantizer:
             q = self.quantizer(y, produce_targets=False)
