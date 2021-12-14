@@ -1105,7 +1105,8 @@ class Trainer(object):
                     priority=500,
                     round=1
                 )
-        
+
+
         with metrics.aggregate() as agg:
             if logging_outputs is not None:
                 self.task.reduce_metrics(logging_outputs, self.get_criterion())
