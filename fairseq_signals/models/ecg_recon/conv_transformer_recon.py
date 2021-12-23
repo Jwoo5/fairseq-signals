@@ -44,7 +44,7 @@ class ConvTransformerReconstructionModel(ConvTransformerModel):
             in_d=cfg.encoder_embed_dim,
             dropout=0.0,
             mode=cfg.extractor_mode,
-            conv_bias=cfg.conv_bias,
+            conv_bias=True,
         )
 
     def upgrade_state_dict_named(self, state_dict, name):
