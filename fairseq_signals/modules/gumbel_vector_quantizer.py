@@ -48,6 +48,7 @@ class GumbelVectorQuantizer(nn.Module):
         self.input_dim = dim
         self.num_vars = num_vars
         self.time_first = time_first
+        self.num_updates = 0
 
         assert (
             vq_dim % groups == 0
@@ -90,6 +91,7 @@ class GumbelVectorQuantizer(nn.Module):
         self.curr_temp = max(
             self.max_temp * self.temp_decay ** num_updates, self.min_temp
         )
+        self.num_updates = num_updates
 
     def get_codebook_indices(self):
         if self.codebook_indices is None:
@@ -193,6 +195,22 @@ class GumbelVectorQuantizer(nn.Module):
                 .view(bsz, tsz, self.groups)
                 .detach()
             )
+        # if self.num_updates > 200 and self.num_updates % 100 == 0:
+        #     print(
+        #         x.view(bsz * tsz * self.groups, -1)
+        #         .argmax(dim=-1)
+        #         .view(bsz, tsz, self.groups)
+        #         .detach()
+        #     )
+        #     a = x.view(bsz * tsz * self.groups, -1).argmax(dim=-1).view(bsz*tsz, self.groups).tolist()
+        #     a = [tuple(i) for i in a]
+        #     import numpy as np
+        #     out = np.empty(len(a), dtype=object)
+        #     out[:] = a
+        #     print(out.shape)
+        #     print(np.unique(out))
+        #     breakpoint()
+        #     pass
 
         x = x.unsqueeze(-1) * vars
         x = x.view(bsz * tsz, self.groups, self.num_vars, -1)
