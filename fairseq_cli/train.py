@@ -260,9 +260,9 @@ def train(
     for i, samples in enumerate(progress):
         with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function(
             "train_step-%d" % i
-        ):
+        ):                
             log_output = trainer.train_step(samples)
-        
+
         if log_output is not None: # not OOM, overflow, ...
             # log mid-epoch stats
             num_updates = trainer.get_num_updates()
