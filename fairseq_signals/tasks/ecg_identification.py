@@ -163,15 +163,16 @@ class ECGIdentificationTask(ECGPretrainingTask):
         if not os.path.exists('imgs'):
             os.mkdir('imgs')
 
-        import matplotlib.pyplot as plt
-        cos_sims = torch.cat(self.cos_sims)
-        plt.clf()
-        plt.matshow(cos_sims, cmap='RdYlBu_r', vmin=-1, vmax=1)
-        plt.colorbar()
-        plt.savefig(f"imgs/{self.subset}_{num_updates}.png")
+        if not torch.distributed.is_initialized():
+            import matplotlib.pyplot as plt
+            cos_sims = torch.cat(self.cos_sims)
+            plt.clf()
+            plt.matshow(cos_sims, cmap='RdYlBu_r', vmin=-1, vmax=1)
+            plt.colorbar()
+            plt.savefig(f"imgs/{self.subset}_{num_updates}.png")
 
-        self.cos_sims = []
-        self.subset = None
+            self.cos_sims = []
+            self.subset = None
 
     def valid_step(self, sample, model, criterion, subset):
         model.eval()
@@ -211,7 +212,8 @@ class ECGIdentificationTask(ECGPretrainingTask):
             outputs = (best_pids == sample['patient_id'])
 
             #XXX just for identification vis
-            self.cos_sims.append(cos_sims.cpu())
+            if not torch.distributed.is_initialized():
+                self.cos_sims.append(cos_sims.cpu())
 
             count = outputs.numel()
             corr = outputs.sum()
