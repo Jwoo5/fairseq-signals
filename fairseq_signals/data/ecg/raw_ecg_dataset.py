@@ -86,7 +86,7 @@ class RawECGDataset(BaseDataset):
     def _mask_random_leads(self, feats):
         perturbed_feats = feats.new_zeros(feats.size())
         if self.mask_leads_selection == "random":
-            survivors = np.random.uniform(0, 1, size=12) > self.mask_leads_prob
+            survivors = np.random.uniform(0, 1, size=12) >= self.mask_leads_prob
             perturbed_feats[survivors] = feats[survivors]
         elif self.mask_leads_selection == "conditional":
             (n1, n2) = self.mask_leads_condition
@@ -202,6 +202,8 @@ class RawECGDataset(BaseDataset):
             diff = size - target_size
             if diff == 0:
                 collated_sources[i] = source
+                if originals:
+                    collated_originals[i] = originals[i]
             elif diff < 0:
                 assert self.pad
                 collated_sources[i] = torch.cat(
