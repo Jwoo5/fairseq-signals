@@ -211,6 +211,8 @@ class ConvTransformerModel(BaseModel):
 
         self.feature_grad_mult = cfg.feature_grad_mult
 
+        self.num_updates = 0
+
         self.final_dim = cfg.final_dim if cfg.final_dim > 0 else cfg.encoder_embed_dim
 
         self.mask_emb = nn.Parameter(
@@ -224,7 +226,12 @@ class ConvTransformerModel(BaseModel):
         super().upgrade_state_dict_named(state_dict, name)
         """Upgrate a (possibly old) state dict for new versions."""
         return state_dict
-    
+
+    def set_num_updates(self, num_updates):
+        """Set the number of parameters updates."""
+        super().set_num_updates(num_updates)
+        self.num_updates = num_updates
+
     @classmethod
     def build_model(cls, cfg, task=None):
         """Build a new model instance."""
@@ -424,6 +431,7 @@ class ConvTransformerModel(BaseModel):
 
         # hack for loading legacy pre-trained clocs model.
         # state["model"] = {k.replace('encoder.w2v_model.',''): v for k, v in state["model"].items() if k.startswith('encoder.w2v_model.')}
+        # state["model"].pop('mask_emb')
 
         model.load_state_dict(state["model"], strict = True)
         logger.info(f"Loaded pre-trained model parameters from {model_path}")
