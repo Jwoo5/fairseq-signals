@@ -423,6 +423,14 @@ class ConvTransformerModel(BaseModel):
         )
 
         args.task.data = cfg.data
+        #XXX temporary code for loading legacy model
+        #######################################################
+        if (
+            hasattr(args.task, 'perturbation_mode') and
+            isinstance(args.task.perturbation_mode, str)
+        ):
+            args.task.perturbation_mode = list(args.task.perturbation_mode)
+        #######################################################
         task = tasks.setup_task(args.task)
         model = task.build_model(args.model)
 

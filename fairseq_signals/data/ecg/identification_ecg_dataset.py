@@ -28,7 +28,7 @@ class IdentificationECGDataset(RawECGDataset):
     ):
         super().__init__(
             sample_rate=sample_rate,
-            perturbation_mode='none',
+            perturbation_mode=None,
             max_sample_size=max_sample_size,
             min_sample_size=min_sample_size,
             shuffle=shuffle,

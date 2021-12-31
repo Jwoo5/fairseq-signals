@@ -10,7 +10,8 @@ from scipy.spatial.transform import Rotation as R
 import torch
 import torch.nn.functional as F
 
-from fairseq_signals.data.ecg import PERTURBATION_CHOICES, MASKING_LEADS_STRATEGY_CHOICES
+from typing import List
+from fairseq_signals.data.ecg.augmentations import PERTURBATION_CHOICES, MASKING_LEADS_STRATEGY_CHOICES
 
 from .raw_ecg_dataset import FileECGDataset
 from fairseq_signals.dataclass import ChoiceEnum
@@ -22,7 +23,7 @@ class PerturbECGDataset(FileECGDataset):
         self,
         manifest_path,
         sample_rate,
-        perturbation_mode: PERTURBATION_CHOICES="random_leads_masking",
+        perturbation_mode: List[PERTURBATION_CHOICES]=["random_leads_masking"],
         max_sample_size=None,
         min_sample_size=0,
         shuffle=True,
@@ -54,8 +55,8 @@ class PerturbECGDataset(FileECGDataset):
         self.retain_original = False
 
     def perturb(self, feats):
-        first, _ = super().perturb(feats)
-        second, _ = super().perturb(feats)
+        first = super().perturb(feats)
+        second = super().perturb(feats)
 
         return first, second
 
@@ -75,7 +76,7 @@ class PerturbECGDataset(FileECGDataset):
         feats = tuple(f.float() for f in feats)
 
         return feats
-    
+
     def collator(self, samples):
         flattened_samples = [s[i] for s in samples for i in range(len(s))]
         flattened_samples = [s for s in flattened_samples if s["source"] is not None]
@@ -101,6 +102,7 @@ class PerturbECGDataset(FileECGDataset):
                 "source": sources[i],
             } for i in range(len(sources))
         ]
+
 class _3KGECGDataset(PerturbECGDataset):
     def __init__(
         self,
@@ -121,7 +123,7 @@ class _3KGECGDataset(PerturbECGDataset):
         super().__init__(
             manifest_path=manifest_path,
             sample_rate=sample_rate,
-            perturbation_mode="3kg",
+            perturbation_mode=["3kg"],
             max_sample_rate=max_sample_size,
             min_sample_size=min_sample_size,
             shuffle=shuffle,

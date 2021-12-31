@@ -9,7 +9,9 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from fairseq_signals.data.ecg import PERTURBATION_CHOICES, MASKING_LEADS_STRATEGY_CHOICES
+from typing import List, Optional
+from fairseq_signals.data.ecg import augmentations
+from fairseq_signals.data.ecg.augmentations import PERTURBATION_CHOICES
 
 from .. import BaseDataset
 from ..data_utils import compute_mask_indices, get_buckets, get_bucketed_sizes
@@ -20,7 +22,7 @@ class RawECGDataset(BaseDataset):
     def __init__(
         self,
         sample_rate,
-        perturbation_mode: PERTURBATION_CHOICES = "none",
+        perturbation_mode: Optional[List[PERTURBATION_CHOICES]]=None,
         max_sample_size=None,
         min_sample_size=0,
         shuffle=True,
@@ -36,12 +38,20 @@ class RawECGDataset(BaseDataset):
 
         self.sample_rate = sample_rate
         self.perturbation_mode = perturbation_mode
-        self.retain_original = True
+        self.retain_original = True if perturbation_mode is not None else False
 
-        if perturbation_mode == "random_leads_masking":
-            self.mask_leads_selection = mask_compute_kwargs["mask_leads_selection"]
-            self.mask_leads_prob = mask_compute_kwargs["mask_leads_prob"]
-            self.mask_leads_condition = mask_compute_kwargs["mask_leads_condition"]
+        p = mask_compute_kwargs.pop("p")
+        if isinstance(p, list) and len(p) == 1:
+            p = p * len(perturbation_mode)
+        elif isinstance(p, float):
+            p = [p] * len(perturbation_mode)
+            
+        self.aug_list = []
+        for aug, prob in zip(perturbation_mode, p):
+            self.aug_list.append(
+                augmentations.instantiate_from_name(aug, p=prob, **mask_compute_kwargs)
+            )
+
         self.sizes = []
         self.max_sample_size = (
              max_sample_size if max_sample_size is not None else sys.maxsize
@@ -62,52 +72,54 @@ class RawECGDataset(BaseDataset):
             self._features_size_map = {}
             self._C = mask_compute_kwargs["encoder_embed_dim"]
             self._conv_feature_layers = eval(mask_compute_kwargs["conv_feature_layers"])
-    
+
     def __getitem__(self, index):
         raise NotImplementedError()
-    
+
     def __len__(self):
         return len(self.sizes)
-    
+
     @property
     def apply_perturb(self):
-        return self.perturbation_mode != 'none'
+        return self.perturbation_mode != None
 
     def perturb(self, feats):
-        if self.perturbation_mode == "random_leads_masking":
-            perturbed, original = self._mask_random_leads(feats)
-        else:
-            raise AssertionError(
-                f"self.perturbation_mode={self.perturbation_mode}"
-            )
-        
-        return perturbed, original
+        new_feats = feats.clone()
 
-    def _mask_random_leads(self, feats):
-        perturbed_feats = feats.new_zeros(feats.size())
-        if self.mask_leads_selection == "random":
-            survivors = np.random.uniform(0, 1, size=12) >= self.mask_leads_prob
-            perturbed_feats[survivors] = feats[survivors]
-        elif self.mask_leads_selection == "conditional":
-            (n1, n2) = self.mask_leads_condition
-            assert (
-                (0 <= n1 and n1 <=6)
-                and (0 <= n2 and n2 <= 6)
-            ), (n1, n2)
-            s1 = np.array(
-                random.sample(list(np.arange(6)), 6-n1)
-            )
-            s2 = np.array(
-                random.sample(list(np.arange(6)), 6-n2)
-            ) + 6
-            perturbed_feats[s1] = feats[s1]
-            perturbed_feats[s2] = feats[s2]
-        else:
-            raise AssertionError(
-                f"mask_leads_selection={self.mask_leads_selection}"
-            )
-        
-        return perturbed_feats, feats
+# XXX vis
+# #############################################################
+#         import matplotlib.pyplot as plt
+#         leads = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
+#         fig = plt.figure(figsize = (50,12))
+#         ax = []
+#         record = new_feats.numpy()
+#         for i in range(12):
+#             ax.append(fig.add_subplot(4,3,i+1))
+#             ax[i].set_ylim([-1, 1])
+#             ax[i].set_title(f"Lead {leads[i]}")
+#             ax[i].set_yticks([-1, 0, 1])
+#             ax[i].plot(record[i])
+#         plt.savefig('o.png')
+# #############################################################
+
+        for aug in self.aug_list:
+            new_feats = aug(new_feats)
+
+# XXX vis
+# #############################################################
+#         fig = plt.figure(figsize = (50,12))
+#         ax = []
+#         record = new_feats.numpy()
+#         for i in range(12):
+#             ax.append(fig.add_subplot(4,3,i+1))
+#             ax[i].set_ylim([-1, 1])
+#             ax[i].set_title(f"Lead {leads[i]}")
+#             ax[i].set_yticks([-1, 0, 1])
+#             ax[i].plot(record[i])
+#         plt.savefig('p.png')
+# #############################################################
+
+        return new_feats
 
     def postprocess(self, feats, curr_sample_rate):
         if self.sample_rate > 0 and curr_sample_rate != self.sample_rate:
@@ -130,7 +142,7 @@ class RawECGDataset(BaseDataset):
             feats = self.perturb(feats)
 
         return feats
-    
+
     def crop_to_max_size(self, wav, target_size):
         size = wav.shape[-1]
         diff = size - target_size
@@ -140,7 +152,7 @@ class RawECGDataset(BaseDataset):
         start = np.random.randint(0, diff + 1)
         end = size - diff + start
         return wav[:,start:end]
-    
+
     def _compute_mask_indices(self, dims, padding_mask):
         B, T, C = dims
         mask_indices, mask_channel_indices = None, None
@@ -170,9 +182,9 @@ class RawECGDataset(BaseDataset):
             mask_channel_indices = (
                 torch.from_numpy(mask_channel_indices).unsqueeze(1).expand(-1, T, -1)
             )
-        
+
         return mask_indices, mask_channel_indices
-    
+
     @staticmethod
     def _bucket_tensor(tensor, num_pad, value):
         return F.pad(tensor, (0, num_pad), value = value)
@@ -181,10 +193,10 @@ class RawECGDataset(BaseDataset):
         samples = [s for s in samples if s["source"] is not None]
         if len(samples) == 0:
             return {}
-        
+
         sources = [s["source"] for s in samples]
         originals = None
-        if self.apply_perturb and self.retain_original:
+        if self.retain_original:
             originals = [s["original"] for s in samples]
         sizes = [s.size(-1) for s in sources]
 
@@ -192,7 +204,7 @@ class RawECGDataset(BaseDataset):
             target_size = min(max(sizes), self.max_sample_size)
         else:
             target_size = min(min(sizes), self.max_sample_size)
-        
+
         collated_sources = sources[0].new_zeros((len(sources), len(sources[0]), target_size))
         collated_originals = collated_sources.clone() if originals else None
         padding_mask = (
@@ -229,7 +241,7 @@ class RawECGDataset(BaseDataset):
 
         if self.pad:
             input["padding_mask"] = padding_mask
-        
+
         if hasattr(self, "num_buckets") and self.num_buckets > 0:
             assert self.pad, "Cannot bucket without padding first."
             bucket = max(self._buckted_sizes[s["id"]] for s in samples)
@@ -237,7 +249,7 @@ class RawECGDataset(BaseDataset):
             if num_pad:
                 input["source"] = self._bucket_tensor(collated_sources, num_pad, 0)
                 input["padding_mask"] = self._bucket_tensor(padding_mask, num_pad, True)
-        
+
         if self.compute_mask_indices:
             B = input["source"].size(0)
             T = self._get_mask_indices_dims(input["source"].size(-1))
@@ -260,7 +272,7 @@ class RawECGDataset(BaseDataset):
 
         out["net_input"] = input
         return out
-    
+
     def _get_mask_indices_dims(self, size, padding = 0, dilation = 1):
         if size not in self._features_size_map:
             L_in = size
@@ -270,17 +282,17 @@ class RawECGDataset(BaseDataset):
                 L_in = L_out
             self._features_size_map[size] = L_out
         return self._features_size_map[size]
-    
+
     def num_tokens(self, index):
         return self.size(index)
-    
+
     def size(self, index):
         """Return an examples's size as a float or tuple. This value is used when
         filtering a dataset with ``--max-positions``."""
         if self.pad:
             return self.sizes[index]
         return min(self.sizes[index], self.max_sample_size)
-    
+
     def ordered_indices(self):
         """Return an ordered list of indices. Batches will be constructed based
         on this order."""
@@ -298,7 +310,7 @@ class RawECGDataset(BaseDataset):
             # return order[0]
         else:
             return np.arange(len(self))
-    
+
     def set_bucket_info(self, num_buckets):
         self.num_buckets = num_buckets
         if self.num_buckets > 0:
@@ -323,7 +335,7 @@ class FileECGDataset(RawECGDataset):
         self,
         manifest_path,
         sample_rate,
-        perturbation_mode: PERTURBATION_CHOICES="none",
+        perturbation_mode: Optional[List[PERTURBATION_CHOICES]]=None,
         max_sample_size=None,
         min_sample_size=0,
         shuffle=True,
@@ -381,9 +393,9 @@ class FileECGDataset(RawECGDataset):
                 "Could not create a pyarraw array. Please install pyarrow for better performance"
             )
             pass
-        
+
         self.set_bucket_info(num_buckets)
-    
+
     def __getitem__(self, index):
         path = os.path.join(self.root_dir, str(self.fnames[index]))
 
@@ -393,13 +405,9 @@ class FileECGDataset(RawECGDataset):
 
         curr_sample_rate = ecg['curr_sample_rate']
         feats = torch.from_numpy(ecg['feats'])
-        if self.apply_perturb:
-            source, original = self.postprocess(feats, curr_sample_rate)
-            res["source"] = source
-            if self.retain_original:
-                res["original"] = original
-        else:
-            res["source"] = self.postprocess(feats, curr_sample_rate)
+        res["source"] = self.postprocess(feats, curr_sample_rate)
+        if self.retain_original:
+            res["original"] = feats
 
         # res["file_id"] = ecg['file_id'][0]
         # res["age"] = torch.from_numpy(ecg['age'][0])

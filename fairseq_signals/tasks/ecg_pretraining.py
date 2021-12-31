@@ -12,7 +12,7 @@ import torch
 
 from argparse import Namespace
 from dataclasses import dataclass, field
-from typing import Optional, Any, Tuple
+from typing import Optional, Any, Tuple, List
 from omegaconf import MISSING, II, OmegaConf
 
 from fairseq_signals.data import (    
@@ -113,12 +113,51 @@ class ECGPretrainingConfig(Dataclass):
         }
     )
 
-    perturbation_mode: str = field(
-        default="none",
+    perturbation_mode: Optional[List[str]] = field(
+        default=None,
         metadata={
             "help": "mode for perturbation before samples being forwarded. "
-            "none is for 'do nothing about perturbation'"
+            "the perturbation is applied in the order of the list"
         }
+    )
+    p: List[float] = field(
+        default_factory=lambda: [1.0],
+        metadata={
+            "help": "list of probability of applying each augmentation"
+            "if given one element, the probability is applied across all the augmentation"
+        }
+    )
+    max_amplitude: float = field(
+        default=0.1,
+        metadata={"help": "max amplitude of augmented noises"}
+    )
+    min_amplitude: float = field(
+        default=0,
+        metadata={"help": "min amplitude of augmented noises"}
+    )
+    dependency: bool = field(
+        default=True,
+        metadata={"help": "whether to apply dependency between frontal leads"}
+    )
+    shift_ratio: float = field(
+        default=0.2,
+        metadata={"help": "shifted ratio in baseline shift"}
+    )
+    num_segment: int = field(
+        default=1,
+        metadata={"help": "number of segments in baseline shift"}
+    )
+    max_freq: float = field(
+        default=0.2,
+        metadata={"help": "max frequency of augmented baseline wandering"}
+    )
+    min_freq: float = field(
+        default=0.01,
+        metadata={"help": "min frequency of augmented baseline wandering"}
+    )
+    k: int = field(
+        default=3,
+        metadata={"help": "the number of times applying baseline wandering"}
     )
     mask_leads_selection: str = field(
         default="random",
@@ -187,15 +226,22 @@ class ECGPretrainingTask(Task):
 
         return cls(cfg)
     
-    def _get_mask_leads_kwargs(self):
-        if self.cfg.perturbation_mode == "random_leads_masking":
-            return {
-                "mask_leads_selection": self.cfg.mask_leads_selection,
-                "mask_leads_prob": self.cfg.mask_leads_prob,
-                "mask_leads_condition": self.cfg.mask_leads_condition
-            }
-        else:
-            return {}
+    def _get_perturbation_kwargs(self):
+        return {
+            "p": self.cfg.p,
+            "max_amplitude": self.cfg.max_amplitude,
+            "min_amplitude": self.cfg.min_amplitude,
+            "dependency": self.cfg.dependency,
+            "shift_ratio": self.cfg.shift_ratio,
+            "num_segment": self.cfg.num_segment,
+            "max_freq": self.cfg.max_freq,
+            "min_freq": self.cfg.min_freq,
+            "freq": self.cfg.sample_rate,
+            "k": self.cfg.k,
+            "mask_leads_selection": self.cfg.mask_leads_selection,
+            "mask_leads_prob": self.cfg.mask_leads_prob,
+            "mask_leads_condition": self.cfg.mask_leads_condition,
+        }
 
     def _get_mask_precompute_kwargs(self, cfg):
         if self.cfg.precompute_mask_indices:
@@ -229,7 +275,7 @@ class ECGPretrainingTask(Task):
                 num_buckets=self.cfg.num_batch_buckets,
                 compute_mask_indices=self.cfg.precompute_mask_indices,
                 **self._get_mask_precompute_kwargs(task_cfg),
-                **self._get_mask_leads_kwargs()
+                **self._get_perturbation_kwargs()
             )
         elif task_cfg.model_name == '3kg':
             if task_cfg.leads_to_load is not None:
@@ -264,7 +310,7 @@ class ECGPretrainingTask(Task):
                 num_buckets=self.cfg.num_batch_buckets,
                 compute_mask_indices=self.cfg.precompute_mask_indices,
                 **self._get_mask_precompute_kwargs(task_cfg),
-                **self._get_mask_leads_kwargs()
+                **self._get_perturbation_kwargs()
             )
         else:
             self.datasets[split] = FileECGDataset(
@@ -280,7 +326,7 @@ class ECGPretrainingTask(Task):
                 num_buckets=self.cfg.num_batch_buckets,
                 compute_mask_indices=self.cfg.precompute_mask_indices,
                 **self._get_mask_precompute_kwargs(task_cfg),
-                **self._get_mask_leads_kwargs()
+                **self._get_perturbation_kwargs()
             )
 
 

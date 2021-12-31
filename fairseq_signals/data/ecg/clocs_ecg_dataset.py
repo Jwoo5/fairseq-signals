@@ -6,7 +6,8 @@ import numpy as np
 import scipy.io
 import torch
 
-from fairseq_signals.data.ecg import PERTURBATION_CHOICES
+from typing import Optional, List
+from fairseq_signals.data.ecg.augmentations import PERTURBATION_CHOICES
 from .raw_ecg_dataset import RawECGDataset
 
 logger = logging.getLogger(__name__)
@@ -16,7 +17,7 @@ class ClocsECGDataset(RawECGDataset):
         self,
         manifest_path,
         sample_rate,
-        perturbation_mode: PERTURBATION_CHOICES="none",
+        perturbation_mode: Optional[List[PERTURBATION_CHOICES]]=None,
         max_sample_size=None,
         min_sample_size=0,
         clocs_mode="cmsc",
@@ -106,7 +107,7 @@ class ClocsECGDataset(RawECGDataset):
             return {}
 
         sources = [s["source"] for s in flattened_samples]
-        originals = [s["original"] for s in flattened_samples] if self.apply_perturb else None
+        # originals = [s["original"] for s in flattened_samples] if self.retain_original else None
 
         sizes = [s.size(-1) for s in sources]
 
@@ -116,7 +117,7 @@ class ClocsECGDataset(RawECGDataset):
             target_size = min(min(sizes), self.max_sample_size)
         
         collated_sources = sources[0].new_zeros((len(sources), len(sources[0]), target_size))
-        collated_originals = collated_sources.clone() if self.apply_perturb else None
+        # collated_originals = collated_sources.clone() if self.apply_perturb else None
         padding_mask = (
             torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
         )
@@ -129,15 +130,15 @@ class ClocsECGDataset(RawECGDataset):
                 collated_sources[i] = torch.cat(
                     [source, source.new_full((source.shape[0], -diff,), 0.0)], dim=-1
                 )
-                if self.apply_perturb:
-                    collated_originals[i] = torch.cat(
-                        [originals[i], originals[i].new_full((originals[i].shape[0], -diff,), 0.0)], dim=-1
-                    )
+                # if self.apply_perturb:
+                #     collated_originals[i] = torch.cat(
+                #         [originals[i], originals[i].new_full((originals[i].shape[0], -diff,), 0.0)], dim=-1
+                #     )
                 padding_mask[i, :, diff:] = True
             else:
                 collated_sources[i] = self.crop_to_max_size(source, target_size)        
-                if originals is not None:
-                    collated_originals[i] = self.crop_to_max_size(originals[i], target_size)
+                # if originals is not None:
+                #     collated_originals[i] = self.crop_to_max_size(originals[i], target_size)
 
         input = {"source": collated_sources}
         out = {"id": torch.LongTensor([s["id"] for s in flattened_samples])}
@@ -146,8 +147,8 @@ class ClocsECGDataset(RawECGDataset):
         if self.label:
             out["label"] = torch.cat([s["label"] for s in flattened_samples])
 
-        if self.apply_perturb:
-            out["original"] = collated_originals
+        # if self.apply_perturb:
+        #     out["original"] = collated_originals
 
         if self.pad:
             input["padding_mask"] = padding_mask
@@ -204,12 +205,9 @@ class ClocsECGDataset(RawECGDataset):
             feats = feats[lead].unsqueeze(0) if lead is not None else feats
             curr_sample_rate = ecg['curr_sample_rate']
 
-            if self.apply_perturb:
-                source, original = self.postprocess(feats, curr_sample_rate)
-                out["source"] = source
-                out["original"] = original
-            else:
-                out["source"] = self.postprocess(feats, curr_sample_rate)
+            out["source"] = self.postprocess(feats, curr_sample_rate)
+            # if self.retain_original:
+            #     out["original"] = feats
             if self.label:
                 out["label"] = torch.from_numpy(ecg["label"])
             out["patient_id"] = ecg["patient_id"][0,0]
