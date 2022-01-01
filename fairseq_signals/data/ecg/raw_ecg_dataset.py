@@ -40,17 +40,18 @@ class RawECGDataset(BaseDataset):
         self.perturbation_mode = perturbation_mode
         self.retain_original = True if perturbation_mode is not None else False
 
-        p = mask_compute_kwargs.pop("p")
-        if isinstance(p, list) and len(p) == 1:
-            p = p * len(perturbation_mode)
-        elif isinstance(p, float):
-            p = [p] * len(perturbation_mode)
-            
         self.aug_list = []
-        for aug, prob in zip(perturbation_mode, p):
-            self.aug_list.append(
-                augmentations.instantiate_from_name(aug, p=prob, **mask_compute_kwargs)
-            )
+        if perturbation_mode is not None:
+            p = mask_compute_kwargs.pop("p")
+            if isinstance(p, list) and len(p) == 1:
+                p = p * len(perturbation_mode)
+            elif isinstance(p, float):
+                p = [p] * len(perturbation_mode)
+                
+            for aug, prob in zip(perturbation_mode, p):
+                self.aug_list.append(
+                    augmentations.instantiate_from_name(aug, p=prob, **mask_compute_kwargs)
+                )
 
         self.sizes = []
         self.max_sample_size = (
