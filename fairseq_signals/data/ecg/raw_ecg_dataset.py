@@ -43,8 +43,8 @@ class RawECGDataset(BaseDataset):
         self.aug_list = []
         if perturbation_mode is not None:
             p = mask_compute_kwargs.pop("p")
-            if isinstance(p, list) and len(p) == 1:
-                p = p * len(perturbation_mode)
+            if hasattr(p, "__len__") and len(p) == 1:
+                p = list(p) * len(perturbation_mode)
             elif isinstance(p, float):
                 p = [p] * len(perturbation_mode)
                 
