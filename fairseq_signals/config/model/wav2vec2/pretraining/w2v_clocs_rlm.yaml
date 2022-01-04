@@ -16,7 +16,8 @@ task:
   clocs: true
   clocs_mode: cmsc
   data: ???
-  perturbation_mode: random_leads_masking
+  perturbation_mode: ["random_leads_masking"]
+  p: [1.0]
   mask_leads_selection: random
   mask_leads_prob: 0.5
   patient_dataset: true
