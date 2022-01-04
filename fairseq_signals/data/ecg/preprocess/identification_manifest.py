@@ -22,10 +22,10 @@ def get_parser():
     )
     parser.add_argument(
         "--valid-percent",
-        default=0.1,
+        default=0.2,
         type=float,
         metavar="D",
-        help="percentage of data to use as validation (between 0 and 0.5)",
+        help="percentage of data to use as validation (between 0 and 1.0)",
     )
     parser.add_argument(
         "--dest", default=".", type=str, metavar="DIR", help="output directory"
@@ -49,19 +49,14 @@ def main(args):
 
     with open(os.path.join(args.dest, "train.tsv"), "w") as train_f, open(
         os.path.join(args.dest, "valid_gallery.tsv"), "w") as valid_gallery_f, open(
-        os.path.join(args.dest, "valid_probe.tsv"), "w" ) as valid_probe_f, open(
-        os.path.join(args.dest, "test_gallery.tsv"), "w") as test_gallery_f, open(
-        os.path.join(args.dest, "test_probe.tsv"), "w"
-        ) as test_probe_f:
+        os.path.join(args.dest, "valid_probe.tsv"), "w"
+        ) as valid_probe_f:
         print(root_path, file=train_f)
         print(root_path, file=valid_gallery_f)
         print(root_path, file=valid_probe_f)
-        print(root_path, file=test_gallery_f)
-        print(root_path, file=test_probe_f)
 
         idx = 0
         valid_idx = 0
-        test_idx = 0
         patients = {}
         for fname in glob.iglob(search_path, recursive=True):
             data = scipy.io.loadmat(fname)
@@ -87,19 +82,6 @@ def main(args):
                         ), file=dest
                     )
                 valid_idx += 1
-            elif args.valid_percent < prob <= 2 * args.valid_percent:
-                if len(patient) < 2:
-                    continue
-                for i, p in enumerate(patient[:2]):
-                    dest = test_gallery_f if i % 2 == 0 else test_probe_f
-                    data = scipy.io.loadmat(p)
-                    length = data['feats'].shape[-1]
-                    print(
-                        "{}\t{}\t{}".format(
-                            os.path.relpath(p, root_path), length, test_idx
-                        ), file=dest
-                    )
-                test_idx += 1
             else:
                 for p in patient:
                     data = scipy.io.loadmat(p)
