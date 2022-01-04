@@ -1,8 +1,8 @@
-from dataclasses import dataclass
 import logging
 import os
 import sys
 
+import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
@@ -24,6 +24,10 @@ logger = logging.getLogger(__name__)
 class ECGIdentificationConfig(ECGPretrainingConfig):
     num_labels: int=field(
         default=MISSING, metadata={"help": "number of patients to be classified when training"}
+    )
+    visualize: bool=field(
+        default=True,
+        metadata={"help": "whether to visualize the cosine similarities between data in gallery and probe set"}
     )
 
     # The following are needed to load batch iterator for gallery sets
@@ -47,12 +51,14 @@ class ECGIdentificationTask(ECGPretrainingTask):
         cfg: ECGIdentificationConfig
     ):
         super().__init__(cfg)
+        # do not visualize when distributed training
+        self.visualize = cfg.visualize and not torch.distributed.is_initialized()
+
         self.require_query = True
         self.gallery_feats = None
         self.gallery_pids = None
         self.subset = None
 
-        #XXX just for identification vis
         self.cos_sims = []
     
     @classmethod
@@ -116,13 +122,7 @@ class ECGIdentificationTask(ECGPretrainingTask):
             required_batch_size_multiple=self.cfg.required_batch_size_multiple,
             seed=self.cfg.seed,
             num_shards=1,
-            # if (
-            #     self.cfg.distributed_world_size == 1 
-            # ) else distributed_utils.get_data_parallel_world_size(),
             shard_id=0,
-            # if (
-            #     self.cfg.distributed_world_size == 1
-            # ) else distributed_utils.get_data_parallel_rank(),
             num_workers=self.cfg.num_workers,
             epoch=1,
             data_buffer_size=self.cfg.data_buffer_size,
@@ -163,8 +163,7 @@ class ECGIdentificationTask(ECGPretrainingTask):
         if not os.path.exists('imgs'):
             os.mkdir('imgs')
 
-        if not torch.distributed.is_initialized():
-            import matplotlib.pyplot as plt
+        if self.visualize:
             cos_sims = torch.cat(self.cos_sims)
             plt.clf()
             plt.matshow(cos_sims, cmap='RdYlBu_r', vmin=-1, vmax=1)
@@ -211,8 +210,7 @@ class ECGIdentificationTask(ECGPretrainingTask):
             
             outputs = (best_pids == sample['patient_id'])
 
-            #XXX just for identification vis
-            if not torch.distributed.is_initialized():
+            if self.visualize:
                 self.cos_sims.append(cos_sims.cpu())
 
             count = outputs.numel()

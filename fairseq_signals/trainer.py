@@ -660,7 +660,6 @@ class Trainer(object):
             with NanDetector(self.get_model()):
                 for _, sample in enumerate(samples):
                     sample, _ = self._prepare_sample(sample)
-                    breakpoint()
                     self.task.train_step(
                         sample,
                         self.model,
@@ -669,7 +668,6 @@ class Trainer(object):
                         self.get_num_updates(),
                         ignore_grad = False
                     )
-                    breakpoint()
             raise
         except OverflowError as e:
             # TODO deal with nan gradient norm. consider hyperparameters.

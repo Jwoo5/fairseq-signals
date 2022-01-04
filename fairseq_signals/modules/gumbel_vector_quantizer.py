@@ -195,22 +195,6 @@ class GumbelVectorQuantizer(nn.Module):
                 .view(bsz, tsz, self.groups)
                 .detach()
             )
-        # if self.num_updates > 200 and self.num_updates % 100 == 0:
-        #     print(
-        #         x.view(bsz * tsz * self.groups, -1)
-        #         .argmax(dim=-1)
-        #         .view(bsz, tsz, self.groups)
-        #         .detach()
-        #     )
-        #     a = x.view(bsz * tsz * self.groups, -1).argmax(dim=-1).view(bsz*tsz, self.groups).tolist()
-        #     a = [tuple(i) for i in a]
-        #     import numpy as np
-        #     out = np.empty(len(a), dtype=object)
-        #     out[:] = a
-        #     print(out.shape)
-        #     print(np.unique(out))
-        #     breakpoint()
-        #     pass
 
         x = x.unsqueeze(-1) * vars
         x = x.view(bsz * tsz, self.groups, self.num_vars, -1)

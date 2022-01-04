@@ -26,7 +26,6 @@ class ArcFaceConfig(ConvTransformerFinetuningConfig):
     # clocs_args: Any = None
     pass
 
-#TODO need to add encoder options? (conv_transformer, conv_rnn, convnet, ...)
 @register_model("arcface", dataclass=ArcFaceConfig)
 class ArcFaceModel(ConvTransformerFinetuningModel):
     def __init__(self, cfg, encoder):

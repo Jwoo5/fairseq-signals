@@ -76,20 +76,6 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
             "sample_size": sample_size
         }
 
-        # for lk in self.log_keys:
-        #     # Only store "logits" and "target" for computing acc, AUPRC, and AUROC
-        #     # during validation
-        #     if lk == "logits":
-        #         if not self.training:
-        #             logging_output["logits"] = logits.cpu().numpy()
-        #     elif lk == "target":
-        #         if not self.training:
-        #             logging_output["target"] = target.cpu().numpy()
-        #     elif lk in net_output:
-        #         value = net_output[lk]
-        #         value = float(value)
-        #         logging_output[lk] = value
-
         with torch.no_grad():
             probs = torch.sigmoid(logits)
             outputs = (probs > 0.5)
@@ -205,25 +191,6 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
                 else float("nan")
             )
         
-        # builtin_keys = {
-        #     "loss",
-        #     "ntokens",
-        #     "nsignals",
-        #     "sample_size",
-        #     "correct",
-        #     "count"
-        # }
-
-        # for k in logging_outputs[0]:
-        #     if k not in builtin_keys:
-        #         val = sum(log.get(k,0) for log in logging_outputs)
-        #         if k.startswith("loss"):
-        #             metrics.log_scalar(
-        #                 k, val / (sample_size or 1) / math.log(2), sample_size, round = 3
-        #             )
-        #         else:
-        #             metrics.log_scalar(k, val / len(logging_outputs), round = 3)
-
     @staticmethod
     def logging_outputs_can_be_summed() -> bool:
         """

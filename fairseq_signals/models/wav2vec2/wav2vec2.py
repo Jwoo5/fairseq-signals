@@ -372,7 +372,6 @@ class Wav2Vec2Model(ConvTransformerModel):
         result = {"x": x, "padding_mask": padding_mask, "features_pen": features_pen}
         if return_features:
             result["features"] = features
-            # result["unmasked_features"] = unmasked_features
 
         if prob_ppl is not None:
             result["prob_perplexity"] = prob_ppl

@@ -43,7 +43,9 @@ class ClocsCriterion(BaseCriterion):
         2) the sample size, which is used as the denominator for the gradient
         3) logging outputs to display while training
         """
-        assert self.mode in ["cmsc", "cmlc", "cmsmlc"], self.mode
+        # assert self.mode in ["cmsc", "cmlc", "cmsmlc"], self.mode
+        # we use only cmsc in clocs
+        assert self.mode in ["cmsc"], self.mode
 
         net_output = model(**sample["net_input"])
         logits = model.get_logits(net_output, aggregate=True).float()
@@ -54,21 +56,6 @@ class ClocsCriterion(BaseCriterion):
 
         patient_id = sample['patient_id']
         segment = sample['segment']
-        # for all-gather tensor across distributed devices
-        # if dist_utils.get_data_parallel_world_size() > 1:
-        #     group = dist_utils.get_data_parallel_group()
-        #     patient_id = torch.cat(
-        #             dist_utils.batch_all_gather(
-        #             patient_id,
-        #             group=group
-        #         )
-        #     )
-        #     segment = torch.cat(
-        #             dist_utils.batch_all_gather(
-        #             segment,
-        #             group=group
-        #         )
-        #     )
 
         losses = []
         loss = 0
@@ -94,50 +81,45 @@ class ClocsCriterion(BaseCriterion):
             logits /= self.temp
 
             target = torch.stack([p == p2 for p in p1]).to(logits.device)
+        elif self.mode == "cmlc":
+            combs = combinations(range(logits.size(0)), 2)
+            logits = torch.stack(
+                [torch.matmul(logits[first], logits[second].T) for first, second in combs]
+            )
+            logits /= self.temp
+
+            target = torch.from_numpy(
+                np.array([p == net_output["patient_id"] for p in net_output["patient_id"]])
+            ).to(logits.device)
         else:
-            raise NotImplementedError()
-        # elif self.mode == "cmlc":
-        #     combs = combinations(range(logits.size(0)), 2)
-        #     logits = torch.stack(
-        #         [torch.matmul(logits[first], logits[second].T) for first, second in combs]
-        #     )
-        #     logits /= self.temp
+            indices = torch.where(net_output["segment"] == 0)[0]
+            mat1 = logits[:, indices, :]
+            p1 = (
+                net_output["patient_id"][indices.cpu()]
+            ) if len(indices) > 1 else (
+                np.array([net_output["patient_id"][indices.cpu()]])
+            )
 
-        #     target = torch.from_numpy(
-        #         np.array([p == net_output["patient_id"] for p in net_output["patient_id"]])
-        #     ).to(logits.device)
-        # else:
-        #     indices = torch.where(net_output["segment"] == 0)[0]
-        #     mat1 = logits[:, indices, :]
-        #     p1 = (
-        #         net_output["patient_id"][indices.cpu()]
-        #     ) if len(indices) > 1 else (
-        #         np.array([net_output["patient_id"][indices.cpu()]])
-        #     )
+            indices = torch.where(net_output["segment"] == 1)[0]
+            mat2 = logits[:, indices, :]
+            p2 = (
+                net_output["patient_id"][indices.cpu()]
+            ) if len(indices) > 1 else (
+                np.array([net_output["patient_id"][indices.cpu()]])
+            )
 
-        #     indices = torch.where(net_output["segment"] == 1)[0]
-        #     mat2 = logits[:, indices, :]
-        #     p2 = (
-        #         net_output["patient_id"][indices.cpu()]
-        #     ) if len(indices) > 1 else (
-        #         np.array([net_output["patient_id"][indices.cpu()]])
-        #     )
+            combs = combinations(range(logits.size(0)), 2)
+            logits = torch.stack(
+                [torch.matmul(mat1[first], mat2[second].T) for first, second in combs]
+            )
+            logits /= self.temp
 
-        #     combs = combinations(range(logits.size(0)), 2)
-        #     logits = torch.stack(
-        #         [torch.matmul(mat1[first], mat2[second].T) for first, second in combs]
-        #     )
-        #     logits /= self.temp
-
-        #     target = torch.from_numpy(
-        #         np.array([p == p2 for p in p1])
-        #     ).to(logits.device)
+            target = torch.from_numpy(
+                np.array([p == p2 for p in p1])
+            ).to(logits.device)
 
         logits_1 = -F.log_softmax(logits, dim = -1)
         logits_2 = -F.log_softmax(logits.transpose(0,1), dim = -1)
-
-        # loss_1 = torch.mean(logits_1[0].diag())
-        # loss_2 = torch.mean(logits_2[0].diag())
 
 
         loss_1 = torch.mean(

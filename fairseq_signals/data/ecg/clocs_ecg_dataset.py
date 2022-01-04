@@ -45,8 +45,9 @@ class ClocsECGDataset(RawECGDataset):
             compute_mask_indices=compute_mask_indices,
             **mask_compute_kwargs
         )
-        #XXX we use only cmsc
-        assert clocs_mode in ["cmsc", "cmlc", "cmsmlc"]
+        # assert clocs_mode in ["cmsc", "cmlc", "cmsmlc"]
+        #NOTE we use only cmsc in clocs
+        assert clocs_mode in ["cmsc"]
         self.clocs_mode = clocs_mode
         self.max_segment_size = sys.maxsize
         self.min_segment_size = 2 if clocs_mode in ["cmsc", "cmsmlc"] else 1
@@ -64,7 +65,6 @@ class ClocsECGDataset(RawECGDataset):
             self.ext = f.readline().strip()
             for i, line in enumerate(f):
                 items = line.strip().split("\t")
-                #XXX we use only cmsc
                 assert len(items) == 4, line
                 sz = int(items[1])
                 seg = [int(s) for s in items[3].split(',')][:self.max_segment_size]
@@ -107,7 +107,6 @@ class ClocsECGDataset(RawECGDataset):
             return {}
 
         sources = [s["source"] for s in flattened_samples]
-        # originals = [s["original"] for s in flattened_samples] if self.retain_original else None
 
         sizes = [s.size(-1) for s in sources]
 
@@ -117,7 +116,6 @@ class ClocsECGDataset(RawECGDataset):
             target_size = min(min(sizes), self.max_sample_size)
         
         collated_sources = sources[0].new_zeros((len(sources), len(sources[0]), target_size))
-        # collated_originals = collated_sources.clone() if self.apply_perturb else None
         padding_mask = (
             torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
         )
@@ -130,15 +128,9 @@ class ClocsECGDataset(RawECGDataset):
                 collated_sources[i] = torch.cat(
                     [source, source.new_full((source.shape[0], -diff,), 0.0)], dim=-1
                 )
-                # if self.apply_perturb:
-                #     collated_originals[i] = torch.cat(
-                #         [originals[i], originals[i].new_full((originals[i].shape[0], -diff,), 0.0)], dim=-1
-                #     )
                 padding_mask[i, :, diff:] = True
             else:
                 collated_sources[i] = self.crop_to_max_size(source, target_size)        
-                # if originals is not None:
-                #     collated_originals[i] = self.crop_to_max_size(originals[i], target_size)
 
         input = {"source": collated_sources}
         out = {"id": torch.LongTensor([s["id"] for s in flattened_samples])}
@@ -146,9 +138,6 @@ class ClocsECGDataset(RawECGDataset):
         out["segment"] = torch.IntTensor([s["segment"] for s in flattened_samples])
         if self.label:
             out["label"] = torch.cat([s["label"] for s in flattened_samples])
-
-        # if self.apply_perturb:
-        #     out["original"] = collated_originals
 
         if self.pad:
             input["padding_mask"] = padding_mask
@@ -192,9 +181,7 @@ class ClocsECGDataset(RawECGDataset):
                 str(fn + f"_{i}.{self.ext}")
                 ) for i in self.segments[index]
         ]
-        #XXX we use only cmsc
-        # lead = self.leads[index] if self.clocs_mode == "cmsc" else None
-        lead = None
+        lead = self.leads[index] if self.clocs_mode == "cmsc" else None
         
         res = []
         for i, path in enumerate(paths):
@@ -206,8 +193,6 @@ class ClocsECGDataset(RawECGDataset):
             curr_sample_rate = ecg['curr_sample_rate']
 
             out["source"] = self.postprocess(feats, curr_sample_rate)
-            # if self.retain_original:
-            #     out["original"] = feats
             if self.label:
                 out["label"] = torch.from_numpy(ecg["label"])
             out["patient_id"] = ecg["patient_id"][0,0]

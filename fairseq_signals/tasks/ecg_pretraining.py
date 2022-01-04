@@ -60,18 +60,6 @@ class Inferred3KGConfig:
 @dataclass
 class ECGPretrainingConfig(Dataclass):
     data: str = field(default = MISSING, metadata = {"help": "path to data directory"})
-    # label: bool = field(
-    #     default = False,
-    #     metadata = {"help": "whether loading the label together or not, used for fine-tuning"}
-    # )
-    # patient_dataset: bool = field(
-    #     default = False,
-    #     metadata = {
-    #         "help": "if true, loads patient dataset (used for contrastive learning with patients)."
-    #                 "This could cause inconsistent memory allocation between multi GPUs since "
-    #                 "the number of samples per patient is various."
-    #     }
-    # )
     leads_to_load: Optional[str] = field(
         default=None,
         metadata={
@@ -195,7 +183,7 @@ class ECGPretrainingConfig(Dataclass):
     )
     model_name: str = II("model._name")
 
-    # Legacy keys for loading old version of pre-trained model
+    #XXX Legacy keys for loading old version of pre-trained model
     max_segment_size: Optional[int] = None
     min_segment_size: Optional[int] = None
     max_patient_size: Optional[int] = None

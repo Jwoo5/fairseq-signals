@@ -16,7 +16,6 @@ class BaseCriterion(_Loss):
     def __init__(self, task):
         super().__init__()
         self.task = task
-        # self.pad = 0
     
     @classmethod
     def add_args(cls, parser):

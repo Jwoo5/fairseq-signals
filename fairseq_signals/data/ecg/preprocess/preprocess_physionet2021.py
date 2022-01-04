@@ -64,13 +64,6 @@ def main(args):
             f"--meta-dir: {meta_path}"
         )
 
-    # legacy
-    # import pandas as pd
-    # dx_codes = pd.read_csv(os.path.join(args.root, "dx_mapping_scored.csv"))
-    # dx_codes = dx_codes.append(pd.read_csv(os.path.join(args.root, "dx_mapping_unscored.csv")), ignore_index=True)
-    # classes = dx_codes[dx_codes["CPSC"] > 0]["SNOMEDCTCode"].to_numpy().astype(str)
-    # classes = [set([c]) for c in classes]
-
     leads = args.leads.replace(' ','').split(',')
     leads_to_load = [int(lead) for lead in leads]
     subset = args.subset.replace(' ','').split(',')

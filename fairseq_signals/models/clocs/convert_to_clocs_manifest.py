@@ -42,7 +42,7 @@ def main(args):
             items = line.strip().split("\t")
             assert len(items) == 2, line
             fnames.append(items[0])
-            #TODO should aggregate over patient_id, not file names
+            # collect data segments from the same file
             folder = items[0][:items[0].rindex("_")]
             sizes[folder] = items[1]
 
@@ -82,9 +82,6 @@ def main(args):
                 seg = ','.join(str(seg) for seg in segment[i:i+2])
                 print(f"{fname}\t{sizes[fname]}\t0\t{seg}", file=cmsmlc_f)
                 print(f"{fname}\t{sizes[fname]}\t0\t{seg}", file=cmsc_f)
-
-                # for lead in leads:
-                #     print(f"{fname}\t{sizes[fname]}\t{lead}\t{seg}", file=cmsc_f)
 
             for seg in segment:
                 print(f"{fname}\t{sizes[fname]}\t0\t{seg}", file=cmlc_f)

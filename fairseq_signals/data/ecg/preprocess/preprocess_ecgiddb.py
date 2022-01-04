@@ -55,13 +55,11 @@ def main(args):
     for fname in fnames:
         fname = os.path.splitext(fname)[0]
 
-        # take a raw signal (index 1 is for a filtered signal)
+        # take a filtered signal (index 1 is for a filtered signal)
         record = wfdb.rdrecord(fname).__dict__['p_signal'][:,1]
         annot = wfdb.rdann(fname, 'atr')
 
         sample_rate = annot.__dict__['fs']
-
-        # XXX add lead info?
 
         # 500hz is expected
         if sample_rate != 500:
@@ -89,14 +87,6 @@ def main(args):
         data['curr_sample_rate'] = sample_rate
         data['feats'] = record[start: start + (args.sec * sample_rate)]
         scipy.io.savemat(os.path.join(dest_path, f"{pid}_{basename}.mat"), data)
-
-        # for i, seg in enumerate(range(0, length, int(args.sec * sample_rate))):
-        #     data = {}
-        #     data['patient_id'] = pid
-        #     data['curr_sample_rate'] = sample_rate
-        #     if seg + args.sec * sample_rate <= length:
-        #         data['feats'] = record[seg: int(seg + args.sec * sample_rate)]
-        #         scipy.io.savemat(os.path.join(dest_path, f"{pid}_{basename}_{i}.mat"), data)
 
 if __name__ == "__main__":
     parser = get_parser()

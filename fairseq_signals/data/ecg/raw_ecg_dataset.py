@@ -87,38 +87,8 @@ class RawECGDataset(BaseDataset):
     def perturb(self, feats):
         new_feats = feats.clone()
 
-# XXX vis
-# #############################################################
-#         import matplotlib.pyplot as plt
-#         leads = ['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6']
-#         fig = plt.figure(figsize = (50,12))
-#         ax = []
-#         record = new_feats.numpy()
-#         for i in range(12):
-#             ax.append(fig.add_subplot(4,3,i+1))
-#             ax[i].set_ylim([-1, 1])
-#             ax[i].set_title(f"Lead {leads[i]}")
-#             ax[i].set_yticks([-1, 0, 1])
-#             ax[i].plot(record[i])
-#         plt.savefig('o.png')
-# #############################################################
-
         for aug in self.aug_list:
             new_feats = aug(new_feats)
-
-# XXX vis
-# #############################################################
-#         fig = plt.figure(figsize = (50,12))
-#         ax = []
-#         record = new_feats.numpy()
-#         for i in range(12):
-#             ax.append(fig.add_subplot(4,3,i+1))
-#             ax[i].set_ylim([-1, 1])
-#             ax[i].set_title(f"Lead {leads[i]}")
-#             ax[i].set_yticks([-1, 0, 1])
-#             ax[i].plot(record[i])
-#         plt.savefig('p.png')
-# #############################################################
 
         return new_feats
 
@@ -409,10 +379,6 @@ class FileECGDataset(RawECGDataset):
         res["source"] = self.postprocess(feats, curr_sample_rate)
         if self.retain_original:
             res["original"] = feats
-
-        # res["file_id"] = ecg['file_id'][0]
-        # res["age"] = torch.from_numpy(ecg['age'][0])
-        # res["sex"] = torch.from_numpy(ecg['sex'][0])
 
         if self.label:
             res["label"] = torch.from_numpy(ecg['label'])
