@@ -14,7 +14,7 @@ checkpoint:
   keep_last_epochs: 1
   save_interval_updates: 0
   no_epoch_checkpoints: false
-  patience: 30
+  patience: 20
 
 task:
   _name: ecg_identification
