@@ -19,11 +19,11 @@ class ClocsConfig(ConvTransformerConfig):
     apply_mask: bool = False
 
     # hold the legacy keys (deprecated)
-    # encoder_mode: Any = None
-    # conv_layers: Any = None
-    # sample_size: Any = None
-    # w2v_path: Any = None
-    # w2v_args: Any = None
+    encoder_mode: Any = None
+    conv_layers: Any = None
+    sample_size: Any = None
+    w2v_path: Any = None
+    w2v_args: Any = None
 
 @register_model("clocs", dataclass = ClocsConfig)
 class ClocsModel(ConvTransformerModel):
