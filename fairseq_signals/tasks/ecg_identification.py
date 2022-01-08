@@ -26,7 +26,7 @@ class ECGIdentificationConfig(ECGPretrainingConfig):
         default=MISSING, metadata={"help": "number of patients to be classified when training"}
     )
     visualize: bool=field(
-        default=True,
+        default=False,
         metadata={"help": "whether to visualize the cosine similarities between data in gallery and probe set"}
     )
 
