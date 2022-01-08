@@ -53,6 +53,8 @@ class ECGIdentificationTask(ECGPretrainingTask):
         super().__init__(cfg)
         # do not visualize when distributed training
         self.visualize = cfg.visualize and not torch.distributed.is_initialized()
+        if self.visualize:
+            os.mkdir('imgs')
 
         self.require_query = True
         self.gallery_feats = None
@@ -159,9 +161,6 @@ class ECGIdentificationTask(ECGPretrainingTask):
         self.require_query = True
         self.gallery_feats = None
         self.gallery_pids = None
-
-        if not os.path.exists('imgs'):
-            os.mkdir('imgs')
 
         if self.visualize:
             cos_sims = torch.cat(self.cos_sims)
