@@ -438,9 +438,9 @@ class ConvTransformerModel(BaseModel):
             model.remove_pretraining_modules()
 
         # hack for loading legacy pre-trained clocs model.
-        # state["model"] = {k.replace('encoder.w2v_model.',''): v for k, v in state["model"].items() if k.startswith('encoder.w2v_model.')}
-        # if 'mask_emb' in state["model"]:
-        #     state["model"].pop('mask_emb') 
+        state["model"] = {k.replace('encoder.w2v_model.',''): v for k, v in state["model"].items() if k.startswith('encoder.w2v_model.')}
+        if 'mask_emb' in state["model"]:
+            state["model"].pop('mask_emb') 
 
         model.load_state_dict(state["model"], strict = True)
         logger.info(f"Loaded pre-trained model parameters from {model_path}")
