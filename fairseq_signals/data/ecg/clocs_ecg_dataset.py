@@ -181,7 +181,8 @@ class ClocsECGDataset(RawECGDataset):
                 str(fn + f"_{i}.{self.ext}")
                 ) for i in self.segments[index]
         ]
-        lead = self.leads[index] if self.clocs_mode == "cmsc" else None
+        # lead = self.leads[index] if self.clocs_mode == "cmsc" else None
+        lead = None
         
         res = []
         for i, path in enumerate(paths):
