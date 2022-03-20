@@ -88,7 +88,7 @@ def main(args):
                     length = data['feats'].shape[-1]
                     print(
                         "{}\t{}\t{}".format(
-                            os.path.relpath(p, root_path), length ,idx
+                            os.path.relpath(p, root_path), length, idx
                         ), file=train_f
                     )
                 idx += 1
