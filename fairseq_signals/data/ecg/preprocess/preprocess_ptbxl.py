@@ -6,18 +6,10 @@ Data pre-processing:
 
 import argparse
 import os
-import functools
-import math
-import linecache
-import glob
 import pandas as pd
 import wfdb
 import scipy.io
 import numpy as np
-
-from multiprocessing import Pool
-
-from fairseq_signals.data.ecg import ecg_utils
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -34,7 +26,13 @@ def get_parser():
         default="0,1,2,3,4,5,6,7,8,9,10,11",
         type=str,
         help="comma separated list of lead numbers. (e.g. 0,1 loads only lead I and lead II)"
-        "note that the sequence of leads is [I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]"
+        "note that the order is following: [I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]"
+    )
+    parser.add_argument(
+        "--sample-rate",
+        default=500,
+        type=int,
+        help="if set, data must be sampled by this sampling rate to be processed"
     )
     parser.add_argument(
         "--ext", default="dat", type=str, metavar="EXT",
@@ -48,7 +46,7 @@ def get_parser():
         "--only-norm",
         default=False,
         type=bool,
-        help="whether to preprocess only normal samples"
+        help="whether to preprocess only normal samples (normal sinus rhythms)"
     )
     parser.add_argument("--seed", default=42, type=int, metavar="N", help="random seed")
 
@@ -95,7 +93,7 @@ def main(args):
             sample_rate = record[1]['fs']
             record = record[0].T
 
-            if sample_rate != 500:
+            if args.sample_rate and sample_rate != args.sample_rate:
                 continue
             
             if np.isnan(record).any():

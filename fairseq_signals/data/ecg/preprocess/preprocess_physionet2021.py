@@ -1,7 +1,5 @@
 """
 Data pre-processing: encode labels (age, diagnosis, patient id) and crop data.
-
-If finding legacy version, please refer commit: 8ebaab5a615a8a7717ba76d3d17c557e0fb14325
 """
 
 import argparse
@@ -36,7 +34,13 @@ def get_parser():
         default="0,1,2,3,4,5,6,7,8,9,10,11",
         type=str,
         help="comma separated list of lead numbers. (e.g. 0,1 loads only lead I and lead II)"
-        "note that the sequence of leads is [I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]"
+        "note that the order is following: [I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]"
+    )
+    parser.add_argument(
+        "--sample-rate",
+        default=500,
+        type=int,
+        help="if set, data must be sampled by this sampling rate to be processed"
     )
     parser.add_argument("--dest", type=str, metavar="DIR",
                        help="output directory")
@@ -115,8 +119,7 @@ def preprocess(args, pid_table, classes, dest_path, leads_to_load, fnames):
 
         sample_rate = int(linecache.getline(fname + '.hea', 1).split()[2])
 
-        # 500hz is expected
-        if sample_rate != 500:
+        if args.sample_rate and sample_rate != args.sample_rate:
             continue
 
         record = wfdb.rdrecord(
