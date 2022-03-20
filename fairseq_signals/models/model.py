@@ -14,8 +14,6 @@ from typing import Dict, List, Optional, Tuple
 import torch
 import torch.nn as nn
 import torch.nn.functional as F
-# from fairseq_signals.utils import utils
-# from fairseq_signals.data import ...
 from fairseq_signals.dataclass.utils import (
     convert_namespace_to_omegaconf,
     gen_parser_from_dataclass

@@ -74,10 +74,8 @@ class _3KGModel(ConvTransformerModel):
             x[padding_mask] = 0
         
         if dist_utils.get_data_parallel_world_size() > 1:
-            assert padding_mask is None, (
-                "padding_mask should be None if applying all_gather within training"
-            )
             x = torch.cat(GatherLayer.apply(x), dim=0)
+            padding_mask = None
 
         return {
             "x": x,

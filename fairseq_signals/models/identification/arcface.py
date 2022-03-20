@@ -17,13 +17,6 @@ from fairseq_signals.utils import utils
 
 @dataclass
 class ArcFaceConfig(ConvTransformerFinetuningConfig):
-    # hold the legacy keys
-    # w2v_path: Optional[str] = None
-    # clocs_path: Optional[str] = None
-    # layerdrop: Optional[float] = None
-    # mask_channel_before: Optional[bool] = None
-    # w2v_args: Any = None
-    # clocs_args: Any = None
     pass
 
 @register_model("arcface", dataclass=ArcFaceConfig)

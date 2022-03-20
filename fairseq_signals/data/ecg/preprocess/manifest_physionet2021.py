@@ -1,13 +1,9 @@
-"""
-If finding legacy version, please refer commit: 8074e7414a8eba1be4ac34a9147a8c7641a9f4e9
-"""
 import argparse
 import glob
 import os
 import random
 
 import scipy.io
-import numpy as np
 
 """
     Usage: python path/to/manifest.py \
@@ -15,7 +11,6 @@ import numpy as np
             --subset $subsets \
             --combine_subsets $combine_subsets \
             --dest /path/to/manifest \
-            --predir sub-dir \
             --ext $ext \
             --valid-percent $valid
 """
@@ -51,10 +46,6 @@ def get_parser():
         "--dest", default=".", type=str, metavar="DIR", help="output directory"
     )
     parser.add_argument(
-        "--predir", default="combined", type=str, metavar="DIR",
-        help="output directory where manifest of --combined_subsets will be saved"
-    )
-    parser.add_argument(
         "--ext", default="mat", type=str, metavar="EXT", help="extension to look for"
     )
     parser.add_argument("--seed", default=42, type=int, metavar="N", help="random seed")
@@ -78,13 +69,13 @@ def main(args):
 
     if not os.path.exists(os.path.join(args.dest, "total")):
         os.makedirs(os.path.join(args.dest, "total"))
-    if not os.path.exists(os.path.join(args.dest, args.predir)):
-        os.makedirs(os.path.join(args.dest, args.predir))
+    if not os.path.exists(os.path.join(args.dest, "cinc")):
+        os.makedirs(os.path.join(args.dest, "cinc"))
 
     with open(os.path.join(args.dest, "total/train.tsv"), "w") as total_f, open(
-        os.path.join(args.dest, args.predir, "train.tsv"), "w") as train_f, open(
-        os.path.join(args.dest, args.predir, "valid.tsv"), "w") as valid_f, open(
-        os.path.join(args.dest, args.predir, "test.tsv"), "w"
+        os.path.join(args.dest, "cinc/train.tsv"), "w") as train_f, open(
+        os.path.join(args.dest, "cinc/valid.tsv"), "w") as valid_f, open(
+        os.path.join(args.dest, "cinc/test.tsv"), "w"
     ) as test_f:
         print(root_path, file=total_f)
         print(root_path, file=train_f)
@@ -100,8 +91,6 @@ def main(args):
 
                 if args.ext == 'mat':
                     data = scipy.io.loadmat(file_path)
-                    #NOTE you should preprocess data to have given keys: "feats", "curr_sample_rate"
-
                     length = data['feats'].shape[-1]
 
                     print(

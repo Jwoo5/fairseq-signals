@@ -1,5 +1,4 @@
 from dataclasses import dataclass, field
-import dataclasses
 
 import math
 
@@ -50,7 +49,6 @@ class SimCLRCriterion(BaseCriterion):
         losses = []
 
         bsz = int(logits.shape[0] / 2)
-        
 
         mask = 1 - torch.eye(bsz * 2, dtype=torch.uint8).to(logits.device)
         pos_ind = (

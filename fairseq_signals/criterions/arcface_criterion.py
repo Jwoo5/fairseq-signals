@@ -28,10 +28,6 @@ class ArcFaceCriterionConfig(Dataclass):
             "help": "angular margin penalty between two vectors"
         }
     )
-    # log_keys: List[str] = field(
-    #     default_factory= lambda: [],
-    #     metadata={"help": "output keys to log"}
-    # )
 
 @register_criterion("arcface", dataclass=ArcFaceCriterionConfig)
 class ArcFaceCriterion(BaseCriterion):

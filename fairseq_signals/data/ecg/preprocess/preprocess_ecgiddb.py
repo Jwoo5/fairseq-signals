@@ -4,17 +4,10 @@ Data pre-processing: encode labels (patient id) and crop data
 
 import argparse
 import os
-import functools
-import math
-import linecache
 import glob
 import wfdb
 import scipy.io
 import numpy as np
-
-from multiprocessing import Pool
-
-from fairseq_signals.data.ecg import ecg_utils
 
 def get_parser():
     parser = argparse.ArgumentParser()

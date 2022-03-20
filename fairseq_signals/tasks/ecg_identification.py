@@ -31,7 +31,7 @@ class ECGIdentificationConfig(ECGPretrainingConfig):
     )
 
     # The following are needed to load batch iterator for gallery sets
-    #   when validating or testing
+    # when validating or testing
     max_tokens_valid: Optional[int] = II("dataset.max_tokens_valid")
     batch_size_valid: Optional[int] = II("dataset.batch_size_valid")
     skip_invalid_size_inputs_valid_test: Optional[bool] = II("dataset.skip_invalid_size_inputs_valid_test")

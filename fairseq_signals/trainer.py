@@ -234,23 +234,6 @@ class Trainer(object):
             self.optimizer,
         )
         self._lr_scheduler.step_update(0)
-        
-    # def consolidate_optimizer(self):
-    #     """For OSS, we need to consolidate the state dict."""
-    #     if self.cfg.checkpoint.no_save_optimizer_state:
-    #         return
-    #     self._gathered_optim_state = None
-    #     if hasattr(self.optimizer.optimizer, "consolidate_state_dict"):
-    #         self.optimizer.optimizer.consolidate_state_dict()
-
-    #     elif (
-    #         self.cfg.distributed_training.ddp_backend == "fully_sharded"
-    #         and not self.model.use_sharded_state
-    #     ):
-    #         st = self.model.gather_full_optim_state_dict(
-    #             self.optimizer
-    #         )  # only returns on rank 0
-    #         self._gathered_optim_state = st
 
     def state_dict(self):
         state_dict = {
@@ -483,10 +466,6 @@ class Trainer(object):
             dataset = self.task.dataset(subset),
             max_tokens = self.cfg.dataset.max_tokens_valid,
             max_signals = self.cfg.dataset.batch_size_valid,
-            # max_positions = utils.resolve_max_positions(
-            #     self.task.max_positions(),
-            #     self.model.max_positions()
-            # ),
             ignore_invalid_inputs = self.cfg.dataset.skip_invalid_size_inputs_valid_test,
             required_batch_size_multiple = self.cfg.dataset.required_batch_size_multiple,
             seed = self.cfg.common.seed,
