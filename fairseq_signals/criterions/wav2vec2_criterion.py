@@ -7,6 +7,9 @@ import math
 from dataclasses import dataclass, field
 from typing import List, Optional
 
+from itertools import combinations
+
+import numpy as np
 import torch
 import torch.nn.functional as F
 from fairseq_signals import logging, metrics
@@ -303,8 +306,42 @@ class Wav2Vec2WithClocsCriterion(BaseCriterion):
             clocs_logits /= self.temp
 
             clocs_target = torch.stack([p == p2 for p in p1]).to(clocs_logits.device)
+        elif self.mode == "cmlc":
+            combs = combinations(range(logits.size(0)), 2)
+            logits = torch.stack(
+                [torch.matmul(logits[first], logits[second].T) for first, second in combs]
+            )
+            logits /= self.temp
+
+            clocs_target = torch.from_numpy(
+                np.array([p == net_output["patient_id"] for p in net_output["patient_id"]])
+            ).to(logits.device)
         else:
-            raise AssertionError()
+            indices = torch.where(net_output["segment"] == 0)[0]
+            mat1 = logits[:, indices, :]
+            p1 = (
+                net_output["patient_id"][indices.cpu()]
+            ) if len(indices) > 1 else (
+                np.array([net_output["patient_id"][indices.cpu()]])
+            )
+
+            indices = torch.where(net_output["segment"] == 1)[0]
+            mat2 = logits[:, indices, :]
+            p2 = (
+                net_output["patient_id"][indices.cpu()]
+            ) if len(indices) > 1 else (
+                np.array([net_output["patient_id"][indices.cpu()]])
+            )
+
+            combs = combinations(range(logits.size(0)), 2)
+            logits = torch.stack(
+                [torch.matmul(mat1[first], mat2[second].T) for first, second in combs]
+            )
+            logits /= self.temp
+
+            clocs_target = torch.from_numpy(
+                np.array([p == p2 for p in p1])
+            ).to(logits.device)
         
         logits_1 = -F.log_softmax(clocs_logits, dim=-1)
         logits_2 = -F.log_softmax(clocs_logits.transpose(0,1), dim=-1)
@@ -431,50 +468,3 @@ class Wav2Vec2WithClocsCriterion(BaseCriterion):
         to True will improves distributed training speed.
         """
         return False
-
-@dataclass
-class Wav2Vec2WithReconCriterionConfig(Wav2Vec2CriterionConfig, MSECriterionConfig):
-    recon_weights: Optional[float] = field(
-        default=None,
-        metadata={"help": "weights for recon loss (mse loss) terms"}
-    )
-
-@register_criterion("wav2vec2_recon", dataclass=Wav2Vec2WithReconCriterionConfig)
-class Wav2Vec2WithReconCriterion(BaseCriterion):
-    def __init__(self, cfg: Wav2Vec2WithReconCriterionConfig, task: Task):
-        super().__init__(task)
-        self.infonce = cfg.infonce
-        self.loss_weights = cfg.loss_weights
-        self.log_keys = [] if cfg.log_keys is None else cfg.log_keys
-        self.temp = cfg.temp
-        self.eps = cfg.eps
-        self.recon_weights = cfg.recon_weights
-    
-    def forward(self, model, sample, reduce=True):
-        """Compute the loss for the given sample
-        
-        Returns a tuple with three elements:
-        1) the loss
-        2) the sample size, which is used as the denominator for the gradient
-        3) logging outputs to display while training
-        """
-        net_output = model(**sample["net_input"])
-        w2v_logits, recon_logits = model.get_logits(net_output)
-        w2v_targets, recon_targets = model.get_targets(sample, net_output)
-
-        weights = None
-        if hasattr(model, "get_target_weights") and not self.infonce:
-            weights = model.get_target_weights(w2v_targets, net_output)
-            if torch.is_tensor(weights):
-                weights = weights.float()
-        
-        if 'sample_size' in sample:
-            sample_size = sample['sample_size']
-        elif 'mask_indices' in sample['net_input']:
-            sample_size = sample['net_input']['mask_indices'].sum()
-        else:
-            sample_size = w2v_targets.numel() if self.infonce else w2v_targets.long().sum().item()
-        
-        losses = []
-
-        reduction = "none" if not reduce else "sum"
