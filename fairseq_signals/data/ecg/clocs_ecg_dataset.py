@@ -20,7 +20,6 @@ class ClocsECGDataset(RawECGDataset):
         perturbation_mode: Optional[List[PERTURBATION_CHOICES]]=None,
         max_sample_size=None,
         min_sample_size=0,
-        clocs_mode="cmsc",
         shuffle=True,
         pad=False,
         pad_leads=False,
@@ -29,7 +28,7 @@ class ClocsECGDataset(RawECGDataset):
         normalize=False,
         num_buckets=0,
         compute_mask_indices=False,
-        **mask_compute_kwargs
+        **kwargs
     ):
         super().__init__(
             sample_rate=sample_rate,
@@ -43,15 +42,13 @@ class ClocsECGDataset(RawECGDataset):
             label=label,
             normalize=normalize,
             compute_mask_indices=compute_mask_indices,
-            **mask_compute_kwargs
+            **kwargs,
         )
-        # assert clocs_mode in ["cmsc", "cmlc", "cmsmlc"]
-        #NOTE we use only cmsc in clocs
-        assert clocs_mode in ["cmsc"]
-        self.clocs_mode = clocs_mode
+        self.clocs_mode = kwargs['clocs_mode']
+        assert self.clocs_mode in ["cmsc", "cmlc", "cmsmlc"]
         self.max_segment_size = sys.maxsize
-        self.min_segment_size = 2 if clocs_mode in ["cmsc", "cmsmlc"] else 1
-        required_segment_size_multiple = 2 if clocs_mode in ["cmsc", "cmsmlc"] else 1
+        self.min_segment_size = 2 if self.clocs_mode in ["cmsc", "cmsmlc"] else 1
+        required_segment_size_multiple = 2 if self.clocs_mode in ["cmsc", "cmsmlc"] else 1
 
         skipped = 0
         self.fnames = []
@@ -181,16 +178,12 @@ class ClocsECGDataset(RawECGDataset):
                 str(fn + f"_{i}.{self.ext}")
                 ) for i in self.segments[index]
         ]
-        # lead = self.leads[index] if self.clocs_mode == "cmsc" else None
-        lead = None
-        
         res = []
         for i, path in enumerate(paths):
             out = {"id": index}
             ecg = scipy.io.loadmat(path)
         
             feats = torch.from_numpy(ecg['feats'])
-            feats = feats[lead].unsqueeze(0) if lead is not None else feats
             curr_sample_rate = ecg['curr_sample_rate']
 
             out["source"] = self.postprocess(feats, curr_sample_rate)

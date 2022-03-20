@@ -1,4 +1,7 @@
 from dataclasses import dataclass, field
+
+import math
+
 from typing import Optional
 from omegaconf import II
 from itertools import combinations
@@ -25,7 +28,9 @@ class ClocsCriterionConfig(Dataclass):
     eps: float = field(
         default=1e-8, metadata={"help": "small value for numerical stability when normalizing"}
     )
-    clocs_mode: CLOCS_MODE_CHOICES = II("task.clocs_mode")
+    clocs_mode: CLOCS_MODE_CHOICES = field(
+        default="cmsc", metadata={"help": "concept selection of positive views in clocs"}
+    )
 
 @register_criterion("clocs", dataclass = ClocsCriterionConfig)
 class ClocsCriterion(BaseCriterion):
@@ -34,7 +39,7 @@ class ClocsCriterion(BaseCriterion):
         self.mode = cfg.clocs_mode
         self.temp = cfg.temp
         self.eps = cfg.eps
-    
+
     def forward(self, model, sample, reduce = True):
         """Compute the loss for the given sample
         
@@ -43,9 +48,7 @@ class ClocsCriterion(BaseCriterion):
         2) the sample size, which is used as the denominator for the gradient
         3) logging outputs to display while training
         """
-        # assert self.mode in ["cmsc", "cmlc", "cmsmlc"], self.mode
-        # we use only cmsc in clocs
-        assert self.mode in ["cmsc"], self.mode
+        assert self.mode in ["cmsc", "cmlc", "cmsmlc"], self.mode
 
         net_output = model(**sample["net_input"])
         logits = model.get_logits(net_output, aggregate=True).float()
@@ -167,7 +170,7 @@ class ClocsCriterion(BaseCriterion):
         )
 
         metrics.log_scalar(
-            "loss", loss_sum / (len(logging_outputs) or 1 ), round = 3
+            "loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
         )
 
         metrics.log_scalar("nsignals", nsignals)
