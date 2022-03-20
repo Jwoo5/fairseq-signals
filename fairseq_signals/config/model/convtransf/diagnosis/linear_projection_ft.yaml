@@ -4,7 +4,7 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  wandb_project: diagnosis-prediction
+  # wandb_project: diagnosis-prediction
 
 checkpoint:
   save_dir: checkpoints
@@ -39,7 +39,7 @@ distributed_training:
 criterion:
   _name: binary_cross_entropy_with_logits
   report_auc: true
-  report_score: true
+  report_cinc_score: true
   weights_file: ???
 
 optimization:
@@ -51,11 +51,6 @@ optimizer:
   _name: adam
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-08
-
-# lr_scheduler:
-#   _name: tri_stage
-#   phase_ratio: [0.1, 0.2, 0.7]
-#   final_lr_scale: 0.01
 
 lr_scheduler:
   _name: fixed

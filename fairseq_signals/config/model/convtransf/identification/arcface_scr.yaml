@@ -4,78 +4,74 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  wandb_project: diagnosis-prediction
+  # wandb_project: ecg-identification
 
 checkpoint:
   save_dir: checkpoints
-  best_checkpoint_metric: cinc_score
+  best_checkpoint_metric: accuracy
   maximize_best_checkpoint_metric: true
   save_interval: 1
   keep_last_epochs: 1
   save_interval_updates: 0
   no_epoch_checkpoints: false
-  patience: 30
+  patience: 20
 
 task:
-  _name: multi_label_classification
-  num_labels: 26
+  _name: ecg_identification
+  num_labels: ???
   data: ???
   label: true
   normalize: false
   enable_padding: true
   enable_padding_leads: true
-  leads_to_load: "0"
+  leads_to_load: null
     # I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6
+
 
 dataset:
   num_workers: 6
   max_tokens: null 
   batch_size: 128
-  valid_subset: "valid,test"
+  valid_subset: "valid,test,ptbxl"
+  disable_validation: false
 
 distributed_training:
   distributed_world_size: 1
 
 criterion:
-  _name: binary_cross_entropy_with_logits
-  report_auc: true
-  report_score: true
-  weights_file: ???
+  _name: arcface
+  scale: 192
+  margin: 1.0
 
 optimization:
   max_epoch: 800
   max_update: 320000
-  lr: [0.00005]
+  lr: [0.00003]
 
 optimizer:
   _name: adam
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-08
 
-# lr_scheduler:
-#   _name: tri_stage
-#   phase_ratio: [0.1, 0.2, 0.7]
-#   final_lr_scale: 0.01
-
 lr_scheduler:
-  _name: fixed
-  warmup_updates: 0
+  _name: tri_stage
+  phase_ratio: [0.1, 0.2, 0.7]
+  final_lr_scale: 0.01
 
 model:
-  _name: linear_projection
-  model_path: ???
-  no_pretrained_weights: false
+  _name: arcface
+  model_path: null
+  no_pretrained_weights: true
 
   apply_mask: false
-  mask_prob: 0.65
-  mask_channel_prob: 0.5
-  mask_channel_length: 64
+  mask_prob: 0.0
+  mask_channel_prob: 0.0
 
   dropout: 0.0
   attention_dropout: 0.0
   activation_dropout: 0.1
-  encoder_layerdrop: 0.1
+  encoder_layerdrop: 0.0
 
-  feature_grad_mult: 0.0
+  feature_grad_mult: 1.0
   freeze_finetune_updates: 0
   in_d: 12

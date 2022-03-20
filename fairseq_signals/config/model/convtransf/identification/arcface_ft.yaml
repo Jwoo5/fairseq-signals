@@ -4,7 +4,7 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  wandb_project: ecg-identification
+  # wandb_project: ecg-identification
 
 checkpoint:
   save_dir: checkpoints
@@ -18,13 +18,13 @@ checkpoint:
 
 task:
   _name: ecg_identification
-  num_labels: 69978
+  num_labels: ???
   data: ???
   label: true
   normalize: false
   enable_padding: true
   enable_padding_leads: true
-  leads_to_load: 0,1,2,3,4,5
+  leads_to_load: null
     # I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6
 
 
@@ -32,7 +32,7 @@ dataset:
   num_workers: 6
   max_tokens: null 
   batch_size: 128
-  valid_subset: "valid,test,ptbxl,ptbxlnorm"
+  valid_subset: "valid,test,ptbxl"
   disable_validation: false
 
 distributed_training:
@@ -60,18 +60,19 @@ lr_scheduler:
 
 model:
   _name: arcface
-  model_path: null
-  no_pretrained_weights: true
+  model_path: ???
+  no_pretrained_weights: false
 
   apply_mask: false
-  mask_prob: 0.0
-  mask_channel_prob: 0.0
+  mask_prob: 0.65
+  mask_channel_prob: 0.5
+  mask_channel_length: 64
 
   dropout: 0.0
   attention_dropout: 0.0
   activation_dropout: 0.1
-  encoder_layerdrop: 0.0
+  encoder_layerdrop: 0.1
 
-  feature_grad_mult: 1.0
+  feature_grad_mult: 0.0
   freeze_finetune_updates: 0
   in_d: 12

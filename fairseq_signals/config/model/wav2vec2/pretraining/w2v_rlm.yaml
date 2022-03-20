@@ -2,7 +2,7 @@ common:
   fp16: false
   log_format: json
   log_interval: 50
-  wandb_project: rlm-pretraining
+  # wandb_project: wav2vec2-pretraining
 
 checkpoint:
   save_dir: checkpoints
@@ -14,9 +14,10 @@ checkpoint:
 task:
   _name: ecg_pretraining
   data: ???
-  label: false
-  perturbation_mode: random_leads_masking
+  perturbation_mode: ["random_leads_masking"]
+  p: [1.0]
   mask_leads_selection: random
+  mask_leads_prob: 0.5
   normalize: false
   enable_padding: true
   enable_padding_leads: false
@@ -31,10 +32,13 @@ dataset:
   disable_validation: true
 
 distributed_training:
-  distributed_world_size: 8
+  distributed_world_size: 1
 
 criterion:
-  _name: mse
+  _name: wav2vec2
+  infonce: true
+  log_keys: ["prob_perplexity", "code_perplexity", "temp"]
+  loss_weights: [0.1, 10]
 
 optimization:
   max_epoch: 200
@@ -51,8 +55,9 @@ lr_scheduler:
   warmup_updates: 0
 
 model:
-  _name: conv_transformer_recon
-  mask_prob: 0
+  _name: wav2vec2
+  quantize_targets: true
+  final_dim: 256
   encoder_layerdrop: 0.05
   dropout_input: 0.1
   dropout_features: 0.1

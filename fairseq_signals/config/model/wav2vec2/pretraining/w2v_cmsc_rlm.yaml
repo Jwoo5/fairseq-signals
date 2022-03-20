@@ -2,7 +2,7 @@ common:
   fp16: false
   log_format: json
   log_interval: 10
-  wandb_project: wav2vec2-pretraining
+  # wandb_project: wav2vec2-pretraining
 
 checkpoint:
   save_dir: checkpoints
@@ -13,15 +13,11 @@ checkpoint:
 
 task:
   _name: ecg_pretraining
-  clocs: true
-  clocs_mode: cmsc
   data: ???
   perturbation_mode: ["random_leads_masking"]
   p: [1.0]
   mask_leads_selection: random
   mask_leads_prob: 0.5
-  patient_dataset: true
-  label: false
   normalize: false
   enable_padding: true
   enable_padding_leads: false
@@ -40,6 +36,7 @@ distributed_training:
 
 criterion:
   _name: wav2vec2_with_clocs
+  clocs_mode: cmsc
   infonce: true
   log_keys: ["prob_perplexity", "code_perplexity", "temp"]
   loss_weights: [0.1, 10]
