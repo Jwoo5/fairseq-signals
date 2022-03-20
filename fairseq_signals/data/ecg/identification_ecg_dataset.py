@@ -24,7 +24,7 @@ class IdentificationECGDataset(RawECGDataset):
         normalize=False,
         num_buckets=0,
         compute_mask_indices=False,
-        **mask_compute_kwargs
+        **kwargs
     ):
         super().__init__(
             sample_rate=sample_rate,
@@ -38,7 +38,7 @@ class IdentificationECGDataset(RawECGDataset):
             label=label,
             normalize=normalize,
             compute_mask_indices=compute_mask_indices,
-            **mask_compute_kwargs
+            **kwargs
         )
 
         skipped = 0

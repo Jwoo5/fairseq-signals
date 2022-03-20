@@ -34,7 +34,7 @@ class PerturbECGDataset(FileECGDataset):
         normalize=False,
         num_buckets=0,
         compute_mask_indices=False,
-        **mask_compute_kwargs
+        **kwargs
     ):
         super().__init__(
             manifest_path=manifest_path,
@@ -50,7 +50,7 @@ class PerturbECGDataset(FileECGDataset):
             normalize=normalize,
             num_buckets=num_buckets,
             compute_mask_indices=compute_mask_indices,
-            **mask_compute_kwargs
+            **kwargs
         )
         self.retain_original = False
 
@@ -118,12 +118,12 @@ class _3KGECGDataset(PerturbECGDataset):
         normalize=False,
         num_buckets=0,
         compute_mask_indices=False,
-        **mask_compute_kwargs
+        **kwargs
     ):
         super().__init__(
             manifest_path=manifest_path,
             sample_rate=sample_rate,
-            perturbation_mode=["3kg"],
+            perturbation_mode=None,
             max_sample_rate=max_sample_size,
             min_sample_size=min_sample_size,
             shuffle=shuffle,
@@ -134,7 +134,7 @@ class _3KGECGDataset(PerturbECGDataset):
             normalize=normalize,
             num_buckets=num_buckets,
             compute_mask_indices=compute_mask_indices,
-            **mask_compute_kwargs
+            **kwargs
         )
 
         self.angle = angle

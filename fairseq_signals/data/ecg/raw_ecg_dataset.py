@@ -32,7 +32,7 @@ class RawECGDataset(BaseDataset):
         label=False,
         normalize=False,
         compute_mask_indices=False,
-        **mask_compute_kwargs,
+        **kwargs,
     ):
         super().__init__()
 
@@ -42,7 +42,7 @@ class RawECGDataset(BaseDataset):
 
         self.aug_list = []
         if perturbation_mode is not None:
-            p = mask_compute_kwargs.pop("p")
+            p = kwargs.pop("p")
             if hasattr(p, "__len__") and len(p) == 1:
                 p = list(p) * len(perturbation_mode)
             elif isinstance(p, float):
@@ -50,7 +50,7 @@ class RawECGDataset(BaseDataset):
                 
             for aug, prob in zip(perturbation_mode, p):
                 self.aug_list.append(
-                    augmentations.instantiate_from_name(aug, p=prob, **mask_compute_kwargs)
+                    augmentations.instantiate_from_name(aug, p=prob, **kwargs)
                 )
 
         self.sizes = []
@@ -69,10 +69,10 @@ class RawECGDataset(BaseDataset):
         self.normalize = normalize
         self.compute_mask_indices = compute_mask_indices
         if self.compute_mask_indices:
-            self.mask_compute_kwargs = mask_compute_kwargs
+            self.mask_compute_kwargs = kwargs
             self._features_size_map = {}
-            self._C = mask_compute_kwargs["encoder_embed_dim"]
-            self._conv_feature_layers = eval(mask_compute_kwargs["conv_feature_layers"])
+            self._C = kwargs["encoder_embed_dim"]
+            self._conv_feature_layers = eval(kwargs["conv_feature_layers"])
 
     def __getitem__(self, index):
         raise NotImplementedError()
@@ -317,7 +317,7 @@ class FileECGDataset(RawECGDataset):
         normalize=False,
         num_buckets=0,
         compute_mask_indices=False,
-        **mask_compute_kwargs
+        **kwargs
     ):
         super().__init__(
             sample_rate=sample_rate,
@@ -331,7 +331,7 @@ class FileECGDataset(RawECGDataset):
             label=label,
             normalize=normalize,
             compute_mask_indices=compute_mask_indices,
-            **mask_compute_kwargs
+            **kwargs
         )
 
         skipped = 0
