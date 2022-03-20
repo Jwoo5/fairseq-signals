@@ -28,7 +28,7 @@ class BinaryCrossEntropyWithLogitsCriterionConfig(BinaryCrossEntropyCriterionCon
             "number of classes."
         }
     )
-    report_score: bool = field(
+    report_cinc_score: bool = field(
         default=False,
         metadata={"help": "whether to report cinc challenge metric"}
     )
@@ -48,8 +48,8 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
         self.weight = cfg.weight
         self.pos_weight = cfg.pos_weight
         self.report_auc = cfg.report_auc
-        self.report_score = cfg.report_score
-        if self.report_score:
+        self.report_cinc_score = cfg.report_cinc_score
+        if self.report_cinc_score:
             assert cfg.weights_file
             classes, self.score_weights = (
                 ecg_utils.get_physionet_weights(cfg.weights_file)
@@ -124,7 +124,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
             logging_output["tn"] = tn.item()
             logging_output["fn"] = fn.item()
 
-            if self.report_score:
+            if self.report_cinc_score:
                 labels = target.cpu().numpy()
 
                 observed_score = (
