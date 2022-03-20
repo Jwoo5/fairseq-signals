@@ -99,7 +99,7 @@ class EMGNoise(object):
 class BaselineShift(object):
     def __init__(
         self,
-        max_amplitude=0.5,
+        max_amplitude=0.25,
         min_amplitude=0,
         shift_ratio=0.2,
         num_segment=1,
