@@ -70,5 +70,5 @@ We provide detailed READMEs for each model implementation:
 * [A Simple Framework for Contrastive Learning of Visual Representations](examples/simclr/README.md)
 
 # Contact
-If you have any questions or recommendations, please contact me via an issue or an e-mail.
+If you have any questions or recommendations, please contact us via an issue or an e-mail.
 * ojw0123@kaist.ac.kr
