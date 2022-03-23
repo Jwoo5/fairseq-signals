@@ -5,13 +5,11 @@ Fairseq-signals is a collection of deep learning models for ECG data processing 
 We provide implementations of various deep learning methods on ECG data, including official implementations of our works.
 
 ### List of implemented papers:
-* [Lead-agnostic Self-supervised Learning for Local and Global Representations of Electrocardiogram](https://arxiv.org/abs/2203.06889)*
+* [Lead-agnostic Self-supervised Learning for Local and Global Representations of Electrocardiogram](https://arxiv.org/abs/2203.06889)
 * [3KG: Contrastive Learning of 12-Lead Electrocardiograms using Physiologically-Inspired Augmentations](https://arxiv.org/abs/2106.04452)
 * [CLOCS: Contrastive Learning of Cardiac Signals Across Space, Time, and Patients](https://arxiv.org/abs/2005.13249)
 * [wav2vec 2.0: A Framework for Self-supervised Learning of Speech Representations](https://arxiv.org/abs/2006.11477)
 * [A Simple Framework for Contrastive Learning of Visual Representations](https://arxiv.org/abs/2002.05709)
-
-\* denotes for an official implementation
 
 We will keep implementing new methods in this repo. If you have any recommendations, please contact us via an issue or an e-mail.
 
@@ -79,6 +77,8 @@ We provide detailed READMEs for each model implementation:
 * [CLOCS: Contrastive Learning of Cardiac Signals Across Space, Time, and Patients](examples/clocs/README.md)
 * [wav2vec 2.0: A Framework for Self-supervised Learning of Speech Representations](examples/wav2vec2/README.md)
 * [A Simple Framework for Contrastive Learning of Visual Representations](examples/simclr/README.md)
+
+\* denotes for an official implementation
 
 # Contact
 If you have any questions or recommendations, please contact us via an issue or an e-mail.
