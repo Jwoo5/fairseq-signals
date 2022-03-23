@@ -16,7 +16,7 @@ We will keep implementing new methods in this repo. If you have any recommendati
 # Requirements and Installation
 * [PyTorch](https://pytorch.org) version >= 1.5.0
 * Python version >= 3.6
-* For training new models, you'll also need an NIVDIA GPU and [NCCL](https://githuc.com/NVIDIA/nccl)
+* For training new models, you'll also need an NIVDIA GPU and [NCCL](https://github.com/NVIDIA/nccl)
 * **To install fairseq-signals** from source and develop locally:
 
 ```bash
