@@ -40,7 +40,10 @@ path/to/WFDB
 ```
 Then, run:
 ```shell script
-$ python preprocess_physionet2021.py /path/to/WFDB/ --dest /path/to/output --workers $N
+$ python preprocess_physionet2021.py \
+/path/to/WFDB/ \
+--dest /path/to/output \
+--workers $N
 ```
 $N is the number of workers for multi-processing.
 
@@ -69,18 +72,26 @@ path/to/ptbxl
 ```
 Then, run:
 ```shell script
-$ python preprocess_ptbxl.py /path/to/ptbxl/records500/ --dest /path/to/output
+$ python preprocess_ptbxl.py \
+/path/to/ptbxl/records500/ \
+--dest /path/to/output
 ```
 It will filter ECG samples to have at least two corresponding sessions according to `patient id` and randomly crop 5 seconds.
 
 # Prepare data manifest
 Run:
 ```shell script
-$ python manifest.py /path/to/data/ --dest /path/to/manifest --valid-percent $valid
+$ python manifest.py \
+/path/to/data/ \
+--dest /path/to/manifest \
+--valid-percent $valid
 ```
 For patient identification task, run:
 ```shell script
-$ python manifest_identification.py /path/to/data --dest /path/to/manifest --valid-percent $valid
+$ python manifest_identification.py \
+/path/to/data \
+--dest /path/to/manifest \
+--valid-percent $valid
 ```
 $valid should be set to percentage of training data to use for validation.
 

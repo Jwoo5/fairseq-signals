@@ -41,22 +41,33 @@ We provide pre-processing codes for various ECG datasets.
 Given a directory that contains WFDB directories to be pre-processed for **PhysioNet2021**:
 
 ```shell script
-$ python fairseq_signals/data/ecg/preprocess/preprocess_physionet2021.py /path/to/physionet2021/ --dest /path/to/output --workers $N
+$ python fairseq_signals/data/ecg/preprocess/preprocess_physionet2021.py \
+/path/to/physionet2021/ \
+--dest /path/to/output \
+--workers $N
 ```
 
 Given a directory that contains .dat files from PTB-XL:
 ```shell script
-$ python fairseq_signals/data/ecg/preprocess/preprocess_ptbxl.py /path/to/ptbxl/records500/ --dest /path/to/output
+$ python fairseq_signals/data/ecg/preprocess/preprocess_ptbxl.py \
+/path/to/ptbxl/records500/ \
+--dest /path/to/output
 ```
 
 ### Prepare data manifest
 Given a directory that contains pre-processed data:
 ```shell script
-$ python fairseq_signals/data/ecg/preprocess/manifest.py /path/to/data/ --dest /path/to/manifest --valid-percent $valid
+$ python fairseq_signals/data/ecg/preprocess/manifest.py \
+/path/to/data/ \
+--dest /path/to/manifest \
+--valid-percent $valid
 ```
 For patient identification:
 ```shell script
-$ python fairseq_signals/data/ecg/preprocess/manifest_identification.py /path/to/data --dest /path/to/manifest --valid-percent $valid
+$ python fairseq_signals/data/ecg/preprocess/manifest_identification.py \
+/path/to/data \
+--dest /path/to/manifest \
+--valid-percent $valid
 ```
 
 You can find more detailed README about pre-processing and data manifest [here](fairseq_signals/data/ecg/preprocess/README.md).
