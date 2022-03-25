@@ -1,0 +1,64 @@
+common:
+  fp16: false
+  log_format: json
+  log_interval: 50
+  # wandb_project: simclr-pretraining
+
+checkpoint:
+  save_dir: checkpoints
+  save_interval: 1
+  keep_last_epochs: 1
+  save_interval_updates: 0
+  no_epoch_checkpoints: false
+
+task:
+  _name: ecg_pretraining
+  data: ???
+  perturbation_mode: ["powerline_noise", "emg_noise", "baseline_shift", "baseline_wander", "random_leads_masking"]
+  p: [1.0, 1.0, 1.0, 1.0, 1.0]
+  mask_leads_selection: random
+  mask_leads_prob: 0.5
+  normalize: false
+  enable_padding: true
+  enable_padding_leads: false
+  leads_to_load: null
+    # I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6
+
+dataset:
+  num_workers: 6
+  max_tokens: null
+  batch_size: 64
+  valid_subset: ""
+  disable_validation: true
+
+distributed_training:
+  distributed_world_size: 8
+
+criterion:
+  _name: simclr
+  temp: 0.1
+
+optimization:
+  max_epoch: 200
+  lr: [5e-5]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-06
+  weight_decay: 0.01
+
+lr_scheduler:
+  _name: fixed
+  warmup_updates: 0
+
+model:
+  _name: simclr
+  apply_mask: false
+  final_dim: 256
+  encoder_layerdrop: 0.05
+  dropout_input: 0.1
+  dropout_features: 0.1
+  feature_grad_mult: 0.1
+  encoder_embed_dim: 768
+  in_d: 12

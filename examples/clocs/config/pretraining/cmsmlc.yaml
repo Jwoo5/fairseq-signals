@@ -1,0 +1,62 @@
+common:
+  fp16: false
+  log_format: json
+  log_interval: 10
+  # wandb_project: clocs-pretraining
+
+checkpoint:
+  save_dir: checkpoints
+  save_interval: 1
+  keep_last_epochs: 1
+  save_interval_updates: 0
+  no_epoch_checkpoints: false
+
+
+task:
+  _name: ecg_pretraining
+  clocs_mode: cmsmlc # cmsc, cmlc, cmsmlc
+  data: ???
+  normalize: false
+  enable_padding: true
+  enable_padding_leads: false
+  leads_to_load: null
+    # I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6
+
+
+dataset:
+  num_workers: 6
+  max_tokens: null
+  batch_size: 4
+  valid_subset: ""
+  disable_validation: true
+
+distributed_training:
+  distributed_world_size: 8
+
+criterion:
+  _name: clocs
+
+optimization:
+  max_epoch: 200
+  lr: [5e-5]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-06
+  weight_decay: 0.01
+
+lr_scheduler:
+  _name: fixed
+  warmup_updates: 0
+
+model:
+  _name: clocs
+  apply_mask: false
+  final_dim: 256
+  encoder_layerdrop: 0.05
+  dropout_input: 0.1
+  dropout_features: 0.1
+  feature_grad_mult: 0.1
+  encoder_embed_dim: 768
+  in_d: 1
