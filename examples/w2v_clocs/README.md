@@ -5,7 +5,7 @@ This is the official pytorch code implementation of [Lead-agnostic Self-supervis
 Before training the model, please follow [these instructions](https://github.com/Jwoo5/fairseq-signals/blob/master/README.md) to install fairseq-signals and prepare required datasets.
 
 # Prepare training data manifest
-Before training, you should prepare training data manifest required for training CMSC model.
+Before training, you should prepare training data manifest required for training CLOCS model.
 ```shell script
 $ python /path/to/fairseq_signals/data/ecg/preprocess/convert_to_clocs_manifest.py \
     /path/to/total/train.tsv \
