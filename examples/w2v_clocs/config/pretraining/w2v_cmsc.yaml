@@ -1,7 +1,7 @@
 common:
   fp16: false
   log_format: json
-  log_interval: 10
+  log_interval: 50
   # wandb_project: wav2vec2-pretraining
 
 checkpoint:
@@ -15,8 +15,6 @@ task:
   _name: ecg_pretraining
   clocs_mode: cmsc
   data: ???
-  perturbation_mode: ["powerline_noise", "emg_noise", "baseline_shift", "baseline_wander", "random_leads_masking"]
-  p: [1.0]
   normalize: false
   enable_padding: true
   enable_padding_leads: false
@@ -26,12 +24,12 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null
-  batch_size: 32
+  batch_size: 64
   valid_subset: ""
   disable_validation: true
 
 distributed_training:
-  distributed_world_size: 8
+  distributed_world_size: 4
 
 criterion:
   _name: wav2vec2_with_clocs
@@ -42,7 +40,7 @@ criterion:
 optimization:
   max_epoch: 200
   lr: [5e-5]
-  # update_freq: [2]
+  update_freq: [2]
 
 optimizer:
   _name: adam
