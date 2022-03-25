@@ -2,7 +2,7 @@
 
 This is the official pytorch code implementation of [Lead-agnostic Self-supervised Learning for Local and Global Representations of Electrocardiogram](https://arxiv.org/abs/2203.06889).
 
-Before training the model, please follow [these instructions](https://arxiv.org/abs/2203.06889) to install fairseq-signals and prepare required datasets.
+Before training the model, please follow [these instructions](/fairseq-signals/README.md) to install fairseq-signals and prepare required datasets.
 
 # Prepare training data manifest
 Before training, you should prepare training data manifest required for training CMSC model.
