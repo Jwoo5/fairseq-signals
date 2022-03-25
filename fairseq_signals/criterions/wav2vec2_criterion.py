@@ -278,7 +278,7 @@ class Wav2Vec2WithClocsCriterion(BaseCriterion):
                     losses.append(p)
         
         features /= torch.max(
-            features.detach().norm(dim=1).unsqueeze(1),
+            features.detach().norm(dim=-1).unsqueeze(-1),
             self.eps * torch.ones_like(features)
         )
 
@@ -313,24 +313,24 @@ class Wav2Vec2WithClocsCriterion(BaseCriterion):
             )
             logits /= self.temp
 
-            clocs_target = torch.from_numpy(
-                np.array([p == net_output["patient_id"] for p in net_output["patient_id"]])
-            ).to(logits.device)
+            clocs_target = torch.stack(
+                [p == patient_id for p in patient_id]
+            ).repeat(logits.size(0), 1, 1)
         else:
-            indices = torch.where(net_output["segment"] == 0)[0]
+            indices = torch.where(segment == 0)[0]
             mat1 = logits[:, indices, :]
             p1 = (
-                net_output["patient_id"][indices.cpu()]
+                patient_id[indices]
             ) if len(indices) > 1 else (
-                np.array([net_output["patient_id"][indices.cpu()]])
+                torch.tensor([patient_id[indices]])
             )
 
-            indices = torch.where(net_output["segment"] == 1)[0]
+            indices = torch.where(segment == 1)[0]
             mat2 = logits[:, indices, :]
             p2 = (
-                net_output["patient_id"][indices.cpu()]
+                patient_id[indices]
             ) if len(indices) > 1 else (
-                np.array([net_output["patient_id"][indices.cpu()]])
+                torch.tensor([patient_id[indices]])
             )
 
             combs = combinations(range(logits.size(0)), 2)
@@ -339,25 +339,17 @@ class Wav2Vec2WithClocsCriterion(BaseCriterion):
             )
             logits /= self.temp
 
-            clocs_target = torch.from_numpy(
-                np.array([p == p2 for p in p1])
-            ).to(logits.device)
+            clocs_target = torch.stack(
+                ([p == p2 for p in p1])
+            ).repeat(logits.size(0), 1, 1)
         
         logits_1 = -F.log_softmax(clocs_logits, dim=-1)
-        logits_2 = -F.log_softmax(clocs_logits.transpose(0,1), dim=-1)
+        logits_2 = -F.log_softmax(clocs_logits.transpose(-2,-1), dim=-1)
 
-        loss_1 = torch.mean(
-            torch.stack(
-                [torch.mean(l[t]) for l, t in zip(logits_1, clocs_target)]
-            )
-        )
+        loss_1 = logits_1[clocs_target].mean()
         clocs_loss = loss_1 / 2.0
 
-        loss_2 = torch.mean(
-            torch.stack(
-                [torch.mean(l[t]) for l, t in zip(logits_2, clocs_target.T)]
-            )
-        )
+        loss_2 = logits_2[clocs_target.transpose(-2,-1)].mean()
         clocs_loss += loss_2 / 2.0
 
         if self.clocs_weights is not None:
@@ -365,7 +357,7 @@ class Wav2Vec2WithClocsCriterion(BaseCriterion):
         else:
             clocs_loss *= sample_size
         loss += clocs_loss
-        losses.append(clocs_loss)
+        losses.append(clocs_loss.detach().clone())
 
         logging_output = {
             "loss": loss.item() if reduce else loss.detach(),

@@ -28,9 +28,7 @@ class ClocsCriterionConfig(Dataclass):
     eps: float = field(
         default=1e-8, metadata={"help": "small value for numerical stability when normalizing"}
     )
-    clocs_mode: CLOCS_MODE_CHOICES = field(
-        default="cmsc", metadata={"help": "concept selection of positive views in clocs"}
-    )
+    clocs_mode: CLOCS_MODE_CHOICES = II("task.clocs_mode")
 
 @register_criterion("clocs", dataclass = ClocsCriterionConfig)
 class ClocsCriterion(BaseCriterion):
@@ -53,7 +51,7 @@ class ClocsCriterion(BaseCriterion):
         net_output = model(**sample["net_input"])
         logits = model.get_logits(net_output, aggregate=True).float()
         logits /= torch.max(
-            logits.detach().norm(dim=1).unsqueeze(1),
+            logits.detach().norm(dim=-1).unsqueeze(-1),
             self.eps * torch.ones_like(logits)
         )
 
@@ -91,24 +89,24 @@ class ClocsCriterion(BaseCriterion):
             )
             logits /= self.temp
 
-            target = torch.from_numpy(
-                np.array([p == net_output["patient_id"] for p in net_output["patient_id"]])
-            ).to(logits.device)
+            target = torch.stack(
+                [p == patient_id for p in patient_id]
+            ).repeat(logits.size(0), 1, 1)
         else:
-            indices = torch.where(net_output["segment"] == 0)[0]
+            indices = torch.where(segment == 0)[0]
             mat1 = logits[:, indices, :]
             p1 = (
-                net_output["patient_id"][indices.cpu()]
+                patient_id[indices]
             ) if len(indices) > 1 else (
-                np.array([net_output["patient_id"][indices.cpu()]])
+                torch.tensor([patient_id[indices]])
             )
 
-            indices = torch.where(net_output["segment"] == 1)[0]
+            indices = torch.where(segment == 1)[0]
             mat2 = logits[:, indices, :]
             p2 = (
-                net_output["patient_id"][indices.cpu()]
+                patient_id[indices]
             ) if len(indices) > 1 else (
-                np.array([net_output["patient_id"][indices.cpu()]])
+                torch.tensor([patient_id[indices]])
             )
 
             combs = combinations(range(logits.size(0)), 2)
@@ -117,27 +115,18 @@ class ClocsCriterion(BaseCriterion):
             )
             logits /= self.temp
 
-            target = torch.from_numpy(
-                np.array([p == p2 for p in p1])
-            ).to(logits.device)
+            target = torch.stack(
+                ([p == p2 for p in p1])
+            ).repeat(logits.size(0), 1, 1)
 
         logits_1 = -F.log_softmax(logits, dim = -1)
-        logits_2 = -F.log_softmax(logits.transpose(0,1), dim = -1)
+        logits_2 = -F.log_softmax(logits.transpose(-2,-1), dim = -1)
 
-
-        loss_1 = torch.mean(
-            torch.stack(
-                [torch.mean(l[t]) for l, t in zip(logits_1, target)]
-            )
-        )
+        loss_1 = logits_1[target].mean()
         loss += loss_1/2
         losses.append(loss_1.detach().clone())
 
-        loss_2 = torch.mean(
-            torch.stack(
-                [torch.mean(l[t]) for l, t in zip(logits_2, target.T)]
-            )
-        )
+        loss_2 = logits_2[target.transpose(-2, -1)].mean()
         loss += loss_2/2
 
         losses.append(loss_2.detach().clone())

@@ -17,12 +17,16 @@ CLOCS_MODE_CHOICES = ChoiceEnum(["cmsc", "cmlc", "cmsmlc"])
 @dataclass
 class ClocsConfig(ConvTransformerConfig):
     apply_mask: bool = False
+    clocs_mode: CLOCS_MODE_CHOICES = II("task.clocs_mode")
 
 @register_model("clocs", dataclass = ClocsConfig)
 class ClocsModel(ConvTransformerModel):
     def __init__(self, cfg: ClocsConfig):
         super().__init__(cfg)
         self.cfg = cfg
+        self.clocs_mode = cfg.clocs_mode
+        if self.clocs_mode in ['cmlc', 'cmsmlc'] and cfg.in_d != 1:
+            raise ValueError("you should set `model.in_d=1` to train CMLC or CMSMLC model.")
 
         if not cfg.apply_mask:
             self.mask_emb = None
@@ -39,23 +43,33 @@ class ClocsModel(ConvTransformerModel):
     
     def get_logits(self, net_output, normalize=False, aggregate=False):
         logits = net_output["x"]
+        dim = 1 if self.clocs_mode == 'cmsc' else 2
 
         if net_output["padding_mask"] is not None and net_output["padding_mask"].any():
             logits[net_output["padding_mask"]] = 0
         
         if aggregate:
-            logits = torch.div(logits.sum(dim=1), (logits != 0).sum(dim=1))
+            logits = torch.div(logits.sum(dim=dim), (logits != 0).sum(dim=dim))
         
         if normalize:
             logits = utils.log_softmax(logits.float(), dim=-1)
 
         return logits
     
-    def forward(self, source,**kwargs):
+    def forward(self, source, **kwargs):
         if len(source.shape) < 3:
             source = source.unsqueeze(1)
 
-        res = super().forward(source, **kwargs)
+        if self.clocs_mode in ['cmlc', 'cmsmlc']:
+            bsz, csz, tsz = source.shape
+            source = source.view(-1, 1, tsz)
+            res = super().forward(source, **kwargs)
+            dim = self.cfg.encoder_embed_dim
+            res['x'] = (
+                res['x'].view(csz, bsz, -1, dim)
+            )
+        else:
+            res = super().forward(source, **kwargs)
 
         x = res["x"]
         padding_mask = res["padding_mask"]
