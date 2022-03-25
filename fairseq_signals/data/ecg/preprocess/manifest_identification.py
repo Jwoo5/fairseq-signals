@@ -47,9 +47,9 @@ def main(args):
     if not os.path.exists(args.dest):
         os.makedirs(args.dest)
 
-    with open(os.path.join(args.dest, "train.tsv"), "w") as train_f, open(
-        os.path.join(args.dest, "valid_gallery.tsv"), "w") as valid_gallery_f, open(
-        os.path.join(args.dest, "valid_probe.tsv"), "w"
+    with open(os.path.join(args.dest, "identify", "train.tsv"), "w") as train_f, open(
+        os.path.join(args.dest, "identify", "valid_gallery.tsv"), "w") as valid_gallery_f, open(
+        os.path.join(args.dest, "identify", "valid_probe.tsv"), "w"
         ) as valid_probe_f:
         print(root_path, file=train_f)
         print(root_path, file=valid_gallery_f)

@@ -35,7 +35,7 @@ class BinaryCrossEntropyWithLogitsCriterionConfig(BinaryCrossEntropyCriterionCon
     weights_file: Optional[str] = field(
         default=None,
         metadata={
-            "help": "score weights file for cinc challenge, only used when --report_score is True"
+            "help": "score weights file for cinc challenge, only used when --report_cinc_score is True"
         }
     )
 
