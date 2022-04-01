@@ -20,7 +20,6 @@ task:
   _name: multi_label_classification
   num_labels: 26
   data: ???
-  label: true
   normalize: false
   enable_padding: true
   enable_padding_leads: false
@@ -30,7 +29,7 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null 
-  batch_size: 128
+  batch_size: 4
   valid_subset: "valid,test"
 
 distributed_training:

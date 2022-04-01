@@ -20,7 +20,6 @@ task:
   _name: ecg_identification
   num_labels: ???
   data: ???
-  label: true
   normalize: false
   enable_padding: true
   enable_padding_leads: true

@@ -24,10 +24,12 @@ class ArcFaceModel(ConvTransformerFinetuningModel):
     def __init__(self, cfg, encoder):
         super().__init__(cfg, encoder)
 
+        dim = cfg.final_dim if cfg.final_dim > 0 else cfg.encoder_embed_dim
+
         self.kernel = nn.Parameter(
             torch.Tensor(
                 cfg.output_size,
-                cfg.encoder_embed_dim
+                dim
             )
         )
         self.kernel.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)

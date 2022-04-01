@@ -112,7 +112,7 @@ class Wav2Vec2Model(ConvTransformerModel):
                 vq_dim = self.final_dim
                 self.input_quantizer = self.quantizer
             else:
-                vq_dim = cfg.latent_dim if cfg.latent_dim > 0 else cfg.embed_dim
+                vq_dim = cfg.latent_dim if cfg.latent_dim > 0 else cfg.encoder_embed_dim
                 self.input_quantizer = GumbelVectorQuantizer(
                     dim=self.embed,
                     num_vars=cfg.latent_vars,
@@ -122,7 +122,7 @@ class Wav2Vec2Model(ConvTransformerModel):
                     vq_dim=vq_dim,
                     time_first=True,
                 )
-            self.project_inp = nn.Linear(vq_dim, self.embed_dim)
+            self.project_inp = nn.Linear(vq_dim, self.encoder_embed_dim)
 
         self.target_glu = None
         if cfg.target_glu:

@@ -142,8 +142,7 @@ class ConvTransformerConfig(Dataclass):
     mask_channel_other: float = field(
         default=0,
         metadata={
-            "help": "secondary mask argument (used for more complex distributions), "
-            "see help in compute_mask_indicesh"
+            "help": "secondary mask argument (used for more complex distributions)"
         },
     )
     no_mask_channel_overlap: bool = field(
@@ -161,7 +160,7 @@ class ConvTransformerConfig(Dataclass):
     )
     conv_pos_groups: int = field(
         default=16,
-        metadata={"help": "number of groups for convolutional positional embedding"},
+        metadata={"help": "number of groups for convolutional positional embeddings"},
     )
 
     normalize: bool = II("task.normalize")
@@ -423,26 +422,13 @@ class ConvTransformerModel(BaseModel):
         )
 
         args.task.data = cfg.data
-        #XXX temporary code for loading legacy model
-        #######################################################
-        if (
-            hasattr(args.task, 'perturbation_mode') and
-            isinstance(args.task.perturbation_mode, str)
-        ):
-            args.task.perturbation_mode = list(args.task.perturbation_mode)
-        #######################################################
         task = tasks.setup_task(args.task)
         model = task.build_model(args.model)
 
         if hasattr(model, "remove_pretraining_modules"):
             model.remove_pretraining_modules()
 
-        # hack for loading legacy pre-trained clocs model.
-        # state["model"] = {k.replace('encoder.w2v_model.',''): v for k, v in state["model"].items() if k.startswith('encoder.w2v_model.')}
-        # if 'mask_emb' in state["model"]:
-        #     state["model"].pop('mask_emb') 
-
-        model.load_state_dict(state["model"], strict = True)
+        model.load_state_dict(state["model"], strict=True)
         logger.info(f"Loaded pre-trained model parameters from {model_path}")
 
         return model
