@@ -24,17 +24,17 @@ We recommend you to download those datasets excluding **StPetersburg** and **PTB
 Before pre-processing the data, the file structure should be like this:
 ```
 path/to/WFDB
-├─ ChapmanShaoxing
+├─ WFDB_ChapmanShaoxing
 │  ├─ *.hea
 │  └─ *.mat
-├─ CPSC2018
+├─ WFDB_CPSC2018
 │  ├─ *.hea
 │  └─ *.mat
-├─ CPSC2018_2
+├─ WFDB_CPSC2018_2
 │  ├─ *.hea
 │  └─ *.mat
 ├─ ...
-└─ PTBXL
+└─ WFDB_PTBXL
    ├─ *.hea
    └─ *.mat
 ```
