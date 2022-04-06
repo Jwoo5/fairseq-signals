@@ -29,7 +29,7 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null 
-  batch_size: 4
+  batch_size: 128
   valid_subset: "valid,test"
 
 distributed_training:
