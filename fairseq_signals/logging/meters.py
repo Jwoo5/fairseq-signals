@@ -10,6 +10,7 @@ from typing import Dict, Optional
 
 import torch
 import numpy as np
+from sklearn.metrics import average_precision_score, roc_auc_score
 
 def type_as(a, b):
     if torch.is_tensor(a) and torch.is_tensor(b):
@@ -121,6 +122,61 @@ class AverageMeter(Meter):
         if self.round is not None and val is not None:
             val = safe_round(val, self.round)
         return val
+
+class AUCMeter(Meter):
+    "Stores scores / targets to compute AUROC and AUPRC"
+
+    def __init__(self,):
+        self.reset()
+    
+    def reset(self):
+        self.scores = []
+        self.targets = []
+    
+    def update(self, prob, target):
+        if torch.is_tensor(prob):
+            prob = prob.cpu().numpy()
+        if torch.is_tensor(target):
+            target = target.cpu().numpy()
+
+        self.scores.append(prob)
+        self.targets.append(target)
+    
+    def state_dict(self):
+        return {
+            "scores": self.scores,
+            "targets": self.targets,
+        }
+    
+    def load_state_dict(self, state_dict):
+        self.scores = state_dict["scores"]
+        self.targets = state_dict["targets"]
+        self.round = state_dict.get("round", None)
+
+    @property
+    def auroc(self):
+        y_true = np.concatenate(self.targets)
+        y_score = np.concatenate(self.scores)
+        try:
+            return roc_auc_score(y_true=y_true, y_score=y_score, average='micro')
+        except ValueError:
+            return float("nan")
+    
+    @property
+    def auprc(self):
+        y_true = np.concatenate(self.targets)
+        y_score = np.concatenate(self.scores)
+        try:
+            return average_precision_score(y_true=y_true, y_score=y_score, average='micro')
+        except ValueError:
+            return float("nan")
+
+    @property
+    def smoothed_value(self) -> float:
+        raise AttributeError(
+            "AUC meter cannot have smoothed values. Please "
+            "make sure the key of this meter starts with '_'."
+        )
 
 class TimeMeter(Meter):
     """Compute the average occurrence of some event per second"""

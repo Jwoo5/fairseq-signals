@@ -8,9 +8,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 
-from sklearn.metrics import roc_auc_score, average_precision_score
-
-from fairseq_signals import logging, metrics
+from fairseq_signals import logging, metrics, meters
 from fairseq_signals.data.ecg import ecg_utils
 from fairseq_signals.utils import utils
 from fairseq_signals.criterions import BaseCriterion, register_criterion
@@ -181,22 +179,21 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
             y_true = np.concatenate([log.get("_y_true", 0) for log in logging_outputs])
             y_score = np.concatenate([log.get("_y_score", 0) for log in logging_outputs])
 
-            valid_labels = np.where(y_true.sum(0) > 0)[0]
-            y_true = y_true[:, valid_labels]
-            y_score = y_score[:, valid_labels]
+            metrics.log_custom(meters.AUCMeter, "_auc", y_score, y_true)
 
-            try:
-                auroc = roc_auc_score(y_true = y_true, y_score = y_score, average="micro")
-                metrics.log_scalar(
-                    "auroc", auroc, round = 3
+            if len(y_true) > 0:
+                metrics.log_derived(
+                    "auroc",
+                    lambda meters: safe_round(
+                        meters["_auc"].auroc, 3
+                    )
                 )
-
-                auprc = average_precision_score(y_true = y_true, y_score = y_score, average="micro")
-                metrics.log_scalar(
-                    "auprc", auprc, round = 3
+                metrics.log_derived(
+                    "auprc",
+                    lambda meters: safe_round(
+                        meters["_auc"].auprc, 3
+                    )
                 )
-            except:
-                pass
 
         observed_score = sum(log.get("o_score", 0) for log in logging_outputs)
         metrics.log_scalar("_o_score", observed_score)
@@ -207,7 +204,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
         inactive_score = sum(log.get("i_score", 0) for log in logging_outputs)
         metrics.log_scalar("_i_score", inactive_score)
 
-        if observed_score > 0:
+        if "o_score" in logging_outputs[0]:
             metrics.log_derived(
                 "cinc_score",
                 lambda meters: safe_round(
@@ -218,7 +215,6 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
                 if float(meters["_c_score"].sum - meters["_i_score"].sum) != 0
                 else float(0.0)
             )
-
 
         metrics.log_scalar("nsignals", nsignals)
 
