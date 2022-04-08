@@ -10,7 +10,7 @@ from scipy.spatial.transform import Rotation as R
 import torch
 import torch.nn.functional as F
 
-from typing import List
+from typing import List, Optional, Union
 from fairseq_signals.data.ecg.augmentations import PERTURBATION_CHOICES, MASKING_LEADS_STRATEGY_CHOICES
 
 from .raw_ecg_dataset import FileECGDataset
@@ -23,33 +23,11 @@ class PerturbECGDataset(FileECGDataset):
         self,
         manifest_path,
         sample_rate,
-        perturbation_mode: List[PERTURBATION_CHOICES]=["random_leads_masking"],
-        max_sample_size=None,
-        min_sample_size=0,
-        shuffle=True,
-        pad=False,
-        pad_leads=False,
-        leads_to_load=None,
-        label=False,
-        normalize=False,
-        num_buckets=0,
-        compute_mask_indices=False,
         **kwargs
     ):
         super().__init__(
             manifest_path=manifest_path,
             sample_rate=sample_rate,
-            perturbation_mode=perturbation_mode,
-            max_sample_size=max_sample_size,
-            min_sample_size=min_sample_size,
-            shuffle=shuffle,
-            pad=pad,
-            pad_leads=pad_leads,
-            leads_to_load=leads_to_load,
-            label=label,
-            normalize=normalize,
-            num_buckets=num_buckets,
-            compute_mask_indices=compute_mask_indices,
             **kwargs
         )
         self.retain_original = False
@@ -111,29 +89,15 @@ class _3KGECGDataset(PerturbECGDataset):
         angle=45,
         scale=1.5,
         mask_ratio=0.5,
-        max_sample_size=None,
-        min_sample_size=0,
-        shuffle=True,
-        pad=False,
-        normalize=False,
-        num_buckets=0,
-        compute_mask_indices=False,
         **kwargs
     ):
         super().__init__(
             manifest_path=manifest_path,
             sample_rate=sample_rate,
             perturbation_mode=None,
-            max_sample_rate=max_sample_size,
-            min_sample_size=min_sample_size,
-            shuffle=shuffle,
-            pad=pad,
             pad_leads=False,
             leads_to_load=None,
             label=False,
-            normalize=normalize,
-            num_buckets=num_buckets,
-            compute_mask_indices=compute_mask_indices,
             **kwargs
         )
 

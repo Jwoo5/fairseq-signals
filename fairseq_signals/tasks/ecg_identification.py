@@ -108,6 +108,8 @@ class ECGIdentificationTask(ECGPretrainingTask):
                 normalize=task_cfg.normalize,
                 num_buckets=self.cfg.num_batch_buckets,
                 compute_mask_indices=self.cfg.precompute_mask_indices,
+                bucket_leads=self.cfg.leads_bucket,
+                bucket_selection=self.cfg.bucket_selection,
                 **self._get_mask_precompute_kwargs(task_cfg)
             )
 

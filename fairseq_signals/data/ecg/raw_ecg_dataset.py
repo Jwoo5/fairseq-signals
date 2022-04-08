@@ -1,20 +1,21 @@
 import logging
 import os
 import sys
-import io
 
 import scipy.io
-import random
 import numpy as np
 import torch
 import torch.nn.functional as F
 
-from typing import List, Optional
+from typing import List, Optional, Union
 from fairseq_signals.data.ecg import augmentations
 from fairseq_signals.data.ecg.augmentations import PERTURBATION_CHOICES
+from fairseq_signals.dataclass import ChoiceEnum
 
 from .. import BaseDataset
 from ..data_utils import compute_mask_indices, get_buckets, get_bucketed_sizes
+
+BUCKET_CHOICE = ChoiceEnum(["uniform"])
 
 logger = logging.getLogger(__name__)
 
@@ -32,6 +33,8 @@ class RawECGDataset(BaseDataset):
         label=False,
         normalize=False,
         compute_mask_indices=False,
+        leads_bucket=None,
+        bucket_selection: BUCKET_CHOICE="uniform",
         **kwargs,
     ):
         super().__init__()
@@ -60,9 +63,22 @@ class RawECGDataset(BaseDataset):
         self.min_sample_size = min_sample_size
         self.pad = pad
         self.pad_leads = pad_leads
-        self.leads_to_load = list(
-            int(lead) for lead in leads_to_load.replace(' ','').split(',')
-        ) if leads_to_load is not None else None
+        if leads_to_load:
+            leads_to_load = eval(leads_to_load)
+            self.leads_to_load = list(map(self.get_lead_index, leads_to_load))
+        else:
+            self.leads_to_load = list(range(12))
+
+        self.leads_bucket = leads_bucket
+        if leads_bucket:
+            leads_bucket = eval(leads_bucket)
+            self.leads_bucket = list(map(self.get_lead_index, leads_bucket))
+        self.bucket_selection = bucket_selection
+
+        assert not (leads_bucket and pad_leads), (
+            "Bucketizing multiple leads does not work with lead-padding. "
+            "Please check that --pad_leads is unset when using bucketized dataset."
+        )
 
         self.label = label
         self.shuffle = shuffle
@@ -84,6 +100,19 @@ class RawECGDataset(BaseDataset):
     def apply_perturb(self):
         return self.perturbation_mode != None
 
+    def get_lead_index(self, lead: Union[int, str]) -> int:
+        if isinstance(lead, int):
+            return lead
+        lead = lead.lower()
+        order = ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
+        try:
+            index = order.index(lead)
+        except ValueError:
+            raise ValueError(
+                "Please make sure that the lead indicator is correct"
+            )
+        return index
+
     def perturb(self, feats):
         new_feats = feats.clone()
 
@@ -98,7 +127,24 @@ class RawECGDataset(BaseDataset):
 
         feats = feats.float()
         if self.leads_to_load:
-            feats = feats[self.leads_to_load, :]
+            if self.leads_bucket:
+                leads_bucket = set(self.leads_bucket)
+                leads_to_load = set(self.leads_to_load)
+                if not leads_bucket.issubset(leads_to_load):
+                    raise ValueError(
+                        "Please make sure that --leads_bucket is a subset of --leads_to_load."
+                    )
+
+                leads_to_load = list(leads_to_load - leads_bucket)
+                if self.bucket_selection == "uniform":
+                    choice = np.random.choice(self.leads_bucket, size=1)
+                else:
+                    raise Exception("unknown bucket selection " + self.bucket_selection)
+                leads_to_load.extend(choice)
+            else:
+                leads_to_load = self.leads_to_load
+
+            feats = feats[leads_to_load]
             if self.pad_leads:
                 padded = torch.zeros((12, feats.size(-1)))
                 padded[self.leads_to_load] = feats
@@ -306,31 +352,11 @@ class FileECGDataset(RawECGDataset):
         self,
         manifest_path,
         sample_rate,
-        perturbation_mode: Optional[List[PERTURBATION_CHOICES]]=None,
-        max_sample_size=None,
-        min_sample_size=0,
-        shuffle=True,
-        pad=False,
-        pad_leads=False,
-        leads_to_load=None,
-        label=False,
-        normalize=False,
         num_buckets=0,
-        compute_mask_indices=False,
         **kwargs
     ):
         super().__init__(
             sample_rate=sample_rate,
-            perturbation_mode=perturbation_mode,
-            max_sample_size=max_sample_size,
-            min_sample_size=min_sample_size,
-            shuffle=shuffle,
-            pad=pad,
-            pad_leads=pad_leads,
-            leads_to_load=leads_to_load,
-            label=label,
-            normalize=normalize,
-            compute_mask_indices=compute_mask_indices,
             **kwargs
         )
 
@@ -345,7 +371,7 @@ class FileECGDataset(RawECGDataset):
                 items = line.strip().split("\t")
                 assert len(items) == 2, line
                 sz = int(items[1])
-                if min_sample_size is not None and sz < min_sample_size:
+                if self.min_sample_size is not None and sz < self.min_sample_size:
                     skipped += 1
                     self.skipped_indices.add(i)
                     continue

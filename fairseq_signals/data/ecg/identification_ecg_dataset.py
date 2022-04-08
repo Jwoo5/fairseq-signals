@@ -5,6 +5,8 @@ import scipy.io
 import numpy as np
 import torch
 
+from typing import List, Optional, Union
+
 from fairseq_signals.data.ecg.raw_ecg_dataset import RawECGDataset
 
 logger = logging.getLogger(__name__)
@@ -14,30 +16,11 @@ class IdentificationECGDataset(RawECGDataset):
         self,
         manifest_path,
         sample_rate,
-        max_sample_size=None,
-        min_sample_size=0,
-        shuffle=True,
-        pad=False,
-        leads_to_load=None,
-        pad_leads=False,
-        label=False,
-        normalize=False,
         num_buckets=0,
-        compute_mask_indices=False,
         **kwargs
     ):
         super().__init__(
             sample_rate=sample_rate,
-            perturbation_mode=None,
-            max_sample_size=max_sample_size,
-            min_sample_size=min_sample_size,
-            shuffle=shuffle,
-            pad=pad,
-            pad_leads=pad_leads,
-            leads_to_load=leads_to_load,
-            label=label,
-            normalize=normalize,
-            compute_mask_indices=compute_mask_indices,
             **kwargs
         )
 
@@ -54,7 +37,7 @@ class IdentificationECGDataset(RawECGDataset):
                 assert len(items) == 3, line
                 sz = int(items[1])
                 pid = int(items[2])
-                if min_sample_size is not None and sz < min_sample_size:
+                if self.min_sample_size is not None and sz < self.min_sample_size:
                     skipped += 1
                     self.skipped_indices.add(i)
                     continue

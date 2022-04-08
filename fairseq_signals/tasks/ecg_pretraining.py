@@ -12,7 +12,7 @@ import torch
 
 from argparse import Namespace
 from dataclasses import dataclass, field
-from typing import Optional, Any, Tuple, List
+from typing import Optional, Any, Tuple, List, Union
 from omegaconf import MISSING, II, OmegaConf
 
 from fairseq_signals.data import (    
@@ -22,6 +22,7 @@ from fairseq_signals.data import (
     _3KGECGDataset
 )
 from fairseq_signals.dataclass import Dataclass
+from fairseq_signals.data.ecg.raw_ecg_dataset import BUCKET_CHOICE
 
 from . import Task, register_task
 from ..utils import utils
@@ -63,9 +64,22 @@ class ECGPretrainingConfig(Dataclass):
     leads_to_load: Optional[str] = field(
         default=None,
         metadata={
-            "help": "comma separated list of leads numbers. (e.g. 0,1 loads only lead I and lead II)"
+            "help": "string describing list of lead indicators or lead indices to be loaded"
             "note that the sequence of leads is [I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]"
             "if not set, load all the available leads of samples"
+        }
+    )
+    leads_bucket: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "string describing list of lead indicators or lead indices to be bucketized"
+            "This set of leads should be a subset of --leads_to_load"
+        }
+    )
+    bucket_selection: BUCKET_CHOICE = field(
+        default="uniform",
+        metadata={
+            "help": "how to bucketize multiple leads"
         }
     )
     sample_rate: int = field(
@@ -253,6 +267,8 @@ class ECGPretrainingTask(Task):
                 normalize=task_cfg.normalize,
                 num_buckets=self.cfg.num_batch_buckets,
                 compute_mask_indices=self.cfg.precompute_mask_indices,
+                leads_bucket=self.cfg.leads_bucket,
+                bucket_selection=self.cfg.bucket_selection,
                 **self._get_mask_precompute_kwargs(task_cfg),
                 **self._get_perturbation_kwargs()
             )
@@ -288,6 +304,8 @@ class ECGPretrainingTask(Task):
                 normalize=task_cfg.normalize,
                 num_buckets=self.cfg.num_batch_buckets,
                 compute_mask_indices=self.cfg.precompute_mask_indices,
+                leads_bucket=self.cfg.leads_bucket,
+                bucket_selection=self.cfg.bucket_selection,
                 **self._get_mask_precompute_kwargs(task_cfg),
                 **self._get_perturbation_kwargs()
             )
@@ -304,6 +322,8 @@ class ECGPretrainingTask(Task):
                 normalize=task_cfg.normalize,
                 num_buckets=self.cfg.num_batch_buckets,
                 compute_mask_indices=self.cfg.precompute_mask_indices,
+                leads_bucket=self.cfg.leads_bucket,
+                bucket_selection=self.cfg.bucket_selection,
                 **self._get_mask_precompute_kwargs(task_cfg),
                 **self._get_perturbation_kwargs()
             )

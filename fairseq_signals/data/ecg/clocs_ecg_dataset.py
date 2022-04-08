@@ -6,7 +6,7 @@ import numpy as np
 import scipy.io
 import torch
 
-from typing import Optional, List
+from typing import Optional, List, Union
 from fairseq_signals.data.ecg.augmentations import PERTURBATION_CHOICES
 from .raw_ecg_dataset import RawECGDataset
 
@@ -17,31 +17,11 @@ class ClocsECGDataset(RawECGDataset):
         self,
         manifest_path,
         sample_rate,
-        perturbation_mode: Optional[List[PERTURBATION_CHOICES]]=None,
-        max_sample_size=None,
-        min_sample_size=0,
-        shuffle=True,
-        pad=False,
-        pad_leads=False,
-        leads_to_load=None,
-        label=False,
-        normalize=False,
         num_buckets=0,
-        compute_mask_indices=False,
         **kwargs
     ):
         super().__init__(
             sample_rate=sample_rate,
-            perturbation_mode=perturbation_mode,
-            max_sample_size=max_sample_size,
-            min_sample_size=min_sample_size,
-            shuffle=shuffle,
-            pad=pad,
-            pad_leads=pad_leads,
-            leads_to_load=leads_to_load,
-            label=label,
-            normalize=normalize,
-            compute_mask_indices=compute_mask_indices,
             **kwargs,
         )
         self.clocs_mode = kwargs['clocs_mode']
@@ -67,7 +47,7 @@ class ClocsECGDataset(RawECGDataset):
                 seg = [int(s) for s in items[3].split(',')][:self.max_segment_size]
                 seg_sz = len(seg)
                 if (
-                    (min_sample_size is not None and sz < min_sample_size)
+                    (self.min_sample_size is not None and sz < self.min_sample_size)
                     or (self.min_segment_size is not None and seg_sz < self.min_segment_size)
                 ):
                     skipped += 1
