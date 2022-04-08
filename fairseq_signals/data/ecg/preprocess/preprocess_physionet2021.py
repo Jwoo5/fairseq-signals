@@ -9,8 +9,9 @@ import math
 import linecache
 import glob
 import wfdb
-import scipy.io
 import numpy as np
+from scipy.interpolate import interp1d
+import scipy.io
 
 from multiprocessing import Pool
 
@@ -41,6 +42,12 @@ def get_parser():
         default=500,
         type=int,
         help="if set, data must be sampled by this sampling rate to be processed"
+    )
+    parser.add_argument(
+        "--resample",
+        default=False,
+        action='store_true',
+        help='if set, resample data to have a sample rate of --sample-rate'
     )
     parser.add_argument("--dest", type=str, metavar="DIR",
                        help="output directory")
@@ -119,15 +126,19 @@ def preprocess(args, pid_table, classes, dest_path, leads_to_load, fnames):
 
         sample_rate = int(linecache.getline(fname + '.hea', 1).split()[2])
 
-        if args.sample_rate and sample_rate != args.sample_rate:
+        if (
+            args.sample_rate
+            and sample_rate != args.sample_rate
+            and not args.resample
+        ):
             continue
 
-        record = wfdb.rdrecord(
+        annot = wfdb.rdheader(
             os.path.splitext(fname)[0]
         ).__dict__
 
         sample = scipy.io.loadmat(fname)['val']
-        adc_gains = np.array(record['adc_gain'])[:, None]
+        adc_gains = np.array(annot['adc_gain'])[:, None]
 
         if np.isnan(sample).any():
             print(f"detected nan value at: {fname}, so skipped")
@@ -137,6 +148,18 @@ def preprocess(args, pid_table, classes, dest_path, leads_to_load, fnames):
 
         length = sample.shape[-1]
 
+        if (
+            args.sample_rate
+            and sample_rate != args.sample_rate
+            and args.resample
+        ):
+            sample_size = length * (args.sample_rate / sample_rate)
+            x = np.linspace(0, sample_size - 1, length)
+            f = interp1d(x, sample, kind='linear')
+            sample = f(list(range(int(sample_size))))
+            sample_rate = args.sample_rate
+
+        length = int(sample_size)
         pid = pid_table[os.path.basename(fname)]
         for i, seg in enumerate(range(0, length, int(args.sec * sample_rate))):
             data = {}
