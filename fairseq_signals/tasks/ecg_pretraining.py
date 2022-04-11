@@ -269,6 +269,7 @@ class ECGPretrainingTask(Task):
                 compute_mask_indices=self.cfg.precompute_mask_indices,
                 leads_bucket=self.cfg.leads_bucket,
                 bucket_selection=self.cfg.bucket_selection,
+                training=True if 'train' in split else False,
                 **self._get_mask_precompute_kwargs(task_cfg),
                 **self._get_perturbation_kwargs()
             )
@@ -289,6 +290,7 @@ class ECGPretrainingTask(Task):
                 pad=task_cfg.enable_padding,
                 normalize=task_cfg.normalize,
                 num_buckets=self.cfg.num_batch_buckets,
+                training=True if 'train' in split else False,
                 **inferred_3kg_config,
             )
         elif task_cfg.model_name == 'simclr':
@@ -306,6 +308,7 @@ class ECGPretrainingTask(Task):
                 compute_mask_indices=self.cfg.precompute_mask_indices,
                 leads_bucket=self.cfg.leads_bucket,
                 bucket_selection=self.cfg.bucket_selection,
+                training=True if 'train' in split else False,
                 **self._get_mask_precompute_kwargs(task_cfg),
                 **self._get_perturbation_kwargs()
             )
@@ -324,6 +327,7 @@ class ECGPretrainingTask(Task):
                 compute_mask_indices=self.cfg.precompute_mask_indices,
                 leads_bucket=self.cfg.leads_bucket,
                 bucket_selection=self.cfg.bucket_selection,
+                training=True if 'train' in split else False,
                 **self._get_mask_precompute_kwargs(task_cfg),
                 **self._get_perturbation_kwargs()
             )

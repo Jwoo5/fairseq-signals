@@ -35,9 +35,12 @@ class RawECGDataset(BaseDataset):
         compute_mask_indices=False,
         leads_bucket=None,
         bucket_selection: BUCKET_CHOICE="uniform",
+        training=True,
         **kwargs,
     ):
         super().__init__()
+
+        self.training = training
 
         self.sample_rate = sample_rate
         self.perturbation_mode = perturbation_mode
@@ -154,8 +157,8 @@ class RawECGDataset(BaseDataset):
             feats = feats.float()
             with torch.no_grad():
                 feats = F.layer_norm(feats, feats.shape)
-        
-        if self.apply_perturb:
+
+        if self.training and self.apply_perturb:
             feats = self.perturb(feats)
 
         return feats

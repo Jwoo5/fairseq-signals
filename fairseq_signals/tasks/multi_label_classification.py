@@ -58,5 +58,6 @@ class MultiLabelClassificationTask(ECGPretrainingTask):
             compute_mask_indices=self.cfg.precompute_mask_indices,
             leads_bucket=self.cfg.leads_bucket,
             bucket_selection=self.cfg.bucket_selection,
+            training=True if 'train' in split else False,
             **self._get_mask_precompute_kwargs(task_cfg)
         )

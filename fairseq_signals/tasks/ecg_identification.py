@@ -76,7 +76,6 @@ class ECGIdentificationTask(ECGPretrainingTask):
         data_path = self.cfg.data
         task_cfg = task_cfg or self.cfg
 
-
         if 'train' in split:
             manifest_path = [os.path.join(data_path, "{}.tsv".format(split))]
             split = [split]
@@ -110,7 +109,8 @@ class ECGIdentificationTask(ECGPretrainingTask):
                 compute_mask_indices=self.cfg.precompute_mask_indices,
                 bucket_leads=self.cfg.leads_bucket,
                 bucket_selection=self.cfg.bucket_selection,
-                **self._get_mask_precompute_kwargs(task_cfg)
+                training=True if 'train' in s else False,
+                **self._get_mask_precompute_kwargs(task_cfg),
             )
 
     def get_gallery_iterator(
