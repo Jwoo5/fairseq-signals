@@ -70,10 +70,12 @@ Note: `valid_*.tsv` should have been from **PTB-XL** dataset while `train.tsv` s
 # Citation
 Please cite as:
 ```
-@article{oh2022lead,
+@inproceedings{oh2022lead,
   title={Lead-agnostic Self-supervised Learning for Local and Global Representations of Electrocardiogram},
-  author={Jungwoo Oh and Hyunseung Chung and Joon-myoung Kwon and Dong-gyun Hong and Edward Choi},
-  journal={arXiv preprint arXiv:2203.06889},
-  year={2022}
+  author={Oh, Jungwoo and Chung, Hyunseung and Kwon, Joon-myoung and Hong, Dong-gyun and Choi, Edward},
+  booktitle={Conference on Health, Inference, and Learning},
+  pages={338--353},
+  year={2022},
+  organization={PMLR}
 }
 ```
