@@ -146,8 +146,6 @@ def preprocess(args, pid_table, classes, dest_path, leads_to_load, fnames):
 
         sample = sample / adc_gains
 
-        length = sample.shape[-1]
-
         if (
             args.sample_rate
             and sample_rate != args.sample_rate
@@ -159,7 +157,7 @@ def preprocess(args, pid_table, classes, dest_path, leads_to_load, fnames):
             sample = f(list(range(int(sample_size))))
             sample_rate = args.sample_rate
 
-        length = int(sample_size)
+        length = sample.shape[-1]
         pid = pid_table[os.path.basename(fname)]
         for i, seg in enumerate(range(0, length, int(args.sec * sample_rate))):
             data = {}
