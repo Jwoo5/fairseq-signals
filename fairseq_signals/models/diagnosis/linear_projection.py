@@ -49,6 +49,7 @@ class LinearProjectionModel(ConvTransformerFinetuningModel):
         padding_mask = res["padding_mask"]
         
         x = self.final_dropout(x)
+        x[padding_mask] = 0
         x = torch.div(x.sum(dim=1), (x != 0).sum(dim=1))
 
         x = self.proj(x)

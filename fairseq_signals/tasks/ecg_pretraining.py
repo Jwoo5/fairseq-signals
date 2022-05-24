@@ -22,7 +22,6 @@ from fairseq_signals.data import (
     _3KGECGDataset
 )
 from fairseq_signals.dataclass import Dataclass
-from fairseq_signals.data.ecg.raw_ecg_dataset import BUCKET_CHOICE
 
 from . import Task, register_task
 from ..utils import utils
@@ -76,7 +75,7 @@ class ECGPretrainingConfig(Dataclass):
             "This set of leads should be a subset of --leads_to_load"
         }
     )
-    bucket_selection: BUCKET_CHOICE = field(
+    bucket_selection: str = field(
         default="uniform",
         metadata={
             "help": "how to bucketize multiple leads"

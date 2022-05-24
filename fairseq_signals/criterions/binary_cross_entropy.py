@@ -33,7 +33,7 @@ class BinaryCrossEntropyCriterionConfig(Dataclass):
 @register_criterion(
     "binary_cross_entropy", dataclass = BinaryCrossEntropyCriterionConfig
 )
-class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
+class BinaryCrossEntropyCriterion(BaseCriterion):
     def __init__(self, cfg: BinaryCrossEntropyCriterionConfig, task: Task):
         super().__init__(task)
         self.weight = cfg.weight
