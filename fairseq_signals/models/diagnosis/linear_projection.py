@@ -4,8 +4,7 @@ import torch
 import torch.nn as nn
 
 from dataclasses import dataclass, field
-from typing import Optional
-from omegaconf import II
+from omegaconf import MISSING
 
 from fairseq_signals.models import register_model
 from fairseq_signals.models.conv_transformer import (
@@ -17,7 +16,9 @@ from fairseq_signals.utils import utils
 
 @dataclass
 class LinearProjectionConfig(ConvTransformerFinetuningConfig):
-    pass
+    num_labels: int = field(
+        default=MISSING, metadata={"help": "number of labels to be classified"}
+    )
 
 @register_model("linear_projection", dataclass=LinearProjectionConfig)
 class LinearProjectionModel(ConvTransformerFinetuningModel):
@@ -25,9 +26,9 @@ class LinearProjectionModel(ConvTransformerFinetuningModel):
         super().__init__(cfg, encoder)
 
         if cfg.final_dim > 0:
-            self.proj = nn.Linear(cfg.final_dim, cfg.output_size)
+            self.proj = nn.Linear(cfg.final_dim, cfg.num_labels)
         else:
-            self.proj = nn.Linear(cfg.encoder_embed_dim, cfg.output_size)
+            self.proj = nn.Linear(cfg.encoder_embed_dim, cfg.num_labels)
         nn.init.xavier_uniform_(self.proj.weight)
         nn.init.constant_(self.proj.bias, 0.0)
 
@@ -49,7 +50,9 @@ class LinearProjectionModel(ConvTransformerFinetuningModel):
         padding_mask = res["padding_mask"]
         
         x = self.final_dropout(x)
-        x[padding_mask] = 0
+        if padding_mask is not None and padding_mask.any():
+            x[padding_mask] = 0
+
         x = torch.div(x.sum(dim=1), (x != 0).sum(dim=1))
 
         x = self.proj(x)
