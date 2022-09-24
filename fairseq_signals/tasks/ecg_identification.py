@@ -22,9 +22,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class ECGIdentificationConfig(ECGPretrainingConfig):
-    num_labels: int=field(
-        default=MISSING, metadata={"help": "number of patients to be classified when training"}
-    )
     visualize: bool=field(
         default=False,
         metadata={"help": "whether to visualize the cosine similarities between data in gallery and probe set"}

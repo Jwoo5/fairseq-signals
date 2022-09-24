@@ -461,8 +461,6 @@ class ConvTransformerFinetuningConfig(FinetuningConfig, ConvTransformerConfig):
     encoder_layerdrop: float = 0.0
     feature_grad_mult: float = 0.0
 
-    output_size: int = II("task.num_labels")
-
 class ConvTransformerFinetuningModel(FinetuningModel):
     def __init__(self, cfg: ConvTransformerFinetuningConfig, encoder: ConvTransformerModel):
         super().__init__(cfg, encoder)

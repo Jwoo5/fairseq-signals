@@ -17,8 +17,7 @@ checkpoint:
   # patience: 30
 
 task:
-  _name: multi_label_classification
-  num_labels: 26
+  _name: ecg_diagnosis
   data: ???
   normalize: false
   enable_padding: true
@@ -58,6 +57,7 @@ lr_scheduler:
 model:
   _name: linear_projection
   model_path: ???
+  num_labels: 26
   no_pretrained_weights: false
 
   apply_mask: false

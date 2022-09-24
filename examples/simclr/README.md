@@ -36,8 +36,8 @@ Note that you can download `weights.csv` file from [here](https://github.com/phy
 ```shell script
 $ fairseq-hydra-train \
     task.data=/path/to/manifest/identify \
-    task.num_labels=$N \
     model.model_path=/path/to/checkpoint.pt \
+    model.num_labels=$N \
     --config-dir examples/simclr/config/finetuning \
     --config-name identification
 ```

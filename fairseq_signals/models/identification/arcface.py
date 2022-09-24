@@ -4,8 +4,7 @@ import torch
 import torch.nn as nn
 
 from dataclasses import dataclass, field
-from typing import Any, Optional
-from omegaconf import II
+from omegaconf import MISSING
 
 from fairseq_signals.models import register_model
 from fairseq_signals.models.conv_transformer import (
@@ -17,18 +16,20 @@ from fairseq_signals.utils import utils
 
 @dataclass
 class ArcFaceConfig(ConvTransformerFinetuningConfig):
-    pass
+    num_labels: int=field(
+        default=MISSING, metadata={"help": "number of patients to be classified when training"}
+    )
 
 @register_model("arcface", dataclass=ArcFaceConfig)
 class ArcFaceModel(ConvTransformerFinetuningModel):
-    def __init__(self, cfg, encoder):
+    def __init__(self, cfg: ArcFaceConfig, encoder):
         super().__init__(cfg, encoder)
 
         dim = cfg.final_dim if cfg.final_dim > 0 else cfg.encoder_embed_dim
 
         self.kernel = nn.Parameter(
             torch.Tensor(
-                cfg.output_size,
+                cfg.num_labels,
                 dim
             )
         )

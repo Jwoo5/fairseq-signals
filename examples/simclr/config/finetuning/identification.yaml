@@ -18,7 +18,6 @@ checkpoint:
 
 task:
   _name: ecg_identification
-  num_labels: ???
   data: ???
   normalize: false
   enable_padding: true
@@ -60,6 +59,7 @@ lr_scheduler:
 model:
   _name: arcface
   model_path: ???
+  num_labels: ???
   no_pretrained_weights: false
 
   apply_mask: false

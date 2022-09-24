@@ -14,27 +14,25 @@ from . import register_task
 logger = logging.getLogger(__name__)
 
 @dataclass
-class MultiLabelClassificationConfig(ECGPretrainingConfig):
-    num_labels: int = field(
-        default=MISSING, metadata={"help": "number of labels to be classified"}
-    )
+class ECGDiagnosisConfig(ECGPretrainingConfig):
+    pass
 
-@register_task("multi_label_classification", dataclass=MultiLabelClassificationConfig)
-class MultiLabelClassificationTask(ECGPretrainingTask):
-    cfg: MultiLabelClassificationConfig
+@register_task("ecg_diagnosis", dataclass=ECGDiagnosisConfig)
+class ECGDiagnosisTask(ECGPretrainingTask):
+    cfg: ECGDiagnosisConfig
 
     def __init__(
         self,
-        cfg: MultiLabelClassificationConfig
+        cfg: ECGDiagnosisConfig
     ):
         super().__init__(cfg)
     
     @classmethod
-    def setup_task(cls, cfg: MultiLabelClassificationConfig, **kwargs):
+    def setup_task(cls, cfg: ECGDiagnosisConfig, **kwargs):
         """Setup the task
         
         Args:
-            cfg (MultiLabelClassificationConfig): configuration of this task
+            cfg (ECGDiagnosisConfig): configuration of this task
         """
         return cls(cfg)
     
