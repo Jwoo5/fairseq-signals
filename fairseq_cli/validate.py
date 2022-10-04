@@ -80,7 +80,7 @@ def main(cfg: DictConfig, override_args = None):
         # state["model"].pop("encoder.mask_emb")
 
         model.load_state_dict(state["model"], strict = True)
-        logger.info(f"Loaded pre-trained model from {cfg.common_eval.path}")
+        logger.info(f"Loaded model checkpoint from {cfg.common_eval.path}")
     else:
         raise FileNotFoundError(cfg.common_eval.path)
     
