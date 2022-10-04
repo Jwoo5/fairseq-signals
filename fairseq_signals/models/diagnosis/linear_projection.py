@@ -25,10 +25,7 @@ class LinearProjectionModel(ConvTransformerFinetuningModel):
     def __init__(self, cfg, encoder):
         super().__init__(cfg, encoder)
 
-        if cfg.final_dim > 0:
-            self.proj = nn.Linear(cfg.final_dim, cfg.num_labels)
-        else:
-            self.proj = nn.Linear(cfg.encoder_embed_dim, cfg.num_labels)
+        self.proj = nn.Linear(cfg.encoder_embed_dim, cfg.num_labels)
         nn.init.xavier_uniform_(self.proj.weight)
         nn.init.constant_(self.proj.bias, 0.0)
 

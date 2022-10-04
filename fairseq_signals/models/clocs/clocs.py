@@ -16,7 +16,6 @@ CLOCS_MODE_CHOICES = ChoiceEnum(["cmsc", "cmlc", "cmsmlc"])
 
 @dataclass
 class ClocsConfig(ConvTransformerConfig):
-    apply_mask: bool = False
     clocs_mode: CLOCS_MODE_CHOICES = II("task.clocs_mode")
 
 @register_model("clocs", dataclass = ClocsConfig)
@@ -27,9 +26,6 @@ class ClocsModel(ConvTransformerModel):
         self.clocs_mode = cfg.clocs_mode
         if self.clocs_mode in ['cmlc', 'cmsmlc'] and cfg.in_d != 1:
             raise ValueError("you should set `model.in_d=1` to train CMLC or CMSMLC model.")
-
-        if not cfg.apply_mask:
-            self.mask_emb = None
 
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)

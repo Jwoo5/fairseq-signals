@@ -14,8 +14,11 @@ from .transformer_encoder_layer import TransformerEncoderLayer
 from .transformer_encoder import TransformerEncoder
 from .transpose_last import TransposeLast
 from .conv_feature_extraction import ConvFeatureExtraction, TransposedConvFeatureExtraction
+from .conv_positional_encoding import ConvPositionalEncoding
 
 __all__ = [
+    "ConvFeatureExtraction",
+    "ConvPositionalEncoding",
     "Fp32GroupNorm",
     "GradMultiply",
     "GatherLayer",
@@ -27,6 +30,5 @@ __all__ = [
     "TransformerEncoderLayer",
     "TransformerEncoder",
     "TransposeLast",
-    "ConvFeatureExtraction",
     "TransposedConvFeatureExtraction"
 ]

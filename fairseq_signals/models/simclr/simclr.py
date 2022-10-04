@@ -13,16 +13,13 @@ from fairseq_signals.distributed import utils as dist_utils
 
 @dataclass
 class SimCLRConfig(ConvTransformerConfig):
-    apply_mask: bool = False
+    pass
 
 @register_model("simclr", dataclass=SimCLRConfig)
 class SimCLRModel(ConvTransformerModel):
     def __init__(self, cfg: SimCLRConfig):
         super().__init__(cfg)
         self.cfg = cfg
-
-        if not cfg.apply_mask:
-            self.mask_emb = None
     
     def upgrade_state_dict_named(self, state_dict, name):
         super().upgrade_state_dict_named(state_dict, name)

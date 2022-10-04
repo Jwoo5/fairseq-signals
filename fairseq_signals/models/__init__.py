@@ -13,7 +13,7 @@ from hydra.core.config_store import ConfigStore
 
 from .disrtibuted_model import DistributedModel
 from .model import (
-    BaseModel
+    BaseModel,
 )
 
 MODEL_REGISTRY = {}
