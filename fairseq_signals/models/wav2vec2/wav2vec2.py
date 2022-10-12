@@ -168,6 +168,8 @@ class Wav2Vec2Model(ConvTransformerModel):
 
         self.logit_temp = cfg.logit_temp
 
+        self.final_dim = cfg.final_dim
+
         if cfg.quantize_targets:
             vq_dim = cfg.latent_dim if cfg.latent_dim > 0 else self.final_dim
             self.quantizer = GumbelVectorQuantizer(
