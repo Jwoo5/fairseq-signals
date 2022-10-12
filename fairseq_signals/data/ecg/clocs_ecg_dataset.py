@@ -107,7 +107,7 @@ class ClocsECGDataset(RawECGDataset):
                 )
                 padding_mask[i, :, diff:] = True
             else:
-                collated_sources[i] = self.crop_to_max_size(source, target_size)        
+                collated_sources[i] = self.crop_to_max_size(source, target_size, rand=True)
 
         input = {"source": collated_sources}
         out = {"id": torch.LongTensor([s["id"] for s in flattened_samples])}
