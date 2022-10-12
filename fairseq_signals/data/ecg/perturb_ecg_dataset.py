@@ -41,7 +41,10 @@ class PerturbECGDataset(FileECGDataset):
     def postprocess(self, feats, curr_sample_rate):
         assert feats.shape[0] == 12, feats.shape[0]
 
-        if self.sample_rate > 0 and curr_sample_rate != self.sample_rate:
+        if (
+            (self.sample_rate is not None and self.sample_rate > 0)
+            and curr_sample_rate != self.sample_rate
+        ):
             raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
 
         if self.normalize:

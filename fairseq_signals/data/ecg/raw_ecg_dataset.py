@@ -125,7 +125,10 @@ class RawECGDataset(BaseDataset):
         return new_feats
 
     def postprocess(self, feats, curr_sample_rate):
-        if self.sample_rate > 0 and curr_sample_rate != self.sample_rate:
+        if (
+            (self.sample_rate is not None and self.sample_rate > 0)
+            and curr_sample_rate != self.sample_rate
+        ):
             raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
 
         feats = feats.float()
@@ -163,15 +166,23 @@ class RawECGDataset(BaseDataset):
 
         return feats
 
-    def crop_to_max_size(self, wav, target_size):
-        size = wav.shape[-1]
+    def crop_to_max_size(self, sample, target_size, rand=False):
+        dim = sample.dim()
+        size = sample.shape[-1]
         diff = size - target_size
         if diff <= 0:
-            return wav
-        
-        start = np.random.randint(0, diff + 1)
+            return sample
+
+        start = 0
+        if rand:
+            start = np.random.randint(0, diff + 1)
         end = size - diff + start
-        return wav[:,start:end]
+        if dim == 1:
+            return sample[start:end], start, end
+        elif dim == 2:
+            return sample[:, start:end], start, end
+        else:
+            raise AssertionError('Check the dimension of the input data')
 
     def _compute_mask_indices(self, dims, padding_mask):
         B, T, C = dims
@@ -247,9 +258,9 @@ class RawECGDataset(BaseDataset):
                     )
                 padding_mask[i, :, diff:] = True
             else:
-                collated_sources[i] = self.crop_to_max_size(source, target_size)
+                collated_sources[i], start, end = self.crop_to_max_size(source, target_size, rand=True)
                 if originals:
-                    collated_originals[i] = self.crop_to_max_size(originals[i], target_size)
+                    collated_originals[i] = originals[i][:,start:end]
 
         input = {"source": collated_sources}
         out = {"id": torch.LongTensor([s["id"] for s in samples])}
