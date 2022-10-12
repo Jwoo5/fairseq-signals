@@ -208,11 +208,11 @@ class Task(object):
         with data_utils.numpy_seed(seed):
             indices = dataset.ordered_indices()
 
-        # # filter examples that are too large
-        # if max_positions is not None:
-        #     indices = self.filter_indices_by_size(
-        #         indices, dataset, max_positions, ignore_invalid_inputs
-        #     )
+        # filter examples that are too large
+        if max_positions is not None:
+            indices = self.filter_indices_by_size(
+                indices, dataset, max_positions, ignore_invalid_inputs
+            )
 
         # create mini-batches with given size constraints
         batch_sampler = dataset.batch_by_size(
