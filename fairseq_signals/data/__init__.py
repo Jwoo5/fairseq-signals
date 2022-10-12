@@ -9,6 +9,7 @@ from .ecg.raw_ecg_dataset import FileECGDataset
 from .ecg.clocs_ecg_dataset import ClocsECGDataset
 from .ecg.perturb_ecg_dataset import PerturbECGDataset, _3KGECGDataset
 from .ecg.identification_ecg_dataset import IdentificationECGDataset
+from .ecg_qa.ecg_qa_dataset import JsonECGQADataset
 
 from .iterators import (
     CountingIterator,
@@ -25,5 +26,6 @@ __all__ = [
     "ClocsECGDataset",
     "PerturbECGDataset",
     "_3KGECGDataset",
-    "IdentificationECGDataset"
+    "IdentificationECGDataset",
+    "JsonECGQADataset",
 ]
