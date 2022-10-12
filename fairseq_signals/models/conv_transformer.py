@@ -23,9 +23,6 @@ from fairseq_signals.modules import (
     ConvFeatureExtraction,
     ConvPositionalEncoding,
 )
-from fairseq_signals.dataclass import ChoiceEnum, Dataclass
-
-EXTRACTOR_MODE_CHOICES = ChoiceEnum(["default", "layer_norm"])
 
 logger = logging.getLogger(__name__)
 
@@ -35,8 +32,8 @@ class ConvTransformerConfig(TransformerConfig):
     extractor_mode: str  = field (
         default = "default",
         metadata = {
-            "help": "mode for conv feature extractor. default has a single group norm with d"
-            "groups in the first conv block, whereas layer_norm layer has layer norms in "
+            "help": "mode for conv feature extractor. 'default' has a single group norm with d"
+            "groups in the first conv block, whereas 'layer_norm' has layer norms in "
             "every block (meant to use with normalize = True)"
         }
     )
@@ -57,6 +54,16 @@ class ConvTransformerConfig(TransformerConfig):
     )
     feature_grad_mult: float = field(
         default=1.0, metadata={"help": "multiply feature extractor var grads by this"}
+    )
+
+    # positional embeddings
+    conv_pos: int = field(
+        default=128,
+        metadata={"help": "number of filters for convolutional positional embeddings"},
+    )
+    conv_pos_groups: int = field(
+        default=16,
+        metadata={"help": "number of groups for convolutional positional embeddings"},
     )
 
     normalize: bool = II("task.normalize")
@@ -88,9 +95,7 @@ class ConvTransformerModel(TransformerModel):
         )
 
         self.feature_grad_mult = cfg.feature_grad_mult
-
         self.conv_pos = ConvPositionalEncoding(cfg)
-
         self.layer_norm = LayerNorm(self.embed)
     
         self.num_updates = 0
@@ -273,7 +278,6 @@ class ConvTransformerFinetuningModel(TransformerFinetuningModel):
         args = {
             "source": source,
             "padding_mask": padding_mask,
-            "mask": False
         }
 
         ft = self.freeze_finetune_updates <= self.num_updates

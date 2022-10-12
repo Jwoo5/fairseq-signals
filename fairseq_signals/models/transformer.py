@@ -63,16 +63,6 @@ class TransformerConfig(Dataclass):
         metadata={"help": "dropout to apply to the features (after feat extr)"},
     )
 
-    # positional embeddings
-    conv_pos: int = field(
-        default=128,
-        metadata={"help": "number of filters for convolutional positional embeddings"},
-    )
-    conv_pos_groups: int = field(
-        default=16,
-        metadata={"help": "number of groups for convolutional positional embeddings"},
-    )
-
     normalize: bool = II("task.normalize")
     data: str = II("task.data")
     # this holds the loaded pre-trained model args
@@ -87,8 +77,6 @@ class TransformerModel(BaseModel):
         self.dropout_features = nn.Dropout(cfg.dropout_features)
 
         self.num_updates = 0
-
-        self.final_dim = cfg.final_dim if cfg.final_dim > 0 else cfg.encoder_embed_dim
 
         self.encoder = TransformerEncoder(cfg)
 
