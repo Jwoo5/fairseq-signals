@@ -84,7 +84,7 @@ class CommonConfig(Dataclass):
         metadata={"help": "Weights and Biases project name to use for logging"}
     )
     wandb_entity: Optional[str] = field(
-        default = 'ecg-pretraining',
+        default = None,
         metadata={"help": "Weights and Biases entity(team) name to use for logging"}
     )
 
