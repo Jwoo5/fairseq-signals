@@ -8,7 +8,7 @@ from typing import Optional, Any, Tuple, List, Union
 from omegaconf import MISSING, II, OmegaConf
 
 from fairseq_signals.data import (
-    JsonECGQADataset
+    FileECGTextDataset
 )
 from fairseq_signals.dataclass import Dataclass
 
@@ -83,9 +83,22 @@ class ECGTextPretrainingTask(Task):
     def load_dataset(self, split: str, task_cfg: Dataclass = None, **kwargs):
         data_path = self.cfg.data
         task_cfg = task_cfg or self.cfg
-        
-        #TODO not implemented yet (should load ecg + text dataset)
-        raise NotImplementedError()
+
+        manifest_path = os.path.join(data_path, "{}.tsv".format(split))
+
+        self.datasets[split] = FileECGTextDataset(
+            manifest_path,
+            pad_token_id=task_cfg.pad_token,
+            sep_token_id=task_cfg.sep_token,
+            pad=task_cfg.enable_padding,
+            sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
+            max_sample_size=self.cfg.max_sample_size,
+            min_sample_size=self.cfg.min_sample_size,
+            max_text_size=self.cfg.max_text_size,
+            min_text_size=self.cfg.min_text_size,
+            normalize=task_cfg.normalize,
+            training=True if "train" in split else False,
+        )
 
     def max_positions(self):
         """Maximum input length supported by the encoder,"""

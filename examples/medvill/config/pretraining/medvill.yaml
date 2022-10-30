@@ -1,0 +1,61 @@
+common:
+  fp16: false
+  log_format: json
+  log_interval: 10
+  wandb_entity: ecg-pretraining
+  wandb_project: medvill-pretraining
+
+checkpoint:
+  save_dir: checkpoints
+  save_interval: 1
+  keep_last_epochs: 1
+  save_interval_updates: 0
+  no_epoch_checkpoints: false
+
+task:
+  _name: ecg_text_pretraining
+  data: ???
+  normalize: false
+  enable_padding: true
+  min_text_size: 10
+
+dataset:
+  num_workers: 6
+  max_tokens: null
+  batch_size: 32
+  valid_subset: ""
+  disable_validation: true
+
+distributed_training:
+  distributed_world_size: 4
+
+criterion:
+  _name: medvill
+
+optimization:
+  max_epoch: 200
+  lr: [0.00005]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-06
+  weight_decay: 0.01
+
+lr_scheduler:
+  _name: fixed
+  warmup_updates: 0
+
+model:
+  _name: medvill
+  mask_prob: [0.25, 0.8, 0.1, 0.1]
+  attn_mask_type: bi_ar
+
+  # encoder_layerdrop: 0.05
+  dropout_input: 0.1
+  dropout_features: 0.1
+  feature_grad_mult: 1.0
+
+  encoder_layers: 8
+  encoder_embed_dim: 768
+  in_d: 12
