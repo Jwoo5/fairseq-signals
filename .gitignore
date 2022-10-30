@@ -66,6 +66,7 @@ data-bin/
 # Experimental Folder
 experimental/*
 outputs/*
+results/
 
 # Weights and Biases logs
 wandb/

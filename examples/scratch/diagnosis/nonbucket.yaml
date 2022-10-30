@@ -1,31 +1,41 @@
+
 common:
   fp16: false
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  wandb_entity: ecg-pretraining
-  wandb_project: question-answering
+  wandb_project: diagnosis-prediction
 
 checkpoint:
   save_dir: checkpoints
-  # best_checkpoint_metric: cinc_score
-  # maximize_best_checkpoint_metric: true
+  best_checkpoint_metric: cinc_score
+  maximize_best_checkpoint_metric: true
   save_interval: 1
   keep_last_epochs: 1
   save_interval_updates: 0
   no_epoch_checkpoints: false
-  # patience: 30
+  patience: 30
 
 task:
-  _name: ecg_question_answering
+  _name: multi_label_classification
+  num_labels: 26
   data: ???
+  perturbation_mode: ['random_leads_masking']
+  p: [1.0]
+  mask_leads_selection: random
+  mask_leads_prob: 0.75
+  sample_rate: 125
   normalize: false
   enable_padding: true
+  enable_padding_leads: false
+  leads_to_load: "[0,1,2,3,4,5,7,10]"
+  leads_bucket: null
+    # I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6
 
 dataset:
   num_workers: 6
   max_tokens: null 
-  batch_size: 32
+  batch_size: 128
   valid_subset: "valid,test"
 
 distributed_training:
@@ -34,12 +44,12 @@ distributed_training:
 criterion:
   _name: binary_cross_entropy_with_logits
   report_auc: true
-  report_cinc_score: false
-  weights_file: ???
+  report_cinc_score: true
+  weights_file: /home/jwoh/ecg/data/physionet2021/WFDB/weights.csv
 
 optimization:
   max_epoch: 200
-  max_update: 32000
+  max_update: 320000
   lr: [0.00005]
 
 optimizer:
@@ -48,24 +58,19 @@ optimizer:
   adam_eps: 1e-08
 
 lr_scheduler:
-  _name: tri_stage
-  phase_ratio: [0.1, 0.4, 0.5]
-  final_lr_scale: 0.05
+  _name: fixed
+  warmup_updates: 0
 
 model:
-  _name: qa_linear_projection
-  num_labels: 165
-  model_path: null
-  no_pretrained_weights: true
+  _name: linear_projection
+
+  apply_mask: false
+  mask_prob: 0.0
 
   dropout: 0.0
   attention_dropout: 0.0
   activation_dropout: 0.1
-  # encoder_layerdrop: 0.1
 
   feature_grad_mult: 1.0
   freeze_finetune_updates: 0
-
-  encoder_layers: 8
-  encoder_embed_dim: 768
-  in_d: 12
+  in_d: 8
