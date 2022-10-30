@@ -7,16 +7,16 @@ import torch.nn as nn
 
 from fairseq_signals.utils import utils
 from fairseq_signals.models import register_model
-from fairseq_signals.models.conv_transformer import ConvTransformerConfig, ConvTransformerModel
+from fairseq_signals.models.ecg_transformer import ECGTransformerConfig, ECGTransformerModel
 from fairseq_signals.modules import GatherLayer
 from fairseq_signals.distributed import utils as dist_utils
 
 @dataclass
-class SimCLRConfig(ConvTransformerConfig):
+class SimCLRConfig(ECGTransformerConfig):
     pass
 
 @register_model("simclr", dataclass=SimCLRConfig)
-class SimCLRModel(ConvTransformerModel):
+class SimCLRModel(ECGTransformerModel):
     def __init__(self, cfg: SimCLRConfig):
         super().__init__(cfg)
         self.cfg = cfg

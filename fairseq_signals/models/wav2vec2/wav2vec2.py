@@ -12,7 +12,7 @@ import torch.nn as nn
 
 from fairseq_signals.dataclass import ChoiceEnum
 from fairseq_signals.models import register_model
-from fairseq_signals.models.conv_transformer import ConvTransformerConfig, ConvTransformerModel
+from fairseq_signals.models.ecg_transformer import ECGTransformerConfig, ECGTransformerModel
 from fairseq_signals.modules import (
     GradMultiply,
     GumbelVectorQuantizer,
@@ -22,7 +22,7 @@ from fairseq_signals.utils.utils import buffered_arange
 MASKING_DISTRIBUTION_CHOICES = ChoiceEnum(["static", "uniform", "normal", "poisson"])
 
 @dataclass
-class Wav2Vec2Config(ConvTransformerConfig):
+class Wav2Vec2Config(ECGTransformerConfig):
     logit_temp: float = field(
         default=0.1, metadata={"help": "temperature to divide logits by"}
     )
@@ -135,7 +135,7 @@ class Wav2Vec2Config(ConvTransformerConfig):
     )
 
 @register_model("wav2vec2", dataclass=Wav2Vec2Config)
-class Wav2Vec2Model(ConvTransformerModel):
+class Wav2Vec2Model(ECGTransformerModel):
     def __init__(self, cfg: Wav2Vec2Config):
         super().__init__(cfg)
         self.cfg = cfg

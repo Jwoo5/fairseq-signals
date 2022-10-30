@@ -8,18 +8,18 @@ import torch
 from fairseq_signals.dataclass import ChoiceEnum
 from fairseq_signals.utils import utils
 from fairseq_signals.models import register_model
-from fairseq_signals.models.conv_transformer import ConvTransformerConfig, ConvTransformerModel
+from fairseq_signals.models.ecg_transformer import ECGTransformerConfig, ECGTransformerModel
 from fairseq_signals.modules import GatherLayer
 from fairseq_signals.distributed import utils as dist_utils
 
 CLOCS_MODE_CHOICES = ChoiceEnum(["cmsc", "cmlc", "cmsmlc"])
 
 @dataclass
-class ClocsConfig(ConvTransformerConfig):
+class ClocsConfig(ECGTransformerConfig):
     clocs_mode: CLOCS_MODE_CHOICES = II("task.clocs_mode")
 
 @register_model("clocs", dataclass = ClocsConfig)
-class ClocsModel(ConvTransformerModel):
+class ClocsModel(ECGTransformerModel):
     def __init__(self, cfg: ClocsConfig):
         super().__init__(cfg)
         self.cfg = cfg

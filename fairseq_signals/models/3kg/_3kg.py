@@ -7,12 +7,12 @@ import torch.nn as nn
 
 from fairseq_signals.utils import utils
 from fairseq_signals.models import register_model
-from fairseq_signals.models.conv_transformer import ConvTransformerConfig, ConvTransformerModel
+from fairseq_signals.models.ecg_transformer import ECGTransformerConfig, ECGTransformerModel
 from fairseq_signals.modules import GatherLayer
 from fairseq_signals.distributed import utils as dist_utils
 
 @dataclass
-class _3KGConfig(ConvTransformerConfig):
+class _3KGConfig(ECGTransformerConfig):
     angle: int = field(
         default=45,
         metadata={"help": "angle of random rotation in VCG view"}
@@ -27,14 +27,14 @@ class _3KGConfig(ConvTransformerConfig):
     )
 
 @register_model("3kg", dataclass=_3KGConfig)
-class _3KGModel(ConvTransformerModel):
+class _3KGModel(ECGTransformerModel):
     def __init__(self, cfg: _3KGConfig):
         super().__init__(cfg)
         self.cfg = cfg
     
     def upgrade_state_dict_named(self, state_dict, name):
-        super().upgrade_state_dict_named(state_dict, name)
         """Upgrade a (possibly old) state dict for new versions. """
+        super().upgrade_state_dict_named(state_dict, name)
         return state_dict
     
     @classmethod

@@ -7,21 +7,21 @@ from dataclasses import dataclass, field
 from omegaconf import MISSING
 
 from fairseq_signals.models import register_model
-from fairseq_signals.models.conv_transformer import (
-    ConvTransformerFinetuningModel,
-    ConvTransformerFinetuningConfig
+from fairseq_signals.models.ecg_transformer import (
+    ECGTransformerFinetuningModel,
+    ECGTransformerFinetuningConfig
 )
 
 from fairseq_signals.utils import utils
 
 @dataclass
-class LinearProjectionConfig(ConvTransformerFinetuningConfig):
+class LinearProjectionConfig(ECGTransformerFinetuningConfig):
     num_labels: int = field(
         default=MISSING, metadata={"help": "number of labels to be classified"}
     )
 
 @register_model("linear_projection", dataclass=LinearProjectionConfig)
-class LinearProjectionModel(ConvTransformerFinetuningModel):
+class LinearProjectionModel(ECGTransformerFinetuningModel):
     def __init__(self, cfg, encoder):
         super().__init__(cfg, encoder)
 
