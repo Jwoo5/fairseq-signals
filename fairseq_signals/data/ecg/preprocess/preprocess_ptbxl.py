@@ -15,7 +15,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "root", metavar="DIR",
-        help="root directory containing dat files to pre-process"
+        help="root directory containing data files to pre-process"
     )
     parser.add_argument(
         "--dest", type=str, metavar="DIR",
@@ -33,10 +33,6 @@ def get_parser():
         default=500,
         type=int,
         help="if set, data must be sampled by this sampling rate to be processed"
-    )
-    parser.add_argument(
-        "--ext", default="dat", type=str, metavar="EXT",
-        help="extension to look for"
     )
     parser.add_argument(
         "--sec", default=5, type=int,

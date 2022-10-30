@@ -124,7 +124,7 @@ class RawECGDataset(BaseDataset):
 
         return new_feats
 
-    def postprocess(self, feats, curr_sample_rate):
+    def postprocess(self, feats, curr_sample_rate=None):
         if (
             (self.sample_rate is not None and self.sample_rate > 0)
             and curr_sample_rate != self.sample_rate

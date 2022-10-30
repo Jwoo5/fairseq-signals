@@ -69,8 +69,8 @@ def main(args):
         classes, _ = ecg_utils.get_physionet_weights(meta_path)
     except FileNotFoundError:
         raise FileNotFoundError(
-            "cannot find the metadata file for labeling (weights.csv)"
-            "please ensure that files are located in --meta-dir "
+            "cannot find the metadata file for labeling (weights.csv). "
+            "Please ensure that files are located in --meta-dir "
             "or download from https://github.com/physionetchallenges/evaluation-2021."
             f"--meta-dir: {meta_path}"
         )
