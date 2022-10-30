@@ -1,94 +1,112 @@
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
-from fairseq_signals.modules import MultiHeadAttention
 
-class PositionwiseFeedForwardLayer(nn.Module):
-    def __init__(self, embed_dim, ffn_dim, dropout):
-        super().__init__()
-        self.embed_dim = embed_dim
-        self.ffn_dim = ffn_dim
-
-        self.fc1 = nn.Linear(self.embed_dim, self.ffn_dim)
-        self.fc2 = nn.Linear(self.ffn_dim, self.embed_dim)
-        self.active = F.gelu
-        self.dropout = nn.Dropout(dropout)
-
-    def forward(self, inputs):
-        output = self.fc1(inputs)
-        output = self.active(output)
-        output = self.dropout(output)
-        output = self.fc2(output)
-        return output
-
-class EncoderLayer(nn.Module):
-    def __init__(
-        self,
-        embed_dim,
-        n_heads,
-        ffn_dim,
-        dropout,
-        attention_dropout,
-        activation_dropout
-    ):
-        super().__init__()
-        self.embed_dim = embed_dim
-        self.n_head = n_heads
-        self.d_head = embed_dim // n_heads
-        self.ffn_dim = ffn_dim
-        self.dropout = dropout
-        self.attention_dropout = attention_dropout
-        self.activation_dropout = activation_dropout
-
-        self.self_attn = MultiHeadAttention(self.embed_dim, self.n_head, self.attention_dropout)
-        self.dropout1 = nn.Dropout(dropout)
-        self.norm_layer1 = nn.LayerNorm(self.embed_dim, eps = 1e-6)
-        self.pos_ffn = PositionwiseFeedForwardLayer(self.embed_dim, self.ffn_dim, activation_dropout)
-        self.dropout2 = nn.Dropout(dropout)
-        self.norm_layer2 = nn.LayerNorm(self.embed_dim, eps = 1e-6)
-    
-    def forward(self, inputs, padding_mask=None):
-        att_outputs = self.self_attn(inputs, inputs, inputs, padding_mask=padding_mask)
-        att_outputs = self.dropout1(att_outputs)
-        att_outputs = self.norm_layer1(att_outputs + inputs)
-
-        ffn_outputs = self.pos_ffn(att_outputs)
-        ffn_outputs = self.dropout2(ffn_outputs)
-        ffn_outputs = self.norm_layer2(ffn_outputs + att_outputs)
-
-        return ffn_outputs
+from fairseq_signals.modules import (
+    MultiHeadAttention,
+    LayerNorm
+)
 
 class TransformerEncoderLayer(nn.Module):
     def __init__(
         self,
-        n_layer,
-        embed_dim,
-        n_heads,
-        ffn_dim,
-        dropout,
-        attention_dropout,
-        activation_dropout
+        embed_dim: float = 768,
+        n_heads: float = 8,
+        ffn_dim: float = 3072,
+        dropout: float = 0.1,
+        attention_dropout: float = 0.1,
+        activation_dropout: float = 0.1,
+        layer_norm_first: bool = False,
     ):
         super().__init__()
-        self.n_layer = n_layer
         self.embed_dim = embed_dim
-        self.n_head = n_heads
-        self.d_head = embed_dim // n_heads
-        self.ffn_dim = ffn_dim
-        
-        self.layers = nn.ModuleList(
-            [EncoderLayer(
-                    self.embed_dim,
-                    self.n_head,
-                    self.ffn_dim,
-                    dropout=dropout,
-                    attention_dropout=attention_dropout,
-                    activation_dropout=activation_dropout
-                )
-                for _ in range(self.n_layer)]
+        self.dropout = dropout
+        self.activation_dropout = activation_dropout
+
+        def gelu(x: torch.Tensor) -> torch.Tensor:
+            return F.gelu(x.float()).type_as(x)
+        self.activation_fn = gelu
+        self.self_attn = MultiHeadAttention(
+            self.embed_dim,
+            n_heads,
+            dropout=attention_dropout,
+            self_attention=True,
         )
 
-    def forward(self, inputs, padding_mask=None):
-        outputs = inputs
-        for layer in self.layers:
-            outputs = layer(outputs, padding_mask=padding_mask)
-        return outputs
+        self.dropout1 = nn.Dropout(dropout)
+        self.dropout2 = nn.Dropout(self.activation_dropout)
+        self.dropout3 = nn.Dropout(dropout)
+
+        self.layer_norm_first = layer_norm_first
+
+        # layer norm associated with the self attention layer
+        self.self_attn_layer_norm = LayerNorm(self.embed_dim)
+        self.fc1 = nn.Linear(self.embed_dim, ffn_dim)
+        self.fc2 = nn.Linear(ffn_dim, self.embed_dim)
+
+        # layer norm associated with the position wise feed-forward NN
+        self.final_layer_norm = LayerNorm(self.embed_dim)
+
+    def forward(
+        self,
+        x: torch.Tensor,
+        self_attn_mask: torch.Tensor = None,
+        self_attn_padding_mask: torch.Tensor = None,
+        need_weights: bool = False,
+        att_args=None,
+    ):
+        """
+        LayerNorm is applied either before or after the self-attention/ffn
+        modules similar to the original Transformer imlementation.
+        """
+        residual = x
+
+        if self.layer_norm_first:
+            x = self.self_attn_layer_norm(x)
+            x, attn = self.self_attn(
+                query=x,
+                key=x,
+                value=x,
+                key_padding_mask=self_attn_padding_mask,
+                attn_mask=self_attn_mask,
+                need_weights=False,
+            )
+            x = self.dropout1(x)
+            x = residual + x
+
+            residual = x
+            x = self.final_layer_norm(x)
+            x = self.activation_fn(self.fc1(x))
+            x = self.dropout2(x)
+            x = self.fc2(x)
+
+            layer_result = x
+
+            x = self.dropout3(x)
+            x = residual + x
+        else:
+            x, attn = self.self_attn(
+                query=x,
+                key=x,
+                value=x,
+                key_padding_mask=self_attn_padding_mask,
+                need_weights=False,
+            )
+
+            x = self.dropout1(x)
+            x = residual + x
+
+            x = self.self_attn_layer_norm(x)
+
+            residual = x
+            x = self.activation_fn(self.fc1(x))
+            x = self.dropout2(x)
+            x = self.fc2(x)
+
+            layer_result = x
+
+            x = self.dropout3(x)
+            x = residual + x
+            x = self.final_layer_norm(x)
+
+        return x, (attn, layer_result)

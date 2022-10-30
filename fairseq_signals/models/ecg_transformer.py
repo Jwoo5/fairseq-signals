@@ -27,7 +27,7 @@ from fairseq_signals.modules import (
 logger = logging.getLogger(__name__)
 
 @dataclass
-class ConvTransformerConfig(TransformerConfig):
+class ECGTransformerConfig(TransformerConfig):
     # convnets
     extractor_mode: str  = field (
         default = "default",
@@ -71,9 +71,8 @@ class ConvTransformerConfig(TransformerConfig):
     # this holds the loaded pre-trained model args
     args: Any = None
 
-@register_model(name="conv_transformer", dataclass=ConvTransformerConfig)
-class ConvTransformerModel(TransformerModel):
-    def __init__(self, cfg: ConvTransformerConfig):
+class ECGTransformerModel(TransformerModel):
+    def __init__(self, cfg: ECGTransformerConfig):
         super().__init__(cfg)
         self.cfg = cfg
 
@@ -199,7 +198,7 @@ class ConvTransformerModel(TransformerModel):
     def from_pretrained(
         cls,
         model_path,
-        cfg: ConvTransformerConfig,
+        cfg: ECGTransformerConfig,
         **kwargs,
     ):
         """
@@ -220,12 +219,12 @@ class ConvTransformerModel(TransformerModel):
         return model
 
 @dataclass
-class ConvTransformerFinetuningConfig(TransformerFinetuningConfig, ConvTransformerConfig):
+class ECGTransformerFinetuningConfig(TransformerFinetuningConfig, ECGTransformerConfig):
     # overriding arguments
     feature_grad_mult: float = 0.0
 
-class ConvTransformerFinetuningModel(TransformerFinetuningModel):
-    def __init__(self, cfg: ConvTransformerFinetuningConfig, encoder: ConvTransformerModel):
+class ECGTransformerFinetuningModel(TransformerFinetuningModel):
+    def __init__(self, cfg: ECGTransformerFinetuningConfig, encoder: ECGTransformerModel):
         super().__init__(cfg, encoder)
     
     def set_num_updates(self, num_updates):
@@ -238,12 +237,12 @@ class ConvTransformerFinetuningModel(TransformerFinetuningModel):
         return state_dict
 
     @classmethod
-    def build_model(cls, cfg: ConvTransformerFinetuningConfig, task: Task):
+    def build_model(cls, cfg: ECGTransformerFinetuningConfig, task: Task):
         """Build a new model instance."""
         if cfg.model_path and not cfg.no_pretrained_weights:
-            encoder = ConvTransformerModel.from_pretrained(cfg.model_path, cfg)
+            encoder = ECGTransformerModel.from_pretrained(cfg.model_path, cfg)
         else:
-            encoder = ConvTransformerModel(cfg)
+            encoder = ECGTransformerModel(cfg)
         
         return cls(cfg, encoder)
     

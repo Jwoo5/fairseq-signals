@@ -25,7 +25,7 @@ from fairseq_signals.modules import (
 logger = logging.getLogger(__name__)
 
 @dataclass
-class QATransformerConfig(TransformerConfig):
+class ECGLanguageTransformerConfig(TransformerConfig):
     # configs for convnets
     extractor_mode: str  = field (
         default = "default",
@@ -65,7 +65,7 @@ class QATransformerConfig(TransformerConfig):
     )
 
 
-    # configs for embedding layer (for questions)
+    # configs for embedding layer (for languages)
     vocab_size: int = field(
         default=30522,
         metadata={
@@ -76,7 +76,7 @@ class QATransformerConfig(TransformerConfig):
     load_bert_embedding: bool = field(
         default=True,
         metadata={
-            'help': 'whether to load bert embedding parameters to encode questions'
+            'help': 'whether to load bert embedding parameters to encode texts'
         }
     )
     pad_token: int = II("task.pad_token")
@@ -87,14 +87,14 @@ class QATransformerConfig(TransformerConfig):
     data: str = II('task.data')
     args: Any = None
 
-@register_model(name='qa_transformer', dataclass=QATransformerConfig)
-class QATransformerModel(TransformerModel):
-    def __init__(self, cfg: QATransformerConfig):
+class ECGLanguageTransformerModel(TransformerModel):
+    def __init__(self, cfg: ECGLanguageTransformerConfig):
         super().__init__(cfg)
         self.cfg = cfg
 
         feature_enc_layers = eval(cfg.conv_feature_layers)
         self.embed_dim = feature_enc_layers[-1][0]
+        self.encoder_embed_dim = cfg.encoder_embed_dim
 
         self.feature_extractor = ConvFeatureExtraction(
             conv_layers=feature_enc_layers,
@@ -117,20 +117,26 @@ class QATransformerModel(TransformerModel):
 
         if cfg.load_bert_embedding:
             from transformers import AutoModel
+            #XXX only use bert-base-uncased?
             bert_embeddings = AutoModel.from_pretrained('bert-base-uncased').embeddings
-            self.question_embedding = bert_embeddings.word_embeddings
+            self.language_embedding = bert_embeddings.word_embeddings
             self.position_embedding = bert_embeddings.position_embeddings
             self.token_type_embedding = bert_embeddings.token_type_embeddings
         else:
-            self.question_embedding = nn.Embedding(
+            self.language_embedding = nn.Embedding(
                 cfg.vocab_size, cfg.encoder_embed_dim, padding_idx=cfg.pad_token
             )
             self.position_embedding = nn.Embedding(
                 cfg.max_text_size, cfg.encoder_embed_dim
             )
-            self.token_type_embeddings = nn.Embedding(
+            self.token_type_embedding = nn.Embedding(
                 2, cfg.encoder_embed_dim
             )
+
+        self.pad_token = cfg.pad_token
+        self.sep_token = cfg.sep_token
+        self.special_tokens = [cfg.pad_token, cfg.sep_token]
+        self.vocab_size = cfg.vocab_size
 
         self.num_updates = 0
 
@@ -167,9 +173,9 @@ class QATransformerModel(TransformerModel):
     def forward(
         self,
         ecg,
-        question,
+        text,
         ecg_padding_mask=None,
-        question_padding_mask=None,
+        text_padding_mask=None,
         **kwargs
     ):
         if self.feature_grad_mult > 0:
@@ -207,9 +213,8 @@ class QATransformerModel(TransformerModel):
             ecg_padding_mask = (1 - ecg_padding_mask.flip([-1]).cumsum(-1).flip([-1])).bool()
         else:
             ecg_padding_mask = None
-
-        if question_padding_mask is not None and not question_padding_mask.any():
-            question_padding_mask = None
+        if text_padding_mask is not None and not text_padding_mask.any():
+            text_padding_mask = None
 
         if self.post_extract_proj is not None:
             ecg_features = self.post_extract_proj(ecg_features)
@@ -225,37 +230,36 @@ class QATransformerModel(TransformerModel):
         )
         ecg_features += ecg_features_type_embedding
 
-        question_features = self.question_embedding(question)
-        question_features = self.layer_norm(question_features)
-        question_features = self.dropout_input(question_features)
+        text_features = self.language_embedding(text)
+        text_features = self.layer_norm(text_features)
+        text_features = self.dropout_input(text_features)
 
-        question_features_pos = self.position_embedding(
+        text_features_pos = self.position_embedding(
             torch.arange(
-                question_features.size(1),
-                device=question_features.device
-            ).repeat((question_features.size(0), 1))
+                text_features.size(1),
+                device=text_features.device
+            ).repeat((text_features.size(0), 1))
         )
-        question_features += question_features_pos
-        question_features_type_embedding = (
+        text_features += text_features_pos
+        text_features_type_embedding = (
             self.token_type_embedding(
-                question_features.new_ones(question_features.shape[:-1], dtype=int)
+                text_features.new_ones(text_features.shape[:-1], dtype=int)
             )
         )
-        question_features += question_features_type_embedding
+        text_features += text_features_type_embedding
 
-        # check concatenated shape
-        x = torch.cat([ecg_features, question_features], dim=1)
-        if ecg_padding_mask is not None or question_padding_mask is not None:
+        x = torch.cat([ecg_features, text_features], dim=1)
+        if ecg_padding_mask is not None or text_padding_mask is not None:
             ecg_padding_mask = (
                 ecg_features.new_zeros(ecg_features.shape[:-1], dtype=bool)
                 if ecg_padding_mask is None else ecg_padding_mask
             )
-            question_padding_mask = (
-                question_features.new_zeros(question_features.shape[:-1], dtype=bool)
-                if question_padding_mask is None else question_padding_mask
+            text_padding_mask = (
+                text_features.new_zeros(text_features.shape[:-1], dtype=bool)
+                if text_padding_mask is None else text_padding_mask
             )
 
-            padding_mask = torch.cat([ecg_padding_mask, question_padding_mask], dim=1)
+            padding_mask = torch.cat([ecg_padding_mask, text_padding_mask], dim=1)
         else:
             padding_mask = None        
 
@@ -263,8 +267,8 @@ class QATransformerModel(TransformerModel):
 
         return {'x': x, 'padding_mask': padding_mask}
 
-    def extract_features(self, ecg, question, ecg_padding_mask, question_padding_mask):
-        res = self.forward(ecg, question, ecg_padding_mask, question_padding_mask)
+    def extract_features(self, ecg, text, ecg_padding_mask, text_padding_mask):
+        res = self.forward(ecg, text, ecg_padding_mask, text_padding_mask)
         return res
 
     def get_logits(self, net_output):
@@ -277,7 +281,7 @@ class QATransformerModel(TransformerModel):
     def from_pretrained(
         cls,
         model_path,
-        cfg: QATransformerConfig,
+        cfg: ECGLanguageTransformerConfig,
         **kwargs,
     ):
         """
@@ -296,11 +300,11 @@ class QATransformerModel(TransformerModel):
 
         model = super().from_pretrained(model_path, cfg, arg_overrides)
 
-        assert cfg.sep_token == cfg.args.sep_token, (
+        assert cfg.sep_token == cfg.args.task.sep_token, (
             "Special token [SEP] is different between pre-training and here."
             "Please check that --sep_token is the same for both pre-training and here"
         )
-        assert cfg.pad_token == cfg.args.pad_token, (
+        assert cfg.pad_token == cfg.args.task.pad_token, (
             "Special token [PAD] id is different between pre-training and here."
             "Please check that --pad_token is the same for both pre-training and here"
         )
@@ -308,12 +312,12 @@ class QATransformerModel(TransformerModel):
         return model
 
 @dataclass
-class QATransformerFinetuningConfig(TransformerFinetuningConfig, QATransformerConfig):
+class ECGLanguageTransformerFinetuningConfig(TransformerFinetuningConfig, ECGLanguageTransformerConfig):
     # overriding arguments
-    feature_grad_mult: float = 0.0
+    feature_grad_mult: float = 1.0
 
-class QATransformerFinetuningModel(TransformerFinetuningModel):
-    def __init__(self, cfg: QATransformerFinetuningConfig, encoder: QATransformerModel):
+class ECGLanguageTransformerFinetuningModel(TransformerFinetuningModel):
+    def __init__(self, cfg: ECGLanguageTransformerFinetuningConfig, encoder: ECGLanguageTransformerModel):
         super().__init__(cfg, encoder)
 
     def set_num_updates(self, num_updates):
@@ -326,12 +330,12 @@ class QATransformerFinetuningModel(TransformerFinetuningModel):
         return state_dict
 
     @classmethod
-    def build_model(cls, cfg: QATransformerFinetuningConfig, task: Task):
+    def build_model(cls, cfg: ECGLanguageTransformerFinetuningConfig, task: Task):
         """Build a new model instance."""
         if cfg.model_path and not cfg.no_pretrained_weights:
-            encoder = QATransformerModel.from_pretrained(cfg.model_path, cfg)
+            encoder = ECGLanguageTransformerModel.from_pretrained(cfg.model_path, cfg)
         else:
-            encoder = QATransformerModel(cfg)
+            encoder = ECGLanguageTransformerModel(cfg)
         return cls(cfg, encoder)
 
     def get_logits(self, net_output, normalize=False, aggregate=False):
@@ -340,12 +344,12 @@ class QATransformerFinetuningModel(TransformerFinetuningModel):
     def get_targets(self, sample, net_output):
         raise NotImplementedError()
 
-    def forward(self, ecg, question, ecg_padding_mask=None, question_padding_mask=None, **kwargs):
+    def forward(self, ecg, text, ecg_padding_mask=None, text_padding_mask=None, **kwargs):
         args = {
             "ecg": ecg,
-            "question": question,
+            "text": text,
             "ecg_padding_mask": ecg_padding_mask,
-            "question_padding_mask": question_padding_mask,
+            "text_padding_mask": text_padding_mask,
         }
 
         ft = self.freeze_finetune_updates <= self.num_updates
