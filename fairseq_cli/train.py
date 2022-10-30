@@ -19,7 +19,7 @@ from fairseq_signals import distributed
 
 # We need to setup root logger before importing any fairseq libraries.
 logging.basicConfig(
-    format="%(asctime)s | %(levelname)s %(name)s %(message)s)))",
+    format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
     datefmt="%Y-%m-%d %H:%M:%S",
     level = os.environ.get("LOGLEVEL", "INFO").upper(),
     stream = sys.stdout
@@ -260,7 +260,7 @@ def train(
     for i, samples in enumerate(progress):
         with metrics.aggregate("train_inner"), torch.autograd.profiler.record_function(
             "train_step-%d" % i
-        ):                
+        ):
             log_output = trainer.train_step(samples)
 
         if log_output is not None: # not OOM, overflow, ...
