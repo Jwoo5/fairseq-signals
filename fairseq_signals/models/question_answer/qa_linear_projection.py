@@ -8,16 +8,16 @@ from typing import Optional
 from omegaconf import MISSING
 
 from fairseq_signals.models import register_model
-from fairseq_signals.models.qa_transformer import (
-    QATransformerModel,
-    QATransformerFinetuningConfig,
-    QATransformerFinetuningModel
+from fairseq_signals.models.ecg_language_transformer import (
+    ECGLanguageTransformerModel,
+    ECGLanguageTransformerFinetuningConfig,
+    ECGLanguageTransformerFinetuningModel
 )
 
 from fairseq_signals.utils import utils
 
 @dataclass
-class QALinearProjectionConfig(QATransformerFinetuningConfig):
+class QALinearProjectionConfig(ECGLanguageTransformerFinetuningConfig):
     num_labels: int = field(
         default=MISSING,
         metadata= {
@@ -26,8 +26,8 @@ class QALinearProjectionConfig(QATransformerFinetuningConfig):
     )
 
 @register_model("qa_linear_projection", dataclass=QALinearProjectionConfig)
-class QALinearProjectionModel(QATransformerFinetuningModel):
-    def __init__(self, cfg: QALinearProjectionConfig, encoder: QATransformerModel):
+class QALinearProjectionModel(ECGLanguageTransformerFinetuningModel):
+    def __init__(self, cfg: QALinearProjectionConfig, encoder: ECGLanguageTransformerModel):
         super().__init__(cfg, encoder)
 
         self.proj = nn.Linear(cfg.encoder_embed_dim * 2, cfg.num_labels)
@@ -45,24 +45,23 @@ class QALinearProjectionModel(QATransformerFinetuningModel):
     def get_targets(self, sample, net_output):
         return sample["answer"].float()
     
-    def forward(self, ecg, question, **kwargs):
-        res = super().forward(ecg=ecg, question=question, **kwargs)
-
+    def forward(self, ecg, text, **kwargs):
+        res = super().forward(ecg=ecg, text=text, **kwargs)
         x = res["x"]
         padding_mask = res["padding_mask"]
-        
+
         x = self.final_dropout(x)
 
         if padding_mask is not None and padding_mask.any():
             x[padding_mask] = 0
 
-        ecg_feats = x[:, :-question.size(-1)]
+        ecg_feats = x[:, :-text.size(-1)]
         ecg_feats = torch.div(ecg_feats.sum(dim=1), (ecg_feats != 0).sum(dim=1))
 
-        question_feats = x[:, -question.size(-1):]
-        question_feats = torch.div(question_feats.sum(dim=1), (question_feats != 0).sum(dim=1))
+        text_feats = x[:, -text.size(-1):]
+        text_feats = torch.div(text_feats.sum(dim=1), (text_feats != 0).sum(dim=1))
 
-        x = torch.cat([ecg_feats, question_feats], dim=1)
+        x = torch.cat([ecg_feats, text_feats], dim=1)
         x = self.proj(x)
 
         return {
