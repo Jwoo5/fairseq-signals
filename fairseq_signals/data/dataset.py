@@ -109,6 +109,42 @@ class BaseDataset(torch.utils.data.Dataset, EpochListening):
             required_batch_size_multiple = required_batch_size_multiple
         )
 
+    def filter_indices_by_size(self, indices, max_sizes):
+        """
+        Filter a list of sample indices. Remove those that are longer than
+        specified in *max_sizes*.
+
+        WARNING: don't update, override method in child classes
+
+        Args:
+            indices (np.array): original array of sample indices
+            max_sizes (int or list[int] or tuple[int]): max sample size,
+                can be defined separately for src and tgt (then list or tuple)
+
+        Returns:
+            np.array: filtered sample array
+            list: list of removed indices
+        """
+        if isinstance(max_sizes, float) or isinstance(max_sizes, int):
+            if hasattr(self, "sizes") and isinstance(self.sizes, np.ndarray):
+                ignored = indices[self.sizes[indices] > max_sizes].tolist()
+                indices = indices[self.sizes[indices] <= max_sizes]
+            elif (
+                hasattr(self, "sizes")
+                and isinstance(self.sizes, list)
+                and len(self.sizes) == 1
+            ):
+                ignored = indices[self.sizes[0][indices] > max_sizes].tolist()
+                indices = indices[self.sizes[0][indices] <= max_sizes]
+            else:
+                indices, ignored = data_utils._filter_by_size_dynamic(
+                    indices, self.size, max_sizes
+                )
+        else:
+            indices, ignored = data_utils._filter_by_size_dynamic(
+                indices, self.size, max_sizes
+            )
+        return indices, ignored
 
     @property
     def support_fetch_outside_dataloader(self):

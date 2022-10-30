@@ -133,7 +133,40 @@ class Task(object):
         if not isinstance(self.datasets[split], BaseDataset):
             raise TypeError("Datasets are expected to be of type BaseDataset")
         return self.datasets[split]
-    
+
+    def filter_indices_by_size(
+        self, indices, dataset, max_positions=None, ignore_invalid_inputs=False
+    ):
+        """
+        Filter examples that are too large
+
+        Args:
+            indices (np.array): original array of sample indices
+            dataset (~fairseq.data.FairseqDataset): dataset to batch
+            max_positions (optional): max sentence length supported by the
+                model (default: None).
+            ignore_invalid_inputs (bool, optional): don't raise Exception for
+                sentences that are too long (default: False).
+        Returns:
+            np.array: array of filtered sample indices
+        """
+        indices, ignored = dataset.filter_indices_by_size(indices, max_positions)
+        if len(ignored) > 0:
+            if not ignore_invalid_inputs:
+                raise Exception(
+                    (
+                        "Size of sample #{} is invalid (={}) since max_positions={}, "
+                        "skip this example with --skip-invalid-size-inputs-valid-test"
+                    ).format(ignored[0], dataset.size(ignored[0]), max_positions)
+                )
+            logger.warning(
+                (
+                    "{:,} samples have invalid sizes and will be skipped, "
+                    "max_positions={}, first few sample ids={}"
+                ).format(len(ignored), max_positions, ignored[:10])
+            )
+        return indices
+
     def can_reuse_epoch_itr(self, dataset):
         # We can reuse the epoch iterator across epochs as long as the dataset
         # hasn't disabled it. We default to ``False`` here, although in practicer
