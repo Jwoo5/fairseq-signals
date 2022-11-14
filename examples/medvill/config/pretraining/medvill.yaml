@@ -33,7 +33,7 @@ criterion:
   _name: medvill
 
 optimization:
-  max_epoch: 200
+  max_epoch: 800
   lr: [0.00005]
 
 optimizer:

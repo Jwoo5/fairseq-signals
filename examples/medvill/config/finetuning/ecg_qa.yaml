@@ -8,8 +8,8 @@ common:
 
 checkpoint:
   save_dir: checkpoints
-  # best_checkpoint_metric: cinc_score
-  # maximize_best_checkpoint_metric: true
+  best_checkpoint_metric: em_accuracy
+  maximize_best_checkpoint_metric: true
   save_interval: 1
   keep_last_epochs: 1
   save_interval_updates: 0
@@ -34,8 +34,8 @@ distributed_training:
 criterion:
   _name: binary_cross_entropy_with_logits
   report_auc: true
-  report_cinc_score: false
-  weights_file: ???
+  multi_class_multi_label: true
+  per_log_keys: [question_type, template_id]
 
 optimization:
   max_epoch: 200
@@ -48,9 +48,8 @@ optimizer:
   adam_eps: 1e-08
 
 lr_scheduler:
-  _name: tri_stage
-  phase_ratio: [0.1, 0.4, 0.5]
-  final_lr_scale: 0.05
+  _name: fixed
+  warmup_updates: 1600
 
 model:
   _name: qa_linear_projection
