@@ -76,11 +76,15 @@ class FileECGQADataset(RawECGTextDataset):
             'text_padding_mask': collated_samples['net_input']['text_padding_mask']
         }
 
+        samples = [s for s in samples if s['ecg'] is not None]
 
         out = {'id': torch.LongTensor([s['id'] for s in samples])}
-        samples = [s for s in samples if s['ecg'] is not None]
-        answers = [s['answer'] for s in samples]
-        out['answer'] = torch.cat(answers)
+        out["template_id"] = torch.LongTensor([s["template_id"] for s in samples])
+        out["question_id"] = torch.LongTensor([s["question_id"] for s in samples])
+        out["question_type"] = torch.LongTensor([s["question_type"] for s in samples])
+        out["is_multi_class"] = torch.LongTensor([s["is_multi_class"] for s in samples])
+        out['answer'] = torch.cat([s['answer'] for s in samples])
+        out["classes"] = [s["classes"] for s in samples]
 
         out['net_input'] = input
 
@@ -108,6 +112,12 @@ class FileECGQADataset(RawECGTextDataset):
 
         answer = data['answer']
         res['answer'] = torch.LongTensor(answer)
+
+        res["template_id"] = data["template_id"][0][0]
+        res["question_id"] = data["question_id"][0][0]
+        res["question_type"] = data["qtype"][0][0]
+        res["is_multi_class"] = data["atype"][0][0]
+        res["classes"] = torch.LongTensor(data["classes"][0])
 
         return res
 
