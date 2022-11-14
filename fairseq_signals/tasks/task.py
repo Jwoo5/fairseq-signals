@@ -385,6 +385,12 @@ class Task(object):
         
         criterion.__class__.reduce_metrics(logging_outputs)
 
+    def post_validate(self, model, log_output, agg, num_updates, **kwargs):
+        for key in agg.keys():
+            if key.startswith("_") and key.endswith("auc"):
+                log_output[key[1:-3] + "auroc"] = agg[key].auroc
+                log_output[key[1:-3] + "auprc"] = agg[key].auprc
+
     def state_dict(self):
         if self.state is not None:
             return self.state.state_dict
