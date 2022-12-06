@@ -11,7 +11,7 @@ class TransformerEncoderLayer(nn.Module):
     def __init__(
         self,
         embed_dim: float = 768,
-        n_heads: float = 8,
+        n_heads: float = 12,
         ffn_dim: float = 3072,
         dropout: float = 0.1,
         attention_dropout: float = 0.1,
