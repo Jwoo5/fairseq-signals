@@ -117,7 +117,6 @@ class ECGLanguageTransformerModel(TransformerModel):
 
         if cfg.load_bert_embedding:
             from transformers import AutoModel
-            #XXX only use bert-base-uncased?
             bert_embeddings = AutoModel.from_pretrained('bert-base-uncased').embeddings
             self.language_embedding = bert_embeddings.word_embeddings
             self.position_embedding = bert_embeddings.position_embeddings
@@ -294,8 +293,9 @@ class ECGLanguageTransformerModel(TransformerModel):
         """
 
         arg_overrides = {
-            'feature_grad_mult': cfg.feature_grad_mult,
-            'load_bert_embedding': False,
+            "feature_grad_mult": cfg.feature_grad_mult,
+            "attn_mask_type": "bidirectional",
+            "load_bert_embedding": False,
         }
 
         model = super().from_pretrained(model_path, cfg, arg_overrides)
