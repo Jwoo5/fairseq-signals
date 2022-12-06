@@ -2,6 +2,7 @@ import logging
 import os
 import sys
 
+import wfdb
 import scipy.io
 import numpy as np
 import torch
@@ -101,7 +102,7 @@ class RawECGDataset(BaseDataset):
 
     @property
     def apply_perturb(self):
-        return self.perturbation_mode != None
+        return self.perturbation_mode is not None
 
     def get_lead_index(self, lead: Union[int, str]) -> int:
         if isinstance(lead, int):
@@ -124,37 +125,18 @@ class RawECGDataset(BaseDataset):
 
         return new_feats
 
-    def postprocess(self, feats, curr_sample_rate=None):
+    def postprocess(self, feats, curr_sample_rate=None, leads_to_load=None):
         if (
             (self.sample_rate is not None and self.sample_rate > 0)
             and curr_sample_rate != self.sample_rate
         ):
             raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
 
+        leads_to_load = self.leads_to_load if leads_to_load is None else leads_to_load
+
         feats = feats.float()
-        if self.leads_to_load:
-            if self.leads_bucket:
-                leads_bucket = set(self.leads_bucket)
-                leads_to_load = set(self.leads_to_load)
-                if not leads_bucket.issubset(leads_to_load):
-                    raise ValueError(
-                        "Please make sure that --leads_bucket is a subset of --leads_to_load."
-                    )
 
-                leads_to_load = list(leads_to_load - leads_bucket)
-                if self.bucket_selection == "uniform":
-                    choice = np.random.choice(self.leads_bucket, size=1)
-                else:
-                    raise Exception("unknown bucket selection " + self.bucket_selection)
-                leads_to_load.extend(choice)
-            else:
-                leads_to_load = self.leads_to_load
-
-            feats = feats[leads_to_load]
-            if self.pad_leads:
-                padded = torch.zeros((12, feats.size(-1)))
-                padded[self.leads_to_load] = feats
-                feats = padded
+        feats = self.load_specific_leads(feats, leads_to_load=leads_to_load, pad=self.pad_leads)
 
         if self.normalize:
             feats = feats.float()
@@ -164,6 +146,32 @@ class RawECGDataset(BaseDataset):
         if self.training and self.apply_perturb:
             feats = self.perturb(feats)
 
+        return feats
+    
+    def load_specific_leads(self, feats, leads_to_load, pad=True):
+        if self.leads_bucket:
+            leads_bucket = set(self.leads_bucket)
+            leads_to_load = set(leads_to_load)
+            if not leads_bucket.issubset(leads_to_load):
+                raise ValueError(
+                    "Please make sure that --leads_bucket is a subset of --leads_to_load."
+                )
+            
+            leads_to_load = list(leads_to_load - leads_bucket)
+            leads_to_load.sort()
+            if self.bucket_selection == "uniform":
+                choice = np.random.choice(self.leads_bucket, size=1)
+            else:
+                raise Exception("unknown bucket selection " + self.bucket_selection)
+            leads_to_load.extend(choice)
+
+        feats = feats[leads_to_load]
+        if self.pad_leads:
+            if pad:
+                padded = torch.zeros((12, feats.size(-1)))
+                padded[leads_to_load] = feats
+                feats = padded
+        
         return feats
 
     def crop_to_max_size(self, sample, target_size, rand=False):
@@ -427,3 +435,93 @@ class FileECGDataset(RawECGDataset):
 
     def __len__(self):
         return len(self.fnames)
+
+class PathECGDataset(FileECGDataset):
+    def __init__(
+        self,
+        manifest_path,
+        sample_rate,
+        load_specific_lead=False,
+        **kwargs
+    ):
+        super().__init__(manifest_path=manifest_path, sample_rate=sample_rate, **kwargs)
+    
+        self.load_specific_lead = load_specific_lead
+
+    def collator(self, samples):
+        samples = [s for s in samples if s["source"] is not None]
+        if len(samples) == 0:
+            return {}
+        
+        sources = [s["source"] for s in samples]
+        sizes = [s.size(-1) for s in sources]
+
+        if self.pad:
+            target_size = min(max(sizes), self.max_sample_size)
+        else:
+            target_size = min(min(sizes), self.max_sample_size)
+
+        collated_sources = sources[0].new_zeros((len(sources), len(sources[0]), target_size))
+        padding_mask = (
+            torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
+        )
+        for i, (source, size) in enumerate(zip(sources, sizes)):
+            diff = size - target_size
+            if diff == 0:
+                collated_sources[i] = source
+            elif diff < 0:
+                assert self.pad
+                collated_sources[i] = torch.cat(
+                    [source, source.new_full((source.shape[0], -diff,), 0.0)], dim=-1
+                )
+                padding_mask[i, :, diff:] = True
+            else:
+                collated_sources[i], start, end = self.crop_to_max_size(source, target_size, rand=True)
+
+        input = {"source": collated_sources}
+        out = {"id": torch.LongTensor([s["id"] for s in samples])}
+        out["target_idx"] = [s["target_idx"] for s in samples]
+        out["label"] = [s["label"] for s in samples]
+        if "question_id" in samples[0]:
+            out["question_id"] = [s["question_id"] for s in samples]
+
+        if self.pad:
+            input["padding_mask"] = padding_mask
+
+        if hasattr(self, "num_buckets") and self.num_buckets > 0:
+            assert self.pad, "Cannot bucket without padding first."
+            bucket = max(self._buckted_sizes[s["id"]] for s in samples)
+            num_pad = bucket - collated_sources.size(-1)
+            if num_pad:
+                input["source"] = self._bucket_tensor(collated_sources, num_pad, 0)
+                input["padding_mask"] = self._bucket_tensor(padding_mask, num_pad, True)
+
+        out["net_input"] = input
+
+        return out
+
+    def __getitem__(self, index):
+        path = os.path.join(self.root_dir, str(self.fnames[index]))
+
+        res = {"id": index}
+
+        data = scipy.io.loadmat(path)
+
+        feats, _ = wfdb.rdsamp(data["ecg_path"][0])
+        feats = torch.from_numpy(feats.T)
+
+        if self.load_specific_lead:
+            leads_to_load = data["lead"] if "lead" in data else self.leads_to_load
+            feats = self.postprocess(feats, curr_sample_rate=None, leads_to_load=leads_to_load)
+
+        res["source"] = feats
+
+        res["target_idx"] = torch.from_numpy(data["target_idx"][0])
+        res["label"] = torch.from_numpy(data["label"][0])
+
+        if "question_id" in data:
+            res["question_id"] = data["question_id"][0]
+            breakpoint()
+            # res['question_id']
+
+        return res

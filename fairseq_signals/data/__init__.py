@@ -5,7 +5,7 @@
 
 from .dataset import BaseDataset
 
-from .ecg.raw_ecg_dataset import FileECGDataset
+from .ecg.raw_ecg_dataset import FileECGDataset, PathECGDataset
 from .ecg.clocs_ecg_dataset import ClocsECGDataset
 from .ecg.perturb_ecg_dataset import PerturbECGDataset, _3KGECGDataset
 from .ecg.identification_ecg_dataset import IdentificationECGDataset
@@ -24,6 +24,7 @@ __all__ = [
     "EpochBatchIterator",
     "ShardedIterator",
     "FileECGDataset",
+    "PathECGDataset",
     "ClocsECGDataset",
     "PerturbECGDataset",
     "_3KGECGDataset",
