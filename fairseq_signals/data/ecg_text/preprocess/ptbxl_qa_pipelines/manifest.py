@@ -180,7 +180,7 @@ def manifest(data, grounding_data, dest):
                     "label": label,
                     "question_id": qid,
                 }
-                postfix = "_".join(map(str, lead))
+                postfix = "_" + "_".join(map(str, lead))
                 scipy.io.savemat(
                     os.path.join(
                         dest_dir, "classify", split + "_per_lead_grounding", str(ecg_id) + postfix + ".mat"
