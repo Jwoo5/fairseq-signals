@@ -142,6 +142,9 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
             # fp = outputs[false].sum()
             # tn = outputs[false].numel() - fp
 
+            y_true = []
+            y_score = []
+
             for prob, gt, classes, is_multi_class in zip(
                 probs, target, sample["classes"], sample["is_multi_class"]
             ):
@@ -163,15 +166,24 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
                     if output.all():
                         em_corr += 1
 
+                if not self.training and self.report_auc:
+                    y_true.append(gt.cpu().numpy())
+                    y_score.append(prob.cpu().numpy())
+
             logging_output["correct"] = corr
             logging_output["count"] = count
             logging_output["em_correct"] = em_corr
             logging_output["em_count"] = em_count
-
             # logging_output["tp"] = tp.item()
             # logging_output["fp"] = fp.item()
             # logging_output["tn"] = tn.item()
             # logging_output["fn"] = fn.item()
+
+            if not self.training and self.report_auc:
+                # NOTE concat instead of vstack to calculating micro avgs,
+                # which yields np.array with shape of (N,)
+                logging_output["_y_true"] = np.concatenate(y_true)
+                logging_output["_y_score"] = np.concatenate(y_score)
 
             if self.report_cinc_score:
                 labels = target.cpu().numpy()
@@ -203,15 +215,11 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
                 logging_output["o_score"] = observed_score
                 logging_output["c_score"] = correct_score
                 logging_output["i_score"] = inactive_score
-
-            if not self.training and self.report_auc:
-                logging_output["_y_true"] = target.cpu().numpy()
-                logging_output["_y_score"] = probs.cpu().numpy()
         
             for plk in self.per_log_keys:
                 plk_ids = [log_id.item() for log_id in sample[plk]]
                 for i, plk_id in enumerate(plk_ids):
-                    #XXX temporary for logging per question_id for verify questions
+                    #XXX hack for logging per question_id ONLY for verify questions
                     if plk == "question_id" and sample["question_type"][i] != 0:
                         continue
 
@@ -220,39 +228,32 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
                     gt = target[i][classes]
                     is_multi_class = sample["is_multi_class"][i]
 
-                    if plk_id in logging_output[plk + "_em_count"]:
-                        logging_output[plk + "_em_count"][plk_id] += 1
-                        if is_multi_class:
-                            if gt[prob.argmax()]:
-                                logging_output[plk + "_em_correct"][plk_id] += 1
-                        else:
-                            output = (prob > self.threshold) == gt
-                            logging_output[plk + "_em_correct"][plk_id] += output.all().int().item()
-
+                    if plk_id not in logging_output[plk + "_em_count"]:
+                        logging_output[plk + "_em_count"][plk_id] = 0
+                        logging_output[plk + "_em_correct"][plk_id] = 0
                         if not self.training and self.report_auc:
-                            logging_output[plk + "_y_score"][plk_id].append(probs[i].cpu().numpy())
-                            logging_output[plk + "_y_true"][plk_id].append(target[i].cpu().numpy())
+                            logging_output[plk + "_y_score"][plk_id] = []
+                            logging_output[plk + "_y_true"][plk_id] = []
+                    
+                    logging_output[plk + "_em_count"][plk_id] += 1
+                    if is_multi_class:
+                        if gt[prob.argmax()]:
+                            logging_output[plk + "_em_correct"][plk_id] += 1
                     else:
-                        logging_output[plk + "_em_count"][plk_id] = 1
-                        if is_multi_class:
-                            if gt[prob.argmax()]:
-                                logging_output[plk + "_em_correct"][plk_id] = 1
-                            else:
-                                logging_output[plk + "_em_correct"][plk_id] = 0
-                        else:
-                            output = (prob > self.threshold) == gt
-                            logging_output[plk + "_em_correct"][plk_id] = output.all().int().item()
+                        output = (prob > self.threshold) == gt
+                        logging_output[plk + "_em_correct"][plk_id] += output.all().int().item()
 
-                        if not self.training and self.report_auc:
-                            logging_output[plk + "_y_score"][plk_id] = [probs[i].cpu().numpy()]
-                            logging_output[plk + "_y_true"][plk_id] = [target[i].cpu().numpy()]
+                    if not self.training and self.report_auc:
+                        classes = sample["classes"][i]
+                        logging_output[plk + "_y_score"][plk_id].append(probs[i][classes].cpu().numpy())
+                        logging_output[plk + "_y_true"][plk_id].append(target[i][classes].cpu().numpy())
 
                 if not self.training and self.report_auc:
                     for plk_id in logging_output[plk + "_y_score"].keys():
-                        logging_output[plk + "_y_score"][plk_id] = np.vstack(
+                        logging_output[plk + "_y_score"][plk_id] = np.concatenate(
                             logging_output[plk + "_y_score"][plk_id]
                         )
-                        logging_output[plk + "_y_true"][plk_id] = np.vstack(
+                        logging_output[plk + "_y_true"][plk_id] = np.concatenate(
                             logging_output[plk + "_y_true"][plk_id]
                         )
 
