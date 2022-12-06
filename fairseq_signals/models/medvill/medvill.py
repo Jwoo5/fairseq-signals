@@ -221,7 +221,7 @@ class MedViLLModel(ECGLanguageTransformerModel):
                 mask_indices[~special_tokens_mask.cpu()] = (masked_indices.flatten())
 
                 # TODO text[mask_indices] sometimes raise IndexError
-                # We need to investigate why this happens
+                # need to investigate why this happens
                 y = text.view(-1)[mask_indices.flatten()].view(text.size(0), -1)
             else:
                 y = text
@@ -257,7 +257,7 @@ class MedViLLModel(ECGLanguageTransformerModel):
             padding_mask = torch.cat([ecg_padding_mask, text_padding_mask], dim=1)
         else:
             padding_mask = None
-        
+
         if self.attn_mask_type == "bi_ar":
             attn_mask = x.new_zeros((x.size(1), x.size(1))).bool()
             attn_mask[ecg_features.size(1):, ecg_features.size(1):] = (
@@ -273,6 +273,7 @@ class MedViLLModel(ECGLanguageTransformerModel):
 
         ecg_features = features[:, :ecg_features.size(1)]
         text_features = features[:, ecg_features.size(1):]
+
 
         if features_only:
             return {
