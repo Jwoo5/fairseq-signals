@@ -96,16 +96,7 @@ def manifest(data, grounding_data, dest):
                 ecg_sz = len(ecg)
                 text_sz = len(sample["question"])
 
-                if obj.startswith("lead"):
-                    scipy.io.savemat(
-                        os.path.join(
-                            dest_dir, "qa", split + "_per_lead_grounding", str(i) + ".mat"
-                        ), sample
-                    )
-                    print(str(i) + ".mat", file=qa_per_lead_dest, end="\t")
-                    print(ecg_sz, file=qa_per_lead_dest, end="\t")
-                    print(text_sz, file=qa_per_lead_dest)
-                elif obj == "entire":
+                if obj == "entire":
                     scipy.io.savemat(
                         os.path.join(
                             dest_dir, "qa", split + "_entire_grounding", str(i) + ".mat"
@@ -114,6 +105,15 @@ def manifest(data, grounding_data, dest):
                     print(str(i) + ".mat", file=qa_entire_dest, end="\t")
                     print(ecg_sz, file=qa_entire_dest, end="\t")
                     print(text_sz, file=qa_entire_dest)
+                else:
+                    scipy.io.savemat(
+                        os.path.join(
+                            dest_dir, "qa", split + "_per_lead_grounding", str(i) + ".mat"
+                        ), sample
+                    )
+                    print(str(i) + ".mat", file=qa_per_lead_dest, end="\t")
+                    print(ecg_sz, file=qa_per_lead_dest, end="\t")
+                    print(text_sz, file=qa_per_lead_dest)
 
             if obj == "entire":
                 if ecg_id not in classify_entire_grounding_data:
@@ -121,7 +121,7 @@ def manifest(data, grounding_data, dest):
                 classify_entire_grounding_data[ecg_id].append((target_idx, label, qid, ecg_path))
             else:
                 grounding_obj = lead_positions[obj]
-                if ecg_id not in classify_per_lead_grounding_data:
+                if (ecg_id, grounding_obj) not in classify_per_lead_grounding_data:
                     classify_per_lead_grounding_data[(ecg_id, grounding_obj)] = []
                 classify_per_lead_grounding_data[(ecg_id, grounding_obj)].append((target_idx, label, qid, ecg_path))
 
