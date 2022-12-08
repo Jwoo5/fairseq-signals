@@ -521,7 +521,5 @@ class PathECGDataset(FileECGDataset):
 
         if "question_id" in data:
             res["question_id"] = data["question_id"][0]
-            breakpoint()
-            # res['question_id']
 
         return res
