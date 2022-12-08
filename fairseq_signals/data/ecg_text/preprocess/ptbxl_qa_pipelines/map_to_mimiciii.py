@@ -625,6 +625,7 @@ def map_to_mimiciii(ptbxl_dir, mimic_dir):
                     true_or_false &= ~notes.str.contains(excluding)
                 except:
                     breakpoint()
+                    # check notes[notes.isnull()]
 
             y[code] = true_or_false.to_list()
 
@@ -648,7 +649,7 @@ def map_to_mimiciii(ptbxl_dir, mimic_dir):
         notes = notes[notes['TEXT'].notnull()]
         pattern = r'since|compared'
         notes['report'] = notes.apply(lambda x: re.split(pattern, x['TEXT'])[0], axis=1)
-        notes = notes[notes['report'].notnull()]
+        notes = notes[notes['report'].str.strip() != ""]
         if not os.path.exists('results'):
             os.mkdir('results')
         notes.to_csv('results/ecgnotes_with_hadm_id.csv', index=False)
@@ -836,7 +837,10 @@ def map_to_mimiciii(ptbxl_dir, mimic_dir):
     # total_mimic_candidates.to_csv('total_mimic_candidates.csv', index=False)
 
     mapped_total = pd.concat(mapped_total)
-    mapped_ptbxl = ptbxl_database[ptbxl_database['ecg_id'].isin(mapped_total.ptbxl_id)]
+    mapped_total.rename(columns={'ptbxl_id': 'ecg_id', 'report': 'mimic_report'}, inplace=True)
+    mapped_ptbxl = pd.merge(ptbxl_database, mapped_total, on="ecg_id", how="inner")
+    mapped_ptbxl = mapped_ptbxl[mapped_ptbxl["distance"] < 100]
+
     if not os.path.exists('results'):
         os.mkdir('results')
     mapped_ptbxl.to_csv(os.path.join('results', 'mapped_ptbxl.csv'), index=False)
