@@ -682,6 +682,7 @@ def instantiate_template(
                     retrieve_cnt += 1
 
                 idx += 1
+        print(f"{split}_ecg: {len(data[split])}")
         print(f'{split}_none: {none_cnt}/{idx}')
         print(f'{split}_none_verify: {none_verify_cnt}/{none_cnt}')
         print(f'{split}_none_choose: {none_choose_cnt}/{none_cnt}')
