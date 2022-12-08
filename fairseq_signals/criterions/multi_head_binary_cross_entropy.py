@@ -60,8 +60,6 @@ class MultiHeadBinaryCrossEntropyCriterion(BinaryCrossEntropyCriterion):
         target_idcs = sample["target_idx"]
         targets = sample["label"]
 
-        breakpoint()
-
         logits = torch.cat([
             logits[i, target_idcs[i]] for i in range(len(logits))
         ])
@@ -151,16 +149,12 @@ class MultiHeadBinaryCrossEntropyCriterion(BinaryCrossEntropyCriterion):
             
             for plk in self.per_log_keys:
                 plk_ids = np.concatenate(sample[plk])
-                breakpoint()
-                # probs.shape
-                # targets.shape
-                # plk_ids.shape
                 for i, plk_id in enumerate(plk_ids):
                     prob = probs[i]
                     gt = targets[i]
                     if plk_id not in logging_output[plk + "_count"]:
                         logging_output[plk + "_count"][plk_id] = 0
-                        logging_output[plk + "_true"][plk_id] = 0
+                        logging_output[plk + "_correct"][plk_id] = 0
                         if not self.training and self.report_auc:
                             logging_output[plk + "_y_score"][plk_id] = []
                             logging_output[plk + "_y_true"][plk_id] = []
@@ -175,7 +169,7 @@ class MultiHeadBinaryCrossEntropyCriterion(BinaryCrossEntropyCriterion):
                         logging_output[plk + "_y_true"][plk_id].append(gt.cpu().numpy())
 
                 if not self.training and self.report_auc:
-                    for plk in logging_output[plk + "_y_score"].keys():
+                    for plk_id in logging_output[plk + "_y_score"].keys():
                         logging_output[plk + "_y_score"][plk_id] = np.vstack(
                             logging_output[plk + "_y_score"][plk_id]
                         )
