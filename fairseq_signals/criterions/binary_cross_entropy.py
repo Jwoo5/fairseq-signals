@@ -25,6 +25,10 @@ class BinaryCrossEntropyCriterionConfig(Dataclass):
             "if given, has to be a float list of size nbatch."
         }
     )
+    threshold: float = field(
+        default=0.5,
+        metadata={"help": "threshold value for measuring accuracy"}
+    )
     report_auc: bool = field(
         default=False,
         metadata={"help": "whether to report auprc / auroc metric, used for valid step"}
@@ -36,6 +40,7 @@ class BinaryCrossEntropyCriterionConfig(Dataclass):
 class BinaryCrossEntropyCriterion(BaseCriterion):
     def __init__(self, cfg: BinaryCrossEntropyCriterionConfig, task: Task):
         super().__init__(task)
+        self.threshold = cfg.threshold
         self.weight = cfg.weight
         self.report_auc = cfg.report_auc
     
