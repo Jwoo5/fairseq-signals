@@ -132,8 +132,9 @@ class AUCMeter(Meter):
     def reset(self):
         self.scores = []
         self.targets = []
+        self.classes = []
     
-    def update(self, prob, target):
+    def update(self, prob, target, cls=[]):
         if torch.is_tensor(prob):
             prob = prob.cpu().numpy()
         if torch.is_tensor(target):
@@ -141,7 +142,12 @@ class AUCMeter(Meter):
 
         self.scores.append(prob)
         self.targets.append(target)
-    
+        # when averaging by macro
+        if len(cls) > 0:
+            if torch.is_tensor(cls):
+                cls = cls.cpu().numpy()
+            self.classes.append(cls)
+
     def state_dict(self):
         return {
             "scores": self.scores,
@@ -157,19 +163,51 @@ class AUCMeter(Meter):
     def auroc(self):
         y_true = np.concatenate(self.targets)
         y_score = np.concatenate(self.scores)
-        try:
-            return roc_auc_score(y_true=y_true, y_score=y_score, average='micro')
-        except ValueError:
-            return float("nan")
+        if len(self.classes) > 0:
+            y_class = np.concatenate(self.classes)
+            classes = np.unique(y_class)
+            y_true_per_class = {c: [] for c in classes}
+            y_score_per_class = {c: [] for c in classes}
+            for i, cls in enumerate(y_class):
+                y_true_per_class[cls].append(y_true[i])
+                y_score_per_class[cls].append(y_score[i])
+            res = []
+            for c in classes:
+                if len(np.unique(y_true_per_class[c])) == 1:
+                    continue
+                res.append(roc_auc_score(y_true=y_true_per_class[c], y_score=y_score_per_class[c]))
+            
+            res = np.mean(res)
+
+        else:
+            res =  roc_auc_score(y_true=y_true, y_score=y_score, average='micro')
+        
+        return res
     
     @property
     def auprc(self):
         y_true = np.concatenate(self.targets)
         y_score = np.concatenate(self.scores)
-        try:
-            return average_precision_score(y_true=y_true, y_score=y_score, average='micro')
-        except ValueError:
-            return float("nan")
+        if len(self.classes) > 0:
+            y_class = np.concatenate(self.classes)
+            classes = np.unique(y_class)
+            y_true_per_class = {c: [] for c in classes}
+            y_score_per_class = {c: [] for c in classes}
+            for i, cls in enumerate(y_class):
+                y_true_per_class[cls].append(y_true[i])
+                y_score_per_class[cls].append(y_score[i])
+            res = []
+            for c in classes:
+                # if len(np.unique(y_true_per_class[c])) == 1:
+                #     continue
+                res.append(average_precision_score(y_true=y_true_per_class[c], y_score=y_score_per_class[c]))
+
+            res = np.mean(res)
+
+        else:
+            res =  average_precision_score(y_true=y_true, y_score=y_score, average='micro')
+
+        return res
 
     @property
     def smoothed_value(self) -> float:
