@@ -32,7 +32,7 @@ dataset:
   disable_validation: true
 
 distributed_training:
-  distributed_world_size: 1
+  distributed_world_size: 8
 
 criterion:
   _name: wav2vec2
