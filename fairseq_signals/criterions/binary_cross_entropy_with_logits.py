@@ -13,16 +13,19 @@ from fairseq_signals import logging, metrics, meters
 from fairseq_signals.data.ecg import ecg_utils
 from fairseq_signals.utils import utils
 from fairseq_signals.criterions import BaseCriterion, register_criterion
-from fairseq_signals.criterions.binary_cross_entropy import BinaryCrossEntropyCriterionConfig
+from fairseq_signals.criterions.binary_cross_entropy import BinaryCrossEntropyCriterionConfig, BinaryCrossEntropyCriterion
 from fairseq_signals.dataclass import Dataclass
 from fairseq_signals.tasks import Task
 from fairseq_signals.logging.meters import safe_round
 
 @dataclass
 class BinaryCrossEntropyWithLogitsCriterionConfig(BinaryCrossEntropyCriterionConfig):
-    threshold: float = field(
-        default=0.5,
-        metadata={"help": "threshold value for measuring accuracy"}
+    auc_average: str = field(
+        default="macro",
+        metadata={
+            "help": "determines the type of averaging performed on the data, "
+                "should be one of ['micro', 'macro']"
+        }
     )
     pos_weight: Optional[List[float]] = field(
         default = None,
@@ -59,13 +62,11 @@ class BinaryCrossEntropyWithLogitsCriterionConfig(BinaryCrossEntropyCriterionCon
 @register_criterion(
     "binary_cross_entropy_with_logits", dataclass = BinaryCrossEntropyWithLogitsCriterionConfig
 )
-class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
+class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
     def __init__(self, cfg: BinaryCrossEntropyWithLogitsCriterionConfig, task: Task):
-        super().__init__(task)
-        self.threshold = cfg.threshold
-        self.weight = cfg.weight
+        super().__init__(cfg, task)
+        self.auc_average = cfg.auc_average
         self.pos_weight = cfg.pos_weight
-        self.report_auc = cfg.report_auc
         self.report_cinc_score = cfg.report_cinc_score
         if self.report_cinc_score:
             assert cfg.weights_file
@@ -122,6 +123,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
             if not self.training and self.report_auc:
                 logging_output[plk + "_y_score"] = dict()
                 logging_output[plk + "_y_true"] = dict()
+                logging_output[plk + "_y_class"] = dict()
 
         with torch.no_grad():
             probs = torch.sigmoid(logits)
@@ -144,17 +146,19 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
 
             y_true = []
             y_score = []
+            y_class = []
 
-            for prob, gt, classes, is_multi_class in zip(
-                probs, target, sample["classes"], sample["is_multi_class"]
+            for logit, prob, gt, classes, is_multi_class in zip(
+                logits, probs, target, sample["classes"], sample["is_multi_class"]
             ):
+                logit = logit[classes]
                 prob = prob[classes]
                 gt = gt[classes]
 
                 em_count += 1
                 if is_multi_class:
                     count += 1
-                    max = prob.argmax()
+                    max = logit.argmax()
                     if gt[max]:
                         corr += 1
                         em_corr += 1
@@ -167,8 +171,17 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
                         em_corr += 1
 
                 if not self.training and self.report_auc:
-                    y_true.append(gt.cpu().numpy())
-                    y_score.append(prob.cpu().numpy())
+                    _y_true = gt.cpu().numpy()
+                    _y_class = classes.cpu().numpy()
+                    if is_multi_class:
+                        _y_score = torch.softmax(logit, 0).cpu().numpy()
+                    else:
+                        _y_score = prob.cpu().numpy()
+
+                    y_true.append(_y_true)
+                    y_score.append(_y_score)
+                    if self.auc_average == "macro":
+                        y_class.append(_y_class)
 
             logging_output["correct"] = corr
             logging_output["count"] = count
@@ -180,10 +193,14 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
             # logging_output["fn"] = fn.item()
 
             if not self.training and self.report_auc:
-                # NOTE concat instead of vstack to calculating micro avgs,
-                # which yields np.array with shape of (N,)
+                # NOTE concat instead of vstack, which yields np.array with shape of (N,)
+                # it can be averaged by macro based on y_class
                 logging_output["_y_true"] = np.concatenate(y_true)
                 logging_output["_y_score"] = np.concatenate(y_score)
+                if self.auc_average == "macro":
+                    logging_output["_y_class"] = np.concatenate(y_class)
+                else:
+                    logging_output["_y_class"] = np.array([])
 
             if self.report_cinc_score:
                 labels = target.cpu().numpy()
@@ -224,6 +241,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
                         continue
 
                     classes = sample["classes"][i]
+                    logit = logits[i][classes]
                     prob = probs[i][classes]
                     gt = target[i][classes]
                     is_multi_class = sample["is_multi_class"][i]
@@ -234,28 +252,43 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
                         if not self.training and self.report_auc:
                             logging_output[plk + "_y_score"][plk_id] = []
                             logging_output[plk + "_y_true"][plk_id] = []
+                            logging_output[plk + "_y_class"][plk_id] = []
                     
                     logging_output[plk + "_em_count"][plk_id] += 1
                     if is_multi_class:
-                        if gt[prob.argmax()]:
+                        if gt[logit.argmax()]:
                             logging_output[plk + "_em_correct"][plk_id] += 1
                     else:
                         output = (prob > self.threshold) == gt
                         logging_output[plk + "_em_correct"][plk_id] += output.all().int().item()
 
                     if not self.training and self.report_auc:
-                        classes = sample["classes"][i]
-                        logging_output[plk + "_y_score"][plk_id].append(probs[i][classes].cpu().numpy())
-                        logging_output[plk + "_y_true"][plk_id].append(target[i][classes].cpu().numpy())
+                        _y_true = gt.cpu().numpy()
+                        _y_class = classes.cpu().numpy()
+                        if is_multi_class:
+                            _y_score = torch.softmax(logit, 0).cpu().numpy()
+                        else:
+                            _y_score = prob.cpu().numpy()
+                        
+                        logging_output[plk + "_y_true"][plk_id].append(_y_true)
+                        logging_output[plk + "_y_score"][plk_id].append(_y_score)
+                        if self.auc_average == "macro":
+                            logging_output[plk + "_y_class"][plk_id].append(_y_class)
 
                 if not self.training and self.report_auc:
                     for plk_id in logging_output[plk + "_y_score"].keys():
-                        logging_output[plk + "_y_score"][plk_id] = np.concatenate(
-                            logging_output[plk + "_y_score"][plk_id]
-                        )
                         logging_output[plk + "_y_true"][plk_id] = np.concatenate(
                             logging_output[plk + "_y_true"][plk_id]
                         )
+                        logging_output[plk + "_y_score"][plk_id] = np.concatenate(
+                            logging_output[plk + "_y_score"][plk_id]
+                        )
+                        if self.auc_average == "macro":
+                            logging_output[plk + "_y_class"][plk_id] = np.concatenate(
+                                logging_output[plk + "_y_class"][plk_id]
+                            )
+                        else:
+                            logging_output[plk + "_y_class"][plk_id] = np.array([])
 
         return loss, sample_size, logging_output
     
@@ -276,10 +309,11 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
         )
 
         if "_y_true" in logging_outputs[0] and "_y_score" in logging_outputs[0]:
-            y_true = np.concatenate([log.get("_y_true", 0) for log in logging_outputs])
-            y_score = np.concatenate([log.get("_y_score", 0) for log in logging_outputs])
+            y_true = np.concatenate([log["_y_true"] for log in logging_outputs if "_y_true" in log])
+            y_score = np.concatenate([log["_y_score"] for log in logging_outputs if "_y_score" in log])
+            y_class = np.concatenate([log["_y_class"] for log in logging_outputs if "_y_class" in log])
 
-            metrics.log_custom(meters.AUCMeter, "_auc", y_score, y_true)
+            metrics.log_custom(meters.AUCMeter, "_auc", y_score, y_true, y_class)
 
         observed_score = sum(log.get("o_score", 0) for log in logging_outputs)
         metrics.log_scalar("_o_score", observed_score)
@@ -429,6 +463,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
                     log_key = log_key.split("y_score")[0]
                     y_scores = [log[log_key + "y_score"] for log in logging_outputs]
                     y_trues = [log[log_key + "y_true"] for log in logging_outputs]
+                    y_classes = [log[log_key + "y_class"] for log in logging_outputs]
 
                     log_ids = set()
                     for vals in y_trues:
@@ -436,15 +471,18 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
                     
                     aggregated_scores = {log_id: [] for log_id in log_ids}
                     aggregated_trues = {log_id: [] for log_id in log_ids}
-                    for y_score, y_true in zip(y_scores, y_trues):
+                    aggregated_classes = {log_id: [] for log_id in log_ids}
+                    for y_score, y_true, y_class in zip(y_scores, y_trues, y_classes):
                         for log_id in log_ids:
                             if log_id in y_score:
                                 aggregated_scores[log_id].append(y_score[log_id])
                                 aggregated_trues[log_id].append(y_true[log_id])
+                                aggregated_classes[log_id].append(y_class[log_id])
 
                     for log_id in log_ids:
                         aggregated_scores[log_id] = np.concatenate(aggregated_scores[log_id])
                         aggregated_trues[log_id] = np.concatenate(aggregated_trues[log_id])
+                        aggregated_classes[log_id] = np.concatenate(aggregated_classes[log_id])
 
                         key = log_key + str(log_id)
 
@@ -452,7 +490,8 @@ class BinaryCrossEntropyWithLogitsCriterion(BaseCriterion):
                             meters.AUCMeter,
                             "_" + key + "_auc",
                             aggregated_scores[log_id],
-                            aggregated_trues[log_id]
+                            aggregated_trues[log_id],
+                            aggregated_classes[log_id]
                         )
 
     @staticmethod
