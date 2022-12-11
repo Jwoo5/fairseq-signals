@@ -624,10 +624,14 @@ def instantiate_template(
                     answer_type = 1
 
                 if answer_encode == "multi-label":
-                    class_idcs = [
-                        i for i, c in enumerate(classes)
-                        if c in classes_for_each_template[s["template_id"]]
-                    ]
+                    if qtype == "choose":
+                        class_idcs = [classes.index(a) for a in attr]
+                        class_idcs.sort()
+                    else:
+                        class_idcs = [
+                            i for i, c in enumerate(classes)
+                            if c in classes_for_each_template[s["template_id"]]
+                        ]
                 else:
                     class_idcs = []
 
