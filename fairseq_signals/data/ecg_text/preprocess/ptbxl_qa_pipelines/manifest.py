@@ -84,6 +84,10 @@ def manifest(data, grounding_data, dest):
             print(data[split]["num_labels"], file=qa_per_lead_dest)
 
         for i, sample in enumerate(grounding_data[split]):
+            # in case that the class (attribute) is present in train/valid set but not in test set
+            if sample["attribute"] not in grounding_classes:
+                continue
+
             ecg_id = sample["ecg_id"]
             qid = sample["question_id"]
             ecg_path = sample["ecg_path"]
