@@ -57,7 +57,7 @@ lr_scheduler:
 
 model:
   _name: linear_projection
-  num_labels: 95
+  num_labels: ???
   model_path: null
   no_pretrained_weights: true
 

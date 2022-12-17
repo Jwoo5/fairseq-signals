@@ -28,13 +28,14 @@ task:
 
 dataset:
   num_workers: 6
-  max_tokens: null 
+  max_tokens: null
   batch_size: 64
   train_subset: "train_entire_grounding"
   valid_subset: "valid_entire_grounding,test_entire_grounding"
 
 distributed_training:
   distributed_world_size: 1
+  find_unused_parameters: true
 
 criterion:
   _name: multi_head_binary_cross_entropy
@@ -57,7 +58,7 @@ lr_scheduler:
 
 model:
   _name: linear_projection
-  num_labels: 95
+  num_labels: ???
   model_path: ???
   no_pretrained_weights: false
 
