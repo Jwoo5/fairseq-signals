@@ -180,7 +180,10 @@ class AUCMeter(Meter):
             res = np.mean(res)
 
         else:
-            res =  roc_auc_score(y_true=y_true, y_score=y_score, average='micro')
+            try:
+                res =  roc_auc_score(y_true=y_true, y_score=y_score, average='micro')
+            except ValueError:
+                res = float("nan")
         
         return res
     
