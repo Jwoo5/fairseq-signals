@@ -390,6 +390,17 @@ class Task(object):
             if key.startswith("_") and key.endswith("auc"):
                 log_output[key[1:-3] + "auroc"] = agg[key].auroc
                 log_output[key[1:-3] + "auprc"] = agg[key].auprc
+            if key.endswith("precision"):
+                k = "_".join(key.split("_")[:-1])
+                if len(k) > 0:
+                    k += "_"
+                log_output[k + "f1"] = (
+                    2 * log_output[k + "recall"] * log_output[k + "precision"] / (
+                        log_output[k + "recall"] + log_output[k + "precision"]
+                    )
+                    if log_output[k + "recall"] + log_output[k + "precision"] > 0
+                    else float("nan")
+                )
 
     def state_dict(self):
         if self.state is not None:
