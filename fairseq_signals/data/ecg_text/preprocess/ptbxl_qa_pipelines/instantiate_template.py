@@ -217,6 +217,31 @@ def instantiate_template(
     #     'VES_COUNT': 'ventricular extrasystoles',
     #     'SVES_COUNT': 'supraventricular extrasystoles'
     # }
+    per_lead_attr_scp_code = {
+        "non-diagnostic t abnormalities": "NDT",
+        "non-specific st changes": "NST_",
+        "digitalis effect": "DIG",
+        "non-specific st depression": "STD_",
+        "voltage criteria (qrs) for left ventricular hypertrophy": "VCLVH",
+        "q waves present": "QWAVE",
+        "low amplitude t-wave": "LOWT",
+        "non-specific t-wave changes": "NT_",
+        "inverted t-waves": "INVT",
+        "low qrs voltages in the frontal and horizontal leads": "LVOLT",
+        "high qrs voltage": "HVOLT",
+        "t-wave abnormality": "TAB_",
+        "non-specific st elevation": "STE_",
+        "myocardial infarction": ["IMI", "ILMI", "IPMI", "IPLMI", "AMI", "ASMI", "ALMI", "LMI", "PMI"],
+        "ischemic": ["ISC_", "ISCAL", "ISCAS", "ISCLA", "ISCAN", "ISCIN", "ISCIL"],
+        "subendocardial injury": ["INJIN", "INJIL", "INJAS", "INJAL", "INJLA"]
+    }
+    per_lead_attr_noise_code = {
+        "any kind of noises": "ANY_NOISE",
+        "static noise": "STATIC",
+        "burst noise": "BURST",
+        "baseline drift": "DRIFT",
+        "electrode problems": "ELECT"
+    }
 
     templates = pd.read_csv(os.path.join(template_dir, 'type1QA_templates.csv'))
 
@@ -270,7 +295,7 @@ def instantiate_template(
     for split in splits:
         qid = 0
         for i, template in templates.iterrows():
-            print(f"{split}: {i+1} / {len(templates)}")
+            print(f"Sample {split} for template: {i+1} / {len(templates)}")
             assigned_ecgs = []
 
             iterate_over_leads = False
@@ -374,7 +399,7 @@ def instantiate_template(
                                 if len(set(ans).intersection(answer_set_test_but_not_train)) == 0
                             }
                             qa_samples['sizes'] = {
-                                k: v for k, v in qa_samples['sizes']
+                                k: v for k, v in qa_samples['sizes'].items()
                                 if k in qa_samples['sampled_ids']
                             }
                             if split == 'test':
@@ -436,11 +461,13 @@ def instantiate_template(
 
     scp_codes_full_names = [category_to_name[x] for x in scp_codes_subclass]
     scp_codes_full_names.extend([category_to_name[x] for x in scp_codes_superclass])
+    scp_codes_full_names.extend(["myocardial infarction", "ischemic", "subendocardial injury"])
     sampled_data = {}
     grounding_data = {}
+    grounding_tuples = {}
     grounding_qid = {}
+    entire_grounding_qid = {}
     grounding_qid_i = 0
-    test_num_grounding_per_attribute_obj = {}
 
     # we should iterate for test first to compute num_yes_attributes for test split
     for split in ["test", "train", "valid"]:
@@ -589,6 +616,7 @@ def instantiate_template(
                             r"ischemic in.* leads", "ischemic", grounding_attr[i]
                         )
 
+                question_str = question
                 if tokenize:
                     question = tokenizer.encode(question.lower(), add_special_tokens=False)
                     if answer_encode == 'text':
@@ -656,17 +684,10 @@ def instantiate_template(
                         # "classes": [[0, 1] for _ in range(len(grounding_ans))],
                     })
 
-                    for (
-                        grounding_attribute, grounding_lead, grounding_answer
-                    ) in zip(grounding_attr, grounding_obj, grounding_ans):
-                        if (grounding_attribute, grounding_lead) not in test_num_grounding_per_attribute_obj:
-                            test_num_grounding_per_attribute_obj[(grounding_attribute, grounding_lead)] = set()
-                        if split == "test" and grounding_answer == "yes":
-                            test_num_grounding_per_attribute_obj[(grounding_attribute, grounding_lead)].add(ecg_id)
-
                 samples.append({
                     'template_id': s['template_id'],
                     'question_id': s['question_id'],
+                    "question_str": question_str,
                     "qtype": question_type,
                     "atype": answer_type,
                     'sample_id': idx,
@@ -686,11 +707,12 @@ def instantiate_template(
                     retrieve_cnt += 1
 
                 idx += 1
+        print()
         print(f"{split}_ecg: {len(data[split])}")
-        print(f'{split}_none: {none_cnt}/{idx}')
-        print(f'{split}_none_verify: {none_verify_cnt}/{none_cnt}')
-        print(f'{split}_none_choose: {none_choose_cnt}/{none_cnt}')
-        print(f'{split}_none_retrieve: {none_retrieve_cnt}/{none_cnt}')
+        print(f'{split}_none: {none_cnt} / {idx}')
+        print(f'{split}_none_verify: {none_verify_cnt} / {none_cnt}')
+        print(f'{split}_none_choose: {none_choose_cnt} / {none_cnt}')
+        print(f'{split}_none_retrieve: {none_retrieve_cnt} / {none_cnt}')
         print(f'{split} verify: {verify_cnt}, choose: {choose_cnt}, retrieve: {retrieve_cnt}')
 
         with open(os.path.join('results', split + '.json'), 'w') as f:
@@ -703,23 +725,19 @@ def instantiate_template(
                 }, f, indent=4
             )
 
-        if split == "test":
-            test_num_grounding_per_attribute_obj = {k: len(v) for k, v in test_num_grounding_per_attribute_obj.items()}
-            exclude = [key for key, value in test_num_grounding_per_attribute_obj.items() if value < 10]
         grounding_data[split] = []
         # linearize grounding samples
         if len(grounding_samples) > 0:
-            grounding_tuples = [
+            grounding_tuples[split] = [
                 (ecg_id, attr, obj, ans, size)
                 for s in grounding_samples for ecg_id, attr, obj, ans, size in zip(
                     s["ecg_id"], s["attr"], s["obj"], s["answer"], s["size"]
-                ) if (attr, obj) not in exclude
+                )
             ]
             # only take unique tuples
-            grounding_tuples = list(set(grounding_tuples))
-            print(f"{split}_grounding: {len(grounding_tuples)}")
+            grounding_tuples[split] = list(set(grounding_tuples[split]))
 
-            for ecg_id, attr, obj, ans, size in grounding_tuples:
+            for ecg_id, attr, obj, ans, size in grounding_tuples[split]:
                 if attr == "normal ecg":
                     question = "is this a normal ecg"
                     template_id = 0
@@ -741,7 +759,10 @@ def instantiate_template(
                 else:
                     question_id = grounding_qid_i
                     grounding_qid[question] = grounding_qid_i
+                    if obj == "entire":
+                        entire_grounding_qid[question] = grounding_qid_i
                     grounding_qid_i += 1
+                question_str = question
 
                 if tokenize:
                     question = tokenizer.encode(question.lower(), add_special_tokens=False)
@@ -763,6 +784,7 @@ def instantiate_template(
                 grounding_data[split].append({
                     "template_id": template_id,
                     "question_id": question_id,
+                    "question_str": question_str,
                     "qtype": 0, # verify
                     "atype": 1, # multi-class
                     "question": question,
@@ -783,10 +805,84 @@ def instantiate_template(
             'samples': samples
         }
 
+    index = list(grounding_qid.values())
+    question = list(grounding_qid.keys())
+    grounding_questions = pd.DataFrame({"index": index, "question":question})
+    grounding_questions.set_index("index", inplace=True)
+    for split in grounding_data:
+        grounding_qid_i = len(grounding_questions)
+        per_lead_to_entire = dict()
+        for s in grounding_data[split]:
+            if s["obj"] != "entire":
+                if (s["ecg_id"], s["attribute"] not in per_lead_to_entire):
+                    per_lead_to_entire[(s["ecg_id"], s["attribute"])] = []
+                per_lead_to_entire[(s["ecg_id"], s["attribute"])].append(s)
 
-    with open(os.path.join("results", "grounding_questions.tsv"), "w") as f:
-        for k, v in grounding_qid.items():
-            print(f"{v}\t{k}", file=f)
+        final_per_lead_to_entire = []
+        for (ecg_id, attr), samples in per_lead_to_entire.items():
+            s = samples[0].copy()
+            s["question_str"] = s["question_str"].split(" in " + s["obj"])[0] + "?"
+            if s["question_str"] in entire_grounding_qid:
+                s["question_id"] = entire_grounding_qid[s["question_str"]]
+            else:
+                entire_grounding_qid[s["question_str"]] = grounding_qid_i
+                s["question_id"] = grounding_qid_i
+                grounding_questions.loc[grounding_qid_i] = s["question_str"]
+                grounding_qid_i += 1
+            s["question"] = tokenizer.encode(s["question_str"], add_special_tokens=False)
+            s["obj"] = "entire"
+
+            metadata = encoded_ptbxl[encoded_ptbxl["ecg_id"] == ecg_id]
+            flag = False
+            if attr in per_lead_attr_scp_code:
+                attr_code = per_lead_attr_scp_code[attr]
+                scp_codes = eval(metadata["scp_codes"].iloc[0])
+
+                if isinstance(attr_code, list):
+                    for c in attr_code:
+                        if c in scp_codes:
+                            flag = True
+                            break
+                else:
+                    if attr_code in scp_codes:
+                        flag = True
+            elif attr in per_lead_attr_noise_code:
+                attr_code = per_lead_attr_noise_code[attr]
+                if metadata[attr_code].iloc[0] is not None:
+                    flag = True
+
+            answer = np.zeros(len(s["answer"]), dtype=int)
+            if flag:
+                answer[1] = 1
+                s["answer_bin"] = 1
+            else:
+                answer[0] = 1
+                s["answer_bin"] = 0
+            s["answer"] = list(answer)
+            if (ecg_id, attr, "entire", s["answer_bin"], s["size"]) not in grounding_tuples[split]:
+                grounding_tuples[split].append((ecg_id, attr, "entire", s["answer_bin"], s["size"]))
+                final_per_lead_to_entire.append(s)
+
+        grounding_data[split].extend(final_per_lead_to_entire)
+
+    test_num_grounding_per_attribute_obj = dict()
+    for s in grounding_data["test"]:
+        if (s["attribute"], s["obj"]) not in test_num_grounding_per_attribute_obj:
+            test_num_grounding_per_attribute_obj[(s["attribute"], s["obj"])] = 0
+        if s["answer_bin"] == 1:
+            test_num_grounding_per_attribute_obj[(s["attribute"], s["obj"])] += 1
+    exclude = [key for key, value in test_num_grounding_per_attribute_obj.items() if value < 10]
+    for split in grounding_data:
+        grounding_data[split] = [
+            s for s in grounding_data[split]
+            if (
+                (s["attribute"], s["obj"]) not in exclude
+                and (s["attribute"], s["obj"]) in test_num_grounding_per_attribute_obj
+            )
+        ]
+        print(f"{split}_grounding: {len(grounding_data[split])}")
+
+    grounding_questions.to_csv("results/grounding_questions.csv")
 
     with open(os.path.join('results', 'sampled_data.pkl'), 'wb') as f:
         pickle.dump(sampled_data, f)
@@ -1000,7 +1096,9 @@ def sample(
             ]:
                 subsample = data[is_exists(data, candidate)]
                 yes = subsample[subsample.apply(lambda x: x[candidate][lead], axis=1).astype(bool)]
-                no = subsample[~subsample['ecg_id'].isin(yes['ecg_id'])]
+                # no = subsample[~subsample['ecg_id'].isin(yes['ecg_id'])]
+                no = data[~data["ecg_id"].isin(yes["ecg_id"])]
+
                 cnt = len(yes)
                 samples_with_candidate = {
                     'yes': yes,
