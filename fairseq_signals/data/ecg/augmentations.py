@@ -196,7 +196,7 @@ class RandomLeadsMask(object):
         self.mask_leads_condition = mask_leads_condition
     
     def __call__(self, sample):
-        if self.p > np.random.uniform(0,1):
+        if self.p >= np.random.uniform(0,1):
             new_sample = sample.new_zeros(sample.size())
             if self.mask_leads_selection == "random":
                 survivors = np.random.uniform(0, 1, size=12) >= self.mask_leads_prob
