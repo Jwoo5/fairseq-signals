@@ -200,6 +200,8 @@ class set_torch_seed(object):
         torch.manual_seed(seed)
         if torch.cuda.is_available():
             torch.cuda.manual_seed(seed)
+            if torch.distributed.is_initialized():
+                torch.cuda.manual_seed_all(seed)
 
     def __enter__(self):
         return self
