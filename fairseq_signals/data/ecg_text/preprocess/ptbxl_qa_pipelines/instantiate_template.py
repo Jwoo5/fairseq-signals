@@ -404,7 +404,7 @@ def instantiate_template(
                             }
                             if split == 'test':
                                 cnt += 1
-                                print(str(cnt) + ': ' + qa_samples['question'])
+                                print("answer exists in test but not train-" + str(cnt) + ': ' + qa_samples['question'])
                                 print(answer_set_test_but_not_train)
                             break
         elif qid_type[qid] == 'multi-class':
@@ -809,12 +809,15 @@ def instantiate_template(
     question = list(grounding_qid.keys())
     grounding_questions = pd.DataFrame({"index": index, "question":question})
     grounding_questions.set_index("index", inplace=True)
+    per_lead_to_entire_grounding = {"train": [], "valid": [], "test": []}
+    print("copy and transfer per-lead grounding samples to entire grounding")
     for split in grounding_data:
+        print(split)
         grounding_qid_i = len(grounding_questions)
         per_lead_to_entire = dict()
         for s in grounding_data[split]:
             if s["obj"] != "entire":
-                if (s["ecg_id"], s["attribute"] not in per_lead_to_entire):
+                if (s["ecg_id"], s["attribute"]) not in per_lead_to_entire:
                     per_lead_to_entire[(s["ecg_id"], s["attribute"])] = []
                 per_lead_to_entire[(s["ecg_id"], s["attribute"])].append(s)
 
@@ -830,6 +833,7 @@ def instantiate_template(
                 grounding_questions.loc[grounding_qid_i] = s["question_str"]
                 grounding_qid_i += 1
             s["question"] = tokenizer.encode(s["question_str"], add_special_tokens=False)
+            s["original_obj"] = s["obj"]
             s["obj"] = "entire"
 
             metadata = encoded_ptbxl[encoded_ptbxl["ecg_id"] == ecg_id]
@@ -863,6 +867,12 @@ def instantiate_template(
                 grounding_tuples[split].append((ecg_id, attr, "entire", s["answer_bin"], s["size"]))
                 final_per_lead_to_entire.append(s)
 
+            #XXX
+            for sample_ in samples:
+                s = s.copy()
+                s["original_obj"] = sample_["obj"]
+                per_lead_to_entire_grounding[split].append(s)
+
         grounding_data[split].extend(final_per_lead_to_entire)
 
     test_num_grounding_per_attribute_obj = dict()
@@ -888,7 +898,29 @@ def instantiate_template(
         pickle.dump(sampled_data, f)
     with open(os.path.join('results', 'grounding_data.pkl'), 'wb') as f:
         pickle.dump(grounding_data, f)
-    return sampled_data, grounding_data
+
+    #XXX
+    for split in per_lead_to_entire_grounding:
+        per_lead_to_entire_grounding[split] = [
+            s for s in per_lead_to_entire_grounding[split]
+            if (
+                (s["attribute"], s["original_obj"]) not in exclude
+                and (s["attribute"], s["original_obj"]) in test_num_grounding_per_attribute_obj
+            )
+        ]
+        tmp = []
+        tmp_ids = []
+        for s in per_lead_to_entire_grounding[split]:
+            if (s["ecg_id"], s["attribute"]) not in tmp_ids:
+                tmp_ids.append((s["ecg_id"], s["attribute"]))
+                tmp.append(s)
+        per_lead_to_entire_grounding[split] = tmp
+
+    #XXX
+    with open(os.path.join("results", "per_lead_to_entire_grounding.pkl"), "wb") as f:
+        pickle.dump(per_lead_to_entire_grounding, f)
+
+    return sampled_data, grounding_data, per_lead_to_entire_grounding
 
 def _count_min_from_n(ls, n, cnt_threshold=1):
     conds = list(map(lambda x: len(x) >= cnt_threshold, ls))
@@ -1143,7 +1175,10 @@ def sample(
                     'no': subsample[~is_exists(subsample, candidate)]
                 }
             else:
-                samples_with_candidate = data[is_exists(data, candidate)]
+                try:
+                    samples_with_candidate = data[is_exists(data, candidate)]
+                except:
+                    breakpoint()
                 cnt = len(samples_with_candidate)
                 samples_with_candidate = {
                     'yes': samples_with_candidate,
