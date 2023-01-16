@@ -147,7 +147,7 @@ class Trainer(object):
     
     @property
     def should_save_checkpoint_on_current_rank(self) -> bool:
-        """Indicates whether to save checkpointson the current DDP rank."""
+        """Indicates whether to save checkpoints on the current DDP rank."""
         if getattr(self.cfg.model, "base_layers", 0) > 0:
             return True
         else:
