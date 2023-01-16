@@ -13,7 +13,7 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
     leads = ['i','ii','iii','avr','avl','avf','v1','v2','v3','v4','v5','v6']
 
     lead_positions_patterns = r'v leads|chest|limb|anterior|antero\-?\s?lateral|antero\-?\s?septal|inferior|infero\-?\s?lateral|infero\-?\s?septal|lateral|high\-?\s?lateral|precordial|standard|lateral\-?\s?chest'
-    lead_patterns = r'(((v?\d)|(lead)?\s?i|(lead)?\s?ii|(lead)?\s?iii|(lead)?\s?avr|(lead)?\s?avl|(lead)?\s?avf|v leads|all leads|chest( leads)?|limb( leads)?|anterior( leads)?|antero\-?\s?lateral( leads)?|antero\-?\s?septal( leads)?|inferior( leads)?|infero\-?\s?lateral( leads)?|infero\-?\s?septal( leads)?|lateral( leads)?|high\-?\s?lateral( leads)?|precordial( leads)?|standard( leads)?|infero\-lateral( leads)?|lateral\-?\s?chest( leads)?)\s?[/\),\.\-\&\s]\s?(and)?\s?)+'
+    lead_patterns = r'(((v?\d)|(lead)?\s?(?<=[^A-Za-z])iii(?=[^A-Za-z])|(lead)?\s?(?<=[^A-Za-z])ii(?=[^A-Za-z])|(lead)?\s?(?<=[^A-Za-z])i(?=[^A-Za-z])|(lead)?\s?avr|(lead)?\s?avl|(lead)?\s?avf|v leads|all leads|chest( lead(s)?)?|limb( lead(s)?)?|anterior( lead(s)?)?|antero\-?\s?lateral( lead(s)?)?|antero\-?\s?septal( lead(s)?)?|inferior( lead(s)?)?|infero\-?\s?lateral( lead(s)?)?|infero\-?\s?septal( lead(s)?)?|lateral( lead(s)?)?|high\-?\s?lateral( lead(s)?)?|precordial( lead(s)?)?|standard( lead(s)?)?|infero\-lateral( lead(s)?)?|lateral\-?\s?chest( lead(s)?)?)\s?([/\),\.\-\&\s])?\s?(and)?\s?)+'
     positions_to_leads = {
         'chest': ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'],
         'vleads': ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'],
@@ -33,182 +33,330 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
 
     scp_to_parse_lead = ['NDT', 'NST_', 'DIG', 'STD_', 'VCLVH', 'QWAVE', 'LOWT', 'NT_', 'INVT', 'LVOLT', 'HVOLT', 'TAB_', 'STE_']
 
+    #XXX backup
     # lead patterns for each form statement
     # [0]: first priority patterns. if not matched, pass to [1]
     # [1]: if [1][0] is matched, try matching [1][1]
     # [2]: if any patterns are not matched, try matching [2]
+    # patterns = {
+    #     'NDT': [
+    #         r'(t wave|t wve|t change neg|t-change neg|t abnormal|t sinus rhythm abnormal|t flat|t flach|flat t|'
+    #         r't biphasic|biphasic t|t change|t-change|t flattened|t negative|t neg|neg t|'
+    #         r't term\. neg|t high|high t|t wave flat|t wave changes).* in (' + lead_patterns +'),?'
+    #         r'( (neg|t neg|inferior flattened|biphasic|t flattened|flat t|flach) in (' + lead_patterns + '))?',
+    #         (
+    #             r't waves are.* in these leads',
+    #             r'(low limb lead voltage)|(st segments are depressed in (' + lead_patterns + '))'
+    #         ),
+    #         [
+    #             r'((st segment depression|st depression|(st segments are.* depressed)|st lowering|'
+    #             r'st-lowering|st reduction|st-senkung|st-thinking).* (in|above) ('
+    #             + lead_patterns + r'))|((st depression|st-lowering|st lowering|st reduction) ('
+    #             + lead_patterns + r'))',
+    #             r'((st elevation|st-elevation).* (in|over|discrete) (' + lead_patterns + r'))|'
+    #             r'((st elevation|st-elevation|st-hebung in) (' + lead_patterns + r'))',
+    #             r'((st-t wave change|st-t change|t change).* in (' + lead_patterns + '))|((' +
+    #             lead_positions_patterns + ') (st-t wave|st.t|t) changes)|(st-t changes ' + lead_patterns + ')',
+    #             r'(((t changes|t-changes|t- changes):? (neg|high|flat|biphas|excessive|biphas).* ('
+    #             + lead_patterns + r'))(, (flat|high|neg) in (' + lead_patterns + r'))?)|'
+    #             r'((t-changes in|t-changes|t abnormal in) (' + lead_patterns + r'))',
+    #         ]
+    #     ],
+    #     'NST_': [
+    #         r'((st-t wave change|st-t change|t change).* in (' + lead_patterns + '))|((' +
+    #         lead_positions_patterns + ') (st-t wave|st.t|t) (changes|abnormal))|(st-t changes ' + lead_patterns + ')',
+    #         (
+
+    #         ),
+    #         [
+    #             r'((st segment depression|st depression|(st segments are.* depressed)|st lowering|'
+    #             r'st-lowering|st reduction|st-senkung|st-thinking).* (in|above) ('
+    #             + lead_patterns + r'))|((st depression|st-lowering|st lowering|st reduction) ('
+    #             + lead_patterns + r'))',
+    #             r'((st elevation|st-elevation).* (in|over|discrete) (' + lead_patterns + r'))|'
+    #             r'((st elevation|st-elevation|st-hebung in) (' + lead_patterns + r'))',
+    #             r'(((t changes|t-changes|t- changes):? (neg|high|flat|biphas|excessive|biphas).* ('
+    #             + lead_patterns + r'))(, (flat|high|neg) in (' + lead_patterns + r'))?)|'
+    #             r'((t-changes in|t-changes|t abnormal in) (' + lead_patterns + r'))',
+    #             r'(t wave flattening.* in (' + lead_patterns + r'))|'
+    #             r'(t wave changes in (' + lead_patterns + r'))',
+    #             r'(t wave|t wve|t change neg|t-change neg|t abnormal|t sinus rhythm abnormal|t flat|t flach|flat t|'
+    #             r't biphasic|biphasic t|t changes|t-changes|t flattened|t negative|t neg|neg t|'
+    #             r't term\. neg|t high|high t|t wave flat|t wave changes).* in (' + lead_patterns +'),?'
+    #             r'( (neg|t neg|inferior flattened|biphasic|t flattened|flat t|flach) in (' + lead_patterns + '))?',
+    #         ]
+    #     ],
+    #     'DIG': [
+    #         r'digitalis.* (in|trough|changes) (' + lead_patterns + ')',
+    #         (
+
+    #         ),
+    #         [
+    #             r'((st segment depression|st depression|(st segments are.* depressed)|st lowering|'
+    #             r'st-lowering|st reduction|st-senkung|st-thinking).* (in|above) ('
+    #             + lead_patterns + r'))|((st depression|st-lowering|st lowering|st reduction) ('
+    #             + lead_patterns + r'))',
+    #             r'((st elevation|st-elevation).* (in|over|discrete) (' + lead_patterns + r'))|'
+    #             r'((st elevation|st-elevation|st-hebung in) (' + lead_patterns + r'))',
+    #         ]
+    #     ],
+    #     'STD_': [
+    #         r'((st segment depression|st decrease|st depression|(st segments are.* depressed)|st lowering|'
+    #         r'st-lowering|st reduction|st-senkung|st-thinking).* (in|above) ('
+    #         + lead_patterns + r'))|((st depression|st-lowering|st lowering|st reduction) ('
+    #         + lead_patterns + r'))',
+    #         (
+
+    #         ),
+    #         [
+
+    #         ]
+    #     ],
+    #     'VCLVH': [
+    #         r'(voltages are high in (' + lead_patterns + r'))|((' 
+    #         + lead_patterns + r')\s?voltages suggest possible lv hypertrophy)|'
+    #         r'(left ventricular hypertrophy are satisfied in (' + lead_patterns +'))|'
+    #         r'(voltages in (' + lead_patterns + r')\s?are at upper limit)|'
+    #         r'(voltages in (' + lead_patterns + r')\s?of left ventricular hypertrophy)|'
+    #         r'(r wave height in (' +lead_patterns + r')\s?suggests the possibility of left ventricular hypertrophy)|'
+    #         r'((' + lead_positions_patterns + r') voltages of left ventricular hypertrophy)',
+    #         (
+
+    #         ),
+    #         [
+
+    #         ]
+    #     ],
+    #     'QWAVE': [
+    #         r'(q wave.* in (' + lead_patterns + '))|(q in (' + lead_patterns + r'))|'
+    #         r'(small (' + lead_positions_patterns + ') q waves noted)',
+    #         (
+
+    #         ),
+    #         [
+
+    #         ]
+    #     ],
+    #     'LOWT': [
+    #         r't waves are low.* in (' + lead_patterns + ')',
+    #         (
+    #             r't waves are.*low.* in these leads',
+    #             r'st segments are depressed in (' + lead_patterns + ')'
+    #         ),
+    #         [
+
+    #         ]
+    #     ],
+    #     'NT_': [
+    #         r'(t wave flattening.* in (' + lead_patterns + r'))|'
+    #         r'(t wave changes in (' + lead_patterns + r'))',
+    #         (
+
+    #         ),
+    #         [
+
+    #         ]
+    #     ],
+    #     'INVT': [
+    #         r'((t waves are inverted|t wave inversion|t waves inverted) in ('
+    #         + lead_patterns + r'))|'
+    #         r'(t wave flattening.* and inverted in (' + lead_patterns + r'))',
+    #         (
+    #             r't waves are inverted.* in these leads',
+    #             r'st segments are depressed in (' + lead_patterns + ')'
+    #         ),
+    #         [
+
+    #         ]
+    #     ],
+    #     'LVOLT': [
+    #         r'(low limb lead voltage|peripheral low voltage|peripheral low-voltage|'
+    #         r'peripheral low tension|low voltage in (' + lead_patterns + '))',
+    #         (
+
+    #         ),
+    #         r''
+    #     ],
+    #     'HVOLT': [
+    #         r'(high v lead voltages)|'
+    #         r'(voltages in (' + lead_patterns + r')\s?are at upper limit)|'
+    #         r'(voltages are high in (' + lead_patterns + r'))',
+    #         (
+
+    #         ),
+    #         [
+
+    #         ]
+    #     ],
+    #     'TAB_': [
+    #         r'(((t changes|t-changes|t- changes):? (neg|high|flat|biphas|excessive|biphas).* ('
+    #         + lead_patterns + r'))(, (flat|high|neg) in (' + lead_patterns + r'))?)|'
+    #         r'((t-changes in|t-changes|t abnormal in) (' + lead_patterns + r'))',
+    #         (
+
+    #         ),
+    #         [
+
+    #         ]
+    #     ],
+    #     'STE_': [
+    #         r'((st elevation|st-elevation).* (in|over|discrete) (' + lead_patterns + r'))|'
+    #         r'((st elevation|st-elevation|st-hebung in) (' + lead_patterns + r'))',
+    #         (
+
+    #         ),
+    #         [
+
+    #         ]
+    #     ]
+    # }
     patterns = {
         'NDT': [
-            r'(t wave|t wve|t change neg|t-change neg|t abnormal|t sinus rhythm abnormal|t flat|t flach|flat t|'
-            r't biphasic|biphasic t|t change|t-change|t flattened|t negative|t neg|neg t|'
-            r't term\. neg|t high|high t|t wave flat|t wave changes).* in (' + lead_patterns +'),?'
-            r'( (neg|t neg|inferior flattened|biphasic|t flattened|flat t|flach) in (' + lead_patterns + '))?',
+            r"(t wave(s)?|t waves are|t wve|t-change(s)?(:)?|t change(s)?(:)?|flat t|biphasic t|"
+            + r"neg t|high t)\s*"
+            + r"(are)?\s*"
+            + r"(neg in|flattening in|flattening or slight inversion in|flat in|changes in|"
+            + r"inversion in|low or flat in|generally low and are flat in|low in|flattened in|"
+            + r"now generally flatter and are slightly inverted in|inverted in|"
+            + r"slightly inverted in|low or flat in|flat or slightly inverted in|"
+            + r"now slightly inverted in|now inverted in|biphasic in|abnormal in|"
+            + r"abnormality in|sinus rhythm abnormal in|flat|flach in|in|biphas.|"
+            + r"neg\. in|biphasic|negative in|neg in|term. neg in|high in|)\s*"
+            + r"(" + lead_patterns + r")",
             (
-                r't waves are.* in these leads',
-                r'(low limb lead voltage)|(st segments are depressed in (' + lead_patterns + '))'
             ),
             [
-                r'((st segment depression|st depression|(st segments are.* depressed)|st lowering|'
-                r'st-lowering|st reduction|st-senkung|st-thinking).* (in|above) ('
-                + lead_patterns + r'))|((st depression|st-lowering|st lowering|st reduction) ('
-                + lead_patterns + r'))',
-                r'((st elevation|st-elevation).* (in|over|discrete) (' + lead_patterns + r'))|'
-                r'((st elevation|st-elevation|st-hebung in) (' + lead_patterns + r'))',
-                r'((st-t wave change|st-t change|t change).* in (' + lead_patterns + '))|((' +
-                lead_positions_patterns + ') (st-t wave|st.t|t) changes)|(st-t changes ' + lead_patterns + ')',
-                r'(((t changes|t-changes|t- changes):? (neg|high|flat|biphas|excessive|biphas).* ('
-                + lead_patterns + r'))(, (flat|high|neg) in (' + lead_patterns + r'))?)|'
-                r'((t-changes in|t-changes|t abnormal in) (' + lead_patterns + r'))',
             ]
         ],
         'NST_': [
-            r'((st-t wave change|st-t change|t change).* in (' + lead_patterns + '))|((' +
-            lead_positions_patterns + ') (st-t wave|st.t|t) (changes|abnormal))|(st-t changes ' + lead_patterns + ')',
+            r"((st-t wave changes|st-t changes|t changes)\s*"
+            + r"(are marked in|persist in|in|)\s*"
+            + r"(" + lead_patterns + r"))|"
+            + r"((" + lead_positions_patterns + r")\s*"
+            + r"(st-t wave changes|st-t changes))",
             (
-
             ),
             [
-                r'((st segment depression|st depression|(st segments are.* depressed)|st lowering|'
-                r'st-lowering|st reduction|st-senkung|st-thinking).* (in|above) ('
-                + lead_patterns + r'))|((st depression|st-lowering|st lowering|st reduction) ('
-                + lead_patterns + r'))',
-                r'((st elevation|st-elevation).* (in|over|discrete) (' + lead_patterns + r'))|'
-                r'((st elevation|st-elevation|st-hebung in) (' + lead_patterns + r'))',
-                r'(((t changes|t-changes|t- changes):? (neg|high|flat|biphas|excessive|biphas).* ('
-                + lead_patterns + r'))(, (flat|high|neg) in (' + lead_patterns + r'))?)|'
-                r'((t-changes in|t-changes|t abnormal in) (' + lead_patterns + r'))',
-                r'(t wave flattening.* in (' + lead_patterns + r'))|'
-                r'(t wave changes in (' + lead_patterns + r'))',
-                r'(t wave|t wve|t change neg|t-change neg|t abnormal|t sinus rhythm abnormal|t flat|t flach|flat t|'
-                r't biphasic|biphasic t|t changes|t-changes|t flattened|t negative|t neg|neg t|'
-                r't term\. neg|t high|high t|t wave flat|t wave changes).* in (' + lead_patterns +'),?'
-                r'( (neg|t neg|inferior flattened|biphasic|t flattened|flat t|flach) in (' + lead_patterns + '))?',
             ]
         ],
         'DIG': [
-            r'digitalis.* (in|trough|changes) (' + lead_patterns + ')',
+            r"(digitalis)\s*"
+            + r"(t pointed in|change in|changes|change trough|change r trough|in|)\s*"
+            + r"(" + lead_patterns + r")",
             (
-
             ),
             [
-                r'((st segment depression|st depression|(st segments are.* depressed)|st lowering|'
-                r'st-lowering|st reduction|st-senkung|st-thinking).* (in|above) ('
-                + lead_patterns + r'))|((st depression|st-lowering|st lowering|st reduction) ('
-                + lead_patterns + r'))',
-                r'((st elevation|st-elevation).* (in|over|discrete) (' + lead_patterns + r'))|'
-                r'((st elevation|st-elevation|st-hebung in) (' + lead_patterns + r'))',
             ]
         ],
         'STD_': [
-            r'((st segment depression|st decrease|st depression|(st segments are.* depressed)|st lowering|'
-            r'st-lowering|st reduction|st-senkung|st-thinking).* (in|above) ('
-            + lead_patterns + r'))|((st depression|st-lowering|st lowering|st reduction) ('
-            + lead_patterns + r'))',
+            r"(st segment(s)?|st(\-)?st-senkung|st-thinking)\s*"
+            + r"(are)?\s*"
+            + r"(depression in|depression and t wave flattening in|depressed in|"
+            + r"depressed and t wave.{0,15} in|depression|depression above|lowering in|"
+            + r"lowering|reduction in|reduction discrete in|in)\s*"
+            + r"(" + lead_patterns + r")",
             (
-
             ),
             [
 
             ]
         ],
         'VCLVH': [
-            r'(voltages are high in (' + lead_patterns + r'))|((' 
-            + lead_patterns + r')\s?voltages suggest possible lv hypertrophy)|'
-            r'(left ventricular hypertrophy are satisfied in (' + lead_patterns +'))|'
-            r'(voltages in (' + lead_patterns + r')\s?are at upper limit)|'
-            r'(voltages in (' + lead_patterns + r')\s?of left ventricular hypertrophy)|'
-            r'(r wave height in (' +lead_patterns + r')\s?suggests the possibility of left ventricular hypertrophy)|'
-            r'((' + lead_positions_patterns + r') voltages of left ventricular hypertrophy)',
+            r"(voltages are high in (" + lead_patterns + r") suggesting lvh)|"
+            + r"((" + lead_patterns + r") voltages suggest possible lv hypertrophy)|"
+            + r"(left ventricular hypertrophy are satisfied in (" + lead_patterns + r"))|"
+            + r"(voltages in (" + lead_patterns + r") are at upper limit)|"
+            + r"(voltages in (" + lead_patterns + r") of left ventricular hypertrophy)|"
+            + r"(r wave height in (" + lead_patterns + r") suggests the possibility of left ventricular hypertrophy)",
             (
-
             ),
             [
 
             ]
         ],
         'QWAVE': [
-            r'(q wave.* in (' + lead_patterns + '))|(q in (' + lead_patterns + r'))|'
-            r'(small (' + lead_positions_patterns + ') q waves noted)',
+            r"((q wave(s)?|q)\s*"
+            + r"(are)?\s*"
+            + r"(present in|in|(and|,).{0,55} in)\s*"
+            + r"(" + lead_patterns + r"))|"
+            + r"((" + lead_positions_patterns +r") q waves noted)",
             (
-
             ),
             [
-
             ]
         ],
         'LOWT': [
-            r't waves are low.* in (' + lead_patterns + ')',
+            r"(t waves are)\s*"
+            + r"(low or flat in|low in)\s*"
+            + r"(" + lead_patterns + r")",
             (
-                r't waves are.*low.* in these leads',
-                r'st segments are depressed in (' + lead_patterns + ')'
             ),
             [
-
             ]
         ],
         'NT_': [
-            r'(t wave flattening.* in (' + lead_patterns + r'))|'
-            r'(t wave changes in (' + lead_patterns + r'))',
+            r"(t wave)\s*"
+            + r"(flattening in|flattening persists in|flattening or slight inversion in|"
+            + r"flattening or inversion in|changes in)\s*"
+            + r"(" + lead_patterns + r")",
             (
-
             ),
             [
-
             ]
         ],
         'INVT': [
-            r'((t waves are inverted|t wave inversion|t waves inverted) in ('
-            + lead_patterns + r'))|'
-            r'(t wave flattening.* and inverted in (' + lead_patterns + r'))',
+            r"(t wave(s)?)\s*"
+            + r"(are)?\s*"
+            + r"(inverted in|inversion in|flattening in.{0,30} and inverted in)\s*"
+            + r"(" + lead_patterns + r")",
             (
-                r't waves are inverted.* in these leads',
-                r'st segments are depressed in (' + lead_patterns + ')'
             ),
             [
-
             ]
         ],
         'LVOLT': [
-            r'(low limb lead voltage|peripheral low voltage|peripheral low-voltage|'
-            r'peripheral low tension|low voltage in (' + lead_patterns + '))',
+            r"(low limb lead voltage|peripheral low voltage|peripheral low-voltage|"
+            + r"peripheral low tension|low voltage in (" + lead_patterns + r"))",
             (
-
-            ),
-            r''
-        ],
-        'HVOLT': [
-            r'(high v lead voltages)|'
-            r'(voltages in (' + lead_patterns + r')\s?are at upper limit)|'
-            r'(voltages are high in (' + lead_patterns + r'))',
-            (
-
             ),
             [
-
+            ]
+        ],
+        'HVOLT': [
+            r"(high v lead voltages)|"
+            + r"(voltages in (" + lead_patterns + r")\s*are at upper limit)|"
+            + r"(voltages are high in (" + lead_patterns + r"))",
+            (
+            ),
+            [
             ]
         ],
         'TAB_': [
-            r'(((t changes|t-changes|t- changes):? (neg|high|flat|biphas|excessive|biphas).* ('
-            + lead_patterns + r'))(, (flat|high|neg) in (' + lead_patterns + r'))?)|'
-            r'((t-changes in|t-changes|t abnormal in) (' + lead_patterns + r'))',
+            # r'(((t changes|t-changes|t- changes):? (neg|high|flat|biphas|excessive|biphas).* ('
+            # + lead_patterns + r'))(, (flat|high|neg) in (' + lead_patterns + r'))?)|'
+            # r'((t-changes in|t-changes|t abnormal in) (' + lead_patterns + r'))',
+            r"(t(\-)?\s?change(s)?(:)?|t abnormal)\s*"
+            + r"(negative in|neg in|neg t|neg\. t in|neg\. in|high in|high t in|"
+            + r"flat in|biphas|biphas\.|biphas\. in|excessive|in|)\s*"
+            + r"(" + lead_patterns + r")",
             (
-
             ),
             [
-
             ]
         ],
         'STE_': [
-            r'((st elevation|st-elevation).* (in|over|discrete) (' + lead_patterns + r'))|'
-            r'((st elevation|st-elevation|st-hebung in) (' + lead_patterns + r'))',
+            # r'((st elevation|st-elevation).* (in|over|discrete) (' + lead_patterns + r'))|'
+            # r'((st elevation|st-elevation|st-hebung in) (' + lead_patterns + r'))',
+            r"(st\-?\s?elevation|st-hebung)\s*"
+            + r"(in|discrete in|over|discrete|)\s*"
+            + r"(" + lead_patterns + r")",
             (
-
             ),
             [
-
             ]
         ]
     }
+
 
     ptbxl_database['baseline_drift'] = ptbxl_database['baseline_drift'].fillna('').str.lower().values
     ptbxl_database['static_noise'] = ptbxl_database['static_noise'].fillna('').str.lower().values
@@ -233,7 +381,7 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
                 return s
             else:
                 return ''
-        parsed_leads = re.split(r';|,|\.|\?|\)|and|\s', str)
+        parsed_leads = re.split(r';|,|\.|\?|\)| and |\s', str)
         for _ in range(2):
             for i, p in enumerate(parsed_leads):
                 if p.endswith('-'):
@@ -311,7 +459,7 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
         }
 
         es_list = []
-        str = re.split(',|\(|\)', str)
+        str = re.split(',|\(|\)|;', str)
         str = list(map(lambda x: x.strip(), str))
         for s in str:
             if 'es' in s:
@@ -338,6 +486,9 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
 
         output = [leads if x >= 0 else None for x in es]
         output.extend(es)
+        assert len(output) == 6, (
+            str, output
+        )
         return output
 
     ptbxl_database['DRIFT'] = ptbxl_database.apply(lambda x: parse_lead_positions(x['baseline_drift']), axis=1)
@@ -372,6 +523,7 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
     ptbxl_database['ANY_EXTRA'][idx] = True
 
     ptbxl_database['PACE'] = ptbxl_database['scp_codes'].str.contains("'PACE'", regex=False)
+    # ptbxl_database["PACE"] = ptbxl_database["pacemaker"].notnull()
 
     ptbxl_database['MI_NAN'] = (
         ptbxl_database['infarction_stadium1'].isna()
@@ -436,7 +588,7 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
             if re.search(pattern[1][0], str):
                 if parsed := re.search(pattern[1][1], str):
                     statements = parsed.group()
-        
+
         if statements is not None:
             return _parse(statements)
         elif len(pattern[2]) > 0:
@@ -445,12 +597,16 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
                 if parsed := re.search(alternative, str):
                     parsed_leads |= _parse(parsed.group())
             return parsed_leads
-    
+
+    # s = "atrial fibrillation with fast ventricular response. low voltage in standard leads. antero-septal infarct - may be old. antero-lateral st-t changes consistent with left ventricular strain or ischaemia.."
+    # p = patterns['LVOLT']
+    # z = parse(s, p)
+    # breakpoint()
 
     for scp_code, pattern in patterns.items():
         print(scp_code)
         ptbxl_database[scp_code] = ptbxl_database.apply(
-            lambda x: parse(x['report'], pattern) if scp_code in x['scp_codes'] else None, axis=1
+            lambda x: parse(x['report'], pattern) if scp_code in eval(x['scp_codes']) else None, axis=1
         )
 
     scp_statements = pd.read_csv(os.path.join(ptbxl_dir, 'scp_statements.csv'))
@@ -483,6 +639,7 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
     forms = scp_statements[scp_statements['form'] == 1]['Unnamed: 0'].to_list()
     forms_with_leads = ['NDT', 'NST_', 'DIG', 'STD_', 'VCLVH', 'QWAVE', 'LOWT', 'NT_', 'INVT', 'LVOLT', 'HVOLT', 'TAB_', 'STE_']
     rhythms = scp_statements[scp_statements['rhythm'] == 1]['Unnamed: 0'].to_list()
+    # rhythms.remove("NORM")
 
     idx = ptbxl_database.apply(lambda _: False, axis=1)
     for s in subclass:
@@ -728,7 +885,7 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
             r_axis = None
             _qrs_lead_i = None
             _qrs_lead_avf = None
-        
+
         return {
             'rr_interval': rr_interval,
             'p_duration': p_duration,
@@ -832,6 +989,49 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
     ptbxl_database['HEART_AXIS_LEFT'] = ptbxl_database['r_axis'].apply(lambda x: (-90 <= x) and (x < -30) if not pd.isna(x) else None)
     ptbxl_database['HEART_AXIS_RIGHT'] = ptbxl_database['r_axis'].apply(lambda x: (90 <= x) and (x <= 180) if not pd.isna(x) else None)
     ptbxl_database['HEART_AXIS_EXTR'] = ptbxl_database['r_axis'].apply(lambda x: (-180 <= x) and (x <= -90) if not pd.isna(x) else None)
+
+    ptbxl_database["MAX_RR_INTERVAL_LOW"] = ptbxl_database["max_rr_interval"].apply(lambda x: x < 0.6 if x is not None else None)
+    ptbxl_database["MAX_RR_INTERVAL_NORM"] = ptbxl_database["max_rr_interval"].apply(lambda x: 0.6 <= x and x <= 1.0 if x is not None else None)
+    ptbxl_database["MAX_RR_INTERVAL_HIGH"] = ptbxl_database["max_rr_interval"].apply(lambda x: 1.0 < x if x is not None else None)
+    ptbxl_database["MIN_RR_INTERVAL_LOW"] = ptbxl_database["min_rr_interval"].apply(lambda x: x < 0.6 if x is not None else None)
+    ptbxl_database["MIN_RR_INTERVAL_NORM"] = ptbxl_database["min_rr_interval"].apply(lambda x: 0.6 <= x and x <= 1.0 if x is not None else None)
+    ptbxl_database["MIN_RR_INTERVAL_HIGH"] = ptbxl_database["min_rr_interval"].apply(lambda x: 1.0 < x if x is not None else None)
+
+    ptbxl_database["MAX_P_DURATION_LOW"] = ptbxl_database["max_p_duration"].apply(lambda x: None)
+    ptbxl_database["MAX_P_DURATION_NORM"] = ptbxl_database["max_p_duration"].apply(lambda x: x <= 0.12 if x is not None else None)
+    ptbxl_database["MAX_P_DURATION_HIGH"] = ptbxl_database["max_p_duration"].apply(lambda x: 0.12 < x if x is not None else None)
+    ptbxl_database["MIN_P_DURATION_LOW"] = ptbxl_database["min_p_duration"].apply(lambda x: None)
+    ptbxl_database["MIN_P_DURATION_NORM"] = ptbxl_database["min_p_duration"].apply(lambda x: x <= 0.12 if x is not None else None)
+    ptbxl_database["MIN_P_DURATION_HIGH"] = ptbxl_database["min_p_duration"].apply(lambda x: 0.12 < x if x is not None else None)
+
+    ptbxl_database["MAX_PR_INTERVAL_LOW"] = ptbxl_database["max_pr_interval"].apply(lambda x: x < 0.12 if x is not None else None)
+    ptbxl_database["MAX_PR_INTERVAL_NORM"] = ptbxl_database["max_pr_interval"].apply(lambda x: 0.12 <= x and x <= 0.2 if x is not None else None)
+    ptbxl_database["MAX_PR_INTERVAL_HIGH"] = ptbxl_database["max_pr_interval"].apply(lambda x: 0.2 < x if x is not None else None)
+    ptbxl_database["MIN_PR_INTERVAL_LOW"] = ptbxl_database["min_pr_interval"].apply(lambda x: x < 0.12 if x is not None else None)
+    ptbxl_database["MIN_PR_INTERVAL_NORM"] = ptbxl_database["min_pr_interval"].apply(lambda x: 0.12 <= x and x <= 0.2 if x is not None else None)
+    ptbxl_database["MIN_PR_INTERVAL_HIGH"] = ptbxl_database["min_pr_interval"].apply(lambda x: 0.2 < x if x is not None else None)
+
+    ptbxl_database["MAX_QRS_DURATION_LOW"] = ptbxl_database["max_qrs_duration"].apply(lambda x: x < 0.06 if x is not None else None)
+    ptbxl_database["MAX_QRS_DURATION_NORM"] = ptbxl_database["max_qrs_duration"].apply(lambda x: 0.06 <= x and x <= 0.11 if x is not None else None)
+    ptbxl_database["MAX_QRS_DURATION_HIGH"] = ptbxl_database["max_qrs_duration"].apply(lambda x: 0.11 < x if x is not None else None)
+    ptbxl_database["MIN_QRS_DURATION_LOW"] = ptbxl_database["min_qrs_duration"].apply(lambda x: x < 0.06 if x is not None else None)
+    ptbxl_database["MIN_QRS_DURATION_NORM"] = ptbxl_database["min_qrs_duration"].apply(lambda x: 0.06 <= x and x <= 0.11 if x is not None else None)
+    ptbxl_database["MIN_QRS_DURATION_HIGH"] = ptbxl_database["min_qrs_duration"].apply(lambda x: 0.11 < x if x is not None else None)
+
+    ptbxl_database["MAX_QT_INTERVAL_LOW"] = ptbxl_database["max_qt_interval"].apply(lambda x: x < 0.33 if x is not None else None)
+    ptbxl_database["MAX_QT_INTERVAL_NORM"] = ptbxl_database["max_qt_interval"].apply(lambda x: 0.33 <= x and x <= 0.43 if x is not None else None)
+    ptbxl_database["MAX_QT_INTERVAL_HIGH"] = ptbxl_database["max_qt_interval"].apply(lambda x: 0.43 < x if x is not None else None)
+    ptbxl_database["MIN_QT_INTERVAL_LOW"] = ptbxl_database["min_qt_interval"].apply(lambda x: x < 0.33 if x is not None else None)
+    ptbxl_database["MIN_QT_INTERVAL_NORM"] = ptbxl_database["min_qt_interval"].apply(lambda x: 0.33 <= x and x <= 0.43 if x is not None else None)
+    ptbxl_database["MIN_QT_INTERVAL_HIGH"] = ptbxl_database["min_qt_interval"].apply(lambda x: 0.43 < x if x is not None else None)
+
+    qtc_range = (0.33 / math.sqrt(0.2), 0.43 / math.sqrt(0.12))
+    ptbxl_database["MAX_QT_CORRECTED_LOW"] = ptbxl_database["max_qt_corrected"].apply(lambda x: x < qtc_range[0] if x is not None else None)
+    ptbxl_database["MAX_QT_CORRECTED_NORM"] = ptbxl_database["max_qt_corrected"].apply(lambda x: qtc_range[0] <= x and x <= qtc_range[1] if x is not None else None)
+    ptbxl_database["MAX_QT_CORRECTED_HIGH"] = ptbxl_database["max_qt_corrected"].apply(lambda x: qtc_range[1] < x if x is not None else None)
+    ptbxl_database["MIN_QT_CORRECTED_LOW"] = ptbxl_database["min_qt_corrected"].apply(lambda x: x < qtc_range[0] if x is not None else None)
+    ptbxl_database["MIN_QT_CORRECTED_NORM"] = ptbxl_database["min_qt_corrected"].apply(lambda x: qtc_range[0] <= x and x <= qtc_range[1] if x is not None else None)
+    ptbxl_database["MIN_QT_CORRECTED_HIGH"] = ptbxl_database["min_qt_corrected"].apply(lambda x: qtc_range[1] < x if x is not None else None)
 
     if not os.path.exists('results'):
         os.mkdir('results')

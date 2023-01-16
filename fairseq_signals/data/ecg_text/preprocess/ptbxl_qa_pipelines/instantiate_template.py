@@ -83,19 +83,25 @@ def instantiate_template(
     # subcategory['extra_systole_with_leads'] = ['ES', 'VES', 'SVES']
     # subcategory['extra_systole_count'] = ['ES_COUNT', 'VES_COUNT', 'SVES_COUNT']
 
-    subcategory['pacemaker'] = ['PACE']
-
-    subcategory['numeric_max'] = [
-        'max_rr_interval',
-        'max_p_duration',
-        'max_pr_interval',
-        'max_qrs_duration',
-        'max_qt_interval',
-        'max_qt_corrected'
+    numeric_features = [
+        "rr_interval",
+        "p_duration",
+        "pr_interval",
+        "qrs_duration",
+        "qt_interval",
+        "qt_corrected"
     ]
-    subcategory['numeric_min'] = ['min_' + n[4:] for n in subcategory['numeric_max']]
-
-    subcategory['pacemaker'] = ['PACE']
+    for nf in numeric_features:
+        subcategory["max_" + nf] = [
+            "MAX_" + nf.upper() + "_LOW",
+            "MAX_" + nf.upper() + "_NORM",
+            "MAX_" + nf.upper() + "_HIGH"
+        ]
+        subcategory["min_" + nf] = [
+            "MIN_" + nf.upper() + "_LOW",
+            "MIN_" + nf.upper() + "_NORM",
+            "MIN_" + nf.upper() + "_HIGH"
+        ]
 
     category_to_name = {
         "NORM": "normal ecg",
@@ -199,18 +205,42 @@ def instantiate_template(
         #     'SVES': 'supraventricular extrasystoles',
         # },
         "ANY_EXTRA": "any kind of extra systoles",
-        'max_rr_interval': 'rr interval',
-        'max_p_duration': 'p duration',
-        'max_pr_interval': 'pr interval',
-        'max_qrs_duration': 'qrs duration',
-        'max_qt_interval': 'qt interval',
-        'max_qt_corrected': 'qt corrected',
-        'min_rr_interval': 'rr interval',
-        'min_p_duration': 'p duration',
-        'min_pr_interval': 'pr interval',
-        'min_qrs_duration': 'qrs duration',
-        'min_qt_interval': 'qt interval',
-        'min_qt_corrected': 'qt corrected',
+        "MAX_RR_INTERVAL_LOW": "below the normal range",
+        "MAX_RR_INTERVAL_NORM": "within the normal range",
+        "MAX_RR_INTERVAL_HIGH": "above the normal range",
+        "MIN_RR_INTERVAL_LOW": "below the normal range",
+        "MIN_RR_INTERVAL_NORM": "within the normal range",
+        "MIN_RR_INTERVAL_HIGH": "above the normal range",
+        "MAX_P_DURATION_LOW": "below the normal range",
+        "MAX_P_DURATION_NORM": "within the normal range",
+        "MAX_P_DURATION_HIGH": "above the normal range",
+        "MIN_P_DURATION_LOW": "below the normal range",
+        "MIN_P_DURATION_NORM": "within the normal range",
+        "MIN_P_DURATION_HIGH": "above the normal range",
+        "MAX_PR_INTERVAL_LOW": "below the normal range",
+        "MAX_PR_INTERVAL_NORM": "within the normal range",
+        "MAX_PR_INTERVAL_HIGH": "above the normal range",
+        "MIN_PR_INTERVAL_LOW": "below the normal range",
+        "MIN_PR_INTERVAL_NORM": "within the normal range",
+        "MIN_PR_INTERVAL_HIGH": "above the normal range",
+        "MAX_QRS_DURATION_LOW": "below the normal range",
+        "MAX_QRS_DURATION_NORM": "within the normal range",
+        "MAX_QRS_DURATION_HIGH": "above the normal range",
+        "MIN_QRS_DURATION_LOW": "below the normal range",
+        "MIN_QRS_DURATION_NORM": "within the normal range",
+        "MIN_QRS_DURATION_HIGH": "above the normal range",
+        "MAX_QT_INTERVAL_LOW": "below the normal range",
+        "MAX_QT_INTERVAL_NORM": "within the normal range",
+        "MAX_QT_INTERVAL_HIGH": "above the normal range",
+        "MIN_QT_INTERVAL_LOW": "below the normal range",
+        "MIN_QT_INTERVAL_NORM": "within the normal range",
+        "MIN_QT_INTERVAL_HIGH": "above the normal range",
+        "MAX_QT_CORRECTED_LOW": "below the normal range",
+        "MAX_QT_CORRECTED_NORM": "within the normal range",
+        "MAX_QT_CORRECTED_HIGH": "above the normal range",
+        "MIN_QT_CORRECTED_LOW": "below the normal range",
+        "MIN_QT_CORRECTED_NORM": "within the normal range",
+        "MIN_QT_CORRECTED_HIGH": "above the normal range",
     }
     # ans_to_name = {
     #     'ES_COUNT': 'extrasystoles',
@@ -273,17 +303,28 @@ def instantiate_template(
         'lead V1', 'lead V2', 'lead V3', 'lead V4', 'lead V5', 'lead V6'
     ]
 
-    numeric_buckets = {k[4:]: None for k in subcategory['numeric_max']}
-    n_buckets = 10
-    q = np.arange(n_buckets + 1)
-    q = q * 100 / q[-1]
-    q = np.concatenate([[1., 99.], q])
-    q.sort()
-    q = q[1:-1]
-    for k in numeric_buckets.keys():
-        v = sum(encoded_ptbxl[~encoded_ptbxl[k].isna()][k].to_list(), [])
-        v.sort()
-        numeric_buckets[k] = np.percentile(v, q)
+    ###############################################################################################
+    # numeric_ranges = {
+    #     "rr_interval": [],
+    #     "p_duration": [],
+    #     "pr_interval": [],
+    #     "qrs_duration": [],
+    #     "qt_interval": [],
+    #     "qt_corrected": []
+    # }
+    # n_buckets = 5
+    # q = np.arange(n_buckets + 1)
+    # q = q * 100 / q[-1]
+    # q = np.concatenate([[1., 99.], q])
+    # q.sort()
+    # q = q[1:-1]
+    # for k in numeric_ranges.keys():
+    #     v = sum(data["train"][~data["train"][k].isna()][k].to_list(), [])
+    #     v.sort()
+    #     percentiles = [round(p, 3) for p in np.percentile(v, q)]
+    #     numeric_ranges[k] = [(percentiles[i], percentiles[i+1]) for i in range(len(percentiles)-1)]
+    # breakpoint()
+    ###############################################################################################
 
     if tokenize:
         from transformers import BertTokenizer
@@ -315,9 +356,10 @@ def instantiate_template(
                 candidates = combinations(subcategory[template['subcategory']], 2)
 
             for candidate in candidates:
+                sampled = []
                 if iterate_over_leads:
                     for l in lead_names:
-                        sampled, seed = sample(
+                        _sampled, seed = sample(
                             data[split],
                             candidate,
                             template,
@@ -325,7 +367,6 @@ def instantiate_template(
                             category_to_name=category_to_name,
                             # ans_to_name=ans_to_name,
                             ans_to_name=category_to_name,
-                            numeric_buckets=numeric_buckets,
                             assigned_ecgs=assigned_ecgs,
                             lead=l,
                             split=split,
@@ -335,21 +376,9 @@ def instantiate_template(
                             question_id=qid,
                             seed=seed,
                         )
-                        if sampled is not None:
-                            sampled['question'] = sampled['question'].replace('${lead}', l)
-                            sampled_list[split].append(sampled)
-                            unique_answers[split][qid] = set(
-                                [frozenset(x) for x in sampled['sampled_ids'].values()]
-                            )
-                            assigned_ecgs.extend(set(sampled['sampled_ids'].keys()))
-                            
-                        qid_type[qid] = template['question_type1']
-                        if qid_type[qid] == 'retrieve':
-                            qid_type[qid] = template['question_type2']
-
-                        qid += 1
+                        sampled.append(_sampled)
                 else:
-                    sampled, seed = sample(
+                    _sampled, seed = sample(
                         data[split],
                         candidate,
                         template,
@@ -357,22 +386,23 @@ def instantiate_template(
                         category_to_name=category_to_name,
                         # ans_to_name=ans_to_name,
                         ans_to_name=category_to_name,
-                        numeric_buckets=numeric_buckets,
                         assigned_ecgs=assigned_ecgs,
                         lead=None,
                         split=split,
-                        lead_names=lead_names,
                         cnt_threshold=cnt_threshold,
                         n=5 if split == 'train' else 3,
                         question_id=qid,
                         seed=seed,
                     )
-                    if sampled is not None:
-                        sampled_list[split].append(sampled)
+                    sampled.append(_sampled)
+
+                for s in sampled:
+                    if s is not None:
+                        sampled_list[split].append(s)
                         unique_answers[split][qid] = set(
-                            [frozenset(x) for x in sampled['sampled_ids'].values()]
+                            [frozenset(x) for x in s['sampled_ids'].values()]
                         )
-                        assigned_ecgs.extend(set(sampled['sampled_ids'].keys()))
+                        assigned_ecgs.extend(set(s['sampled_ids'].keys()))
 
                     qid_type[qid] = template['question_type1']
                     if qid_type[qid] == 'retrieve':
@@ -447,13 +477,14 @@ def instantiate_template(
                     classes_for_each_template[samples['template_id']].append(a)
             classes_for_each_template[samples['template_id']].sort()
 
-        for ans in classes_for_each_template.values():
+        for template_id, ans in classes_for_each_template.items():
             for a in ans:
                 if a not in classes:
                     classes.append(a)
         ###############################################################################
         # define 'none' class as an empty label
-        classes.remove('none')
+        if "none" in classes:
+            classes.remove('none')
 
     pd.DataFrame(
         {'index': i, 'class': c} for i, c in enumerate(classes)
@@ -489,6 +520,22 @@ def instantiate_template(
             category = templates[templates['template_id'] == s['template_id']].iloc[0]["subcategory"]
             template = templates[templates['template_id'] == s['template_id']].iloc[0]["template"]
             candidate = s["candidate"]
+            is_numeric = False
+            if category in [
+                "max_rr_interval",
+                "min_rr_interval",
+                "max_p_duration",
+                "min_p_duration",
+                "max_pr_interval",
+                "min_pr_interval",
+                "max_qrs_duration",
+                "min_qrs_duration",
+                "max_qt_interval",
+                "min_qt_interval",
+                "max_qt_corrected",
+                "min_qt_corrected"
+            ]:
+                is_numeric = True
             lead = s["lead"]
 
             if qtype == "verify":
@@ -524,6 +571,8 @@ def instantiate_template(
                     else:
                         grounding_ans = ans.copy()
                         grounding_attr = attr.copy()
+                        if is_numeric:
+                            grounding_attr = [x + " of " + category for x in grounding_attr]
                         # in case of verifying existence of an attribute in a "specific lead"
                         if lead is not None:
                             grounding_obj = [lead]
@@ -547,6 +596,8 @@ def instantiate_template(
                         grounding_ans = ["no"] * len(grounding_attr)
                     else:
                         grounding_attr = attr.copy()
+                        if is_numeric:
+                            grounding_attr = [x + " of " + category for x in grounding_attr]
                         grounding_ans = ["yes" if x in ans else "no" for x in grounding_attr]
 
                     # in case of choosing an attribute in a "specific lead"
@@ -590,6 +641,8 @@ def instantiate_template(
                             grounding_ans = ["no"] * len(grounding_attr)
                         else:
                             grounding_attr = attr.copy()
+                            if is_numeric:
+                                grounding_attr = [x + " of " + category for x in grounding_attr]
                             grounding_ans = ["yes" if x in ans else "no" for x in grounding_attr]
 
                         grounding_obj = []
@@ -738,15 +791,20 @@ def instantiate_template(
             grounding_tuples[split] = list(set(grounding_tuples[split]))
 
             for ecg_id, attr, obj, ans, size in grounding_tuples[split]:
-                if attr == "normal ecg":
+                if (numeric_feature := re.search("|".join(numeric_features), attr)) is not None:
+                    numeric_feature = " ".join(numeric_feature.group().split("_"))
+                    adj = "lowest" if "min" in attr else "highest"
+                    level = "below" if "below" in attr else "within" if "within" in attr else "above"
+                    question = (
+                        "does the "+ adj + " " + numeric_feature + " of this ecg fall "
+                        + level + " the normal range"
+                    )
+                elif attr == "normal ecg":
                     question = "is this a normal ecg"
-                    template_id = 0
                 elif attr in scp_codes_full_names:
                     question = "does this ecg show symptoms of " + attr
-                    template_id = 1
                 else:
                     question = "does this ecg show " + attr
-                    template_id = 2
 
                 assert obj is not None
                 if obj == "entire":
@@ -782,7 +840,6 @@ def instantiate_template(
                     f'{ecg_id:05d}_hr'
                 )
                 grounding_data[split].append({
-                    "template_id": template_id,
                     "question_id": question_id,
                     "question_str": question_str,
                     "qtype": 0, # verify
@@ -879,6 +936,7 @@ def instantiate_template(
     for s in grounding_data["test"]:
         if (s["attribute"], s["obj"]) not in test_num_grounding_per_attribute_obj:
             test_num_grounding_per_attribute_obj[(s["attribute"], s["obj"])] = 0
+
         if s["answer_bin"] == 1:
             test_num_grounding_per_attribute_obj[(s["attribute"], s["obj"])] += 1
     exclude = [key for key, value in test_num_grounding_per_attribute_obj.items() if value < 10]
@@ -893,6 +951,44 @@ def instantiate_template(
         print(f"{split}_grounding: {len(grounding_data[split])}")
 
     grounding_questions.to_csv("results/grounding_questions.csv")
+
+    grounding_classes = list(set(x["attribute"] for x in grounding_data["test"]))
+    grounding_classes.sort()
+    pd.DataFrame(
+        {'index': i, 'class': c} for i, c in enumerate(grounding_classes)
+    ).to_csv(os.path.join('results', 'grounding_class.csv'), index=False)
+
+    # numeric_attr_id = {}
+    # for i, gc in enumerate(grounding_classes):
+    #     cond = (
+    #         ["max_" + x for x in numeric_features] + ["min_" + x for x in numeric_features]
+    #     )
+    #     numeric_feature = re.search("(?<=\()" + "|".join(cond) + "(?=\))", gc)
+    #     if numeric_feature is not None:
+    #         numeric_feature = numeric_feature.group()
+    #         if numeric_feature not in numeric_attr_id:
+    #             numeric_attr_id[numeric_feature] = i
+
+    for split in grounding_data:
+        for i, s in enumerate(grounding_data[split]):
+            # in case that the class (attribute) is present in train/valid set but not in test set
+            if s["attribute"] not in grounding_classes:
+                continue
+
+            s["target_idx"] = grounding_classes.index(s["attribute"])
+            s["attribute_id"] = s["target_idx"]
+
+            # if s["min_or_max"] != "":
+            #     min_or_max = s["min_or_max"]
+            #     numeric_feature = re.search(
+            #         "(?<=\()" + "|".join(numeric_ranges.keys()) + "(?=\))", s["attribute"]
+            #     ).group()
+            #     numeric_range = s["attribute"][len(numeric_feature)+3:]
+            #     s["target_idx"] = grounding_classes.index(
+            #         f"({min_or_max}_{numeric_feature}) {numeric_range}"
+            #     )
+            #     s["attribute_id"] = numeric_attr_id[f"{min_or_max}_{numeric_feature}"]
+            #     s["attribute"] = f"{min_or_max}_{numeric_feature}"
 
     with open(os.path.join('results', 'sampled_data.pkl'), 'wb') as f:
         pickle.dump(sampled_data, f)
@@ -911,14 +1007,35 @@ def instantiate_template(
         tmp = []
         tmp_ids = []
         for s in per_lead_to_entire_grounding[split]:
+            # in case that the class (attribute) is present in train/valid set but not in test set
+            if s["attribute"] not in grounding_classes:
+                continue
+
             if (s["ecg_id"], s["attribute"]) not in tmp_ids:
                 tmp_ids.append((s["ecg_id"], s["attribute"]))
+
+                s["target_idx"] = grounding_classes.index(s["attribute"])
+                s["attribute_id"] = s["target_idx"]
+
+                # if s["min_or_max"] != "":
+                #     min_or_max = s["min_or_max"]
+                #     numeric_feature = re.search(
+                #         "(?<=\()" + "|".join(numeric_ranges.keys()) + "(?=\))", s["attribute"]
+                #     ).group()
+                #     numeric_range = s["attribute"][len(numeric_feature)+3:]
+                #     s["target_idx"] = grounding_classes.index(
+                #         f"({min_or_max}_{numeric_feature}) {numeric_range}"
+                #     )
+                #     s["attribute_id"] = numeric_attr_id[f"{min_or_max}_{numeric_feature}"]
+                #     s["attribute"] = f"{min_or_max}_{numeric_feature}"
+
                 tmp.append(s)
+
         per_lead_to_entire_grounding[split] = tmp
 
-    #XXX
     with open(os.path.join("results", "per_lead_to_entire_grounding.pkl"), "wb") as f:
         pickle.dump(per_lead_to_entire_grounding, f)
+    #XXX
 
     return sampled_data, grounding_data, per_lead_to_entire_grounding
 
@@ -938,10 +1055,7 @@ def _sample(samples_with_candidate: dict, qtype, assigned_ecgs=[], n=1, seed=Non
             v = v[~v['ecg_id'].isin(assigned_ecgs)]
             if k == "none":
                 n = int(n/2 + random.random())
-        res[k] = v.sample(
-            n=min(n, len(v)),
-            random_state=seed,
-        )
+        res[k] = v.sample(n=min(n, len(v)), random_state=seed)
         seed = seed + random.randint(1, 10)
 
     return res, seed
@@ -953,7 +1067,6 @@ def sample(
     subcategory,
     category_to_name,
     ans_to_name,
-    numeric_buckets,
     assigned_ecgs=[],
     lead=None,
     split='train',
@@ -979,7 +1092,18 @@ def sample(
             'infarction_stadium',
             'infarction_stadium_ret',
             'any_extra_systole',
-            'pacemaker',
+            "max_rr_interval",
+            "min_rr_interval",
+            "max_p_duration",
+            "min_p_duration",
+            "max_pr_interval",
+            "min_pr_interval",
+            "max_qrs_duration",
+            "min_qrs_duration",
+            "max_qt_interval",
+            "min_qt_interval",
+            "max_qt_corrected",
+            "min_qt_corrected"
     ]:
         is_exists = lambda x, c: x[c] == True
     elif template['subcategory'] in [
@@ -987,9 +1111,6 @@ def sample(
             'noise',
             'noise_with_leads',
             'any_noise',
-            # 'extra_systole_with_leads',
-            'numeric_max',
-            'numeric_min',
     ]:
         is_exists = lambda x, c: ~x[c].isna()
     elif template['subcategory'] in [
@@ -1110,14 +1231,10 @@ def sample(
                 frozenset([ans1, ans2]): both,
             }
 
-            # if 'none of them' samples could exist
-            if not template['subcategory'] in [
-                'heart_axis_direction'
-            ]:
-                none = data[
-                    ~is_exists(data, candidate[0]) & ~is_exists(data, candidate[1])
-                ]
-                samples_with_candidate['none'] = none
+            none = data[
+                ~is_exists(data, candidate[0]) & ~is_exists(data, candidate[1])
+            ]
+            samples_with_candidate['none'] = none
     elif template['question_type1'] == 'verify':
         if lead is not None:
             # the following condition is just for readability and sanity check
@@ -1127,10 +1244,11 @@ def sample(
                 'any_noise',
             ]:
                 subsample = data[is_exists(data, candidate)]
-                yes = subsample[subsample.apply(lambda x: x[candidate][lead], axis=1).astype(bool)]
+                yes = subsample[
+                    subsample[candidate].apply(lambda x: x[lead]).astype(bool)
+                ]
                 # no = subsample[~subsample['ecg_id'].isin(yes['ecg_id'])]
                 no = data[~data["ecg_id"].isin(yes["ecg_id"])]
-
                 cnt = len(yes)
                 samples_with_candidate = {
                     'yes': yes,
@@ -1166,23 +1284,34 @@ def sample(
             # the following is the case that we should exclude nan rows in heart_axis_direction column
             elif template['subcategory'] in [
                 'heart_axis_direction',
+                "max_rr_interval",
+                "min_rr_interval",
+                "max_p_duration",
+                "min_p_duration",
+                "max_pr_interval",
+                "min_pr_interval",
+                "max_qrs_duration",
+                "min_qrs_duration",
+                "max_qt_interval",
+                "min_qt_interval",
+                "max_qt_corrected",
+                "min_qt_corrected"
             ]:
                 subsample = data[~data[candidate].isna()]
-                samples_with_candidate = subsample[is_exists(subsample, candidate)]
-                cnt = len(samples_with_candidate)
+                yes = subsample[is_exists(subsample, candidate)]
+                no = subsample[~is_exists(subsample, candidate)]
+                cnt = len(yes)
                 samples_with_candidate = {
-                    'yes': samples_with_candidate,
-                    'no': subsample[~is_exists(subsample, candidate)]
+                    'yes': yes,
+                    'no': no
                 }
             else:
-                try:
-                    samples_with_candidate = data[is_exists(data, candidate)]
-                except:
-                    breakpoint()
+                yes = data[is_exists(data, candidate)]
+                no = data[~is_exists(data, candidate)]
                 cnt = len(samples_with_candidate)
                 samples_with_candidate = {
-                    'yes': samples_with_candidate,
-                    'no': data[~is_exists(data, candidate)]
+                    'yes': yes,
+                    'no': no
                 }
     elif template['question_type1'] == 'retrieve':
         # grounded to a specific lead
@@ -1228,6 +1357,18 @@ def sample(
                 'infarction_stadium_ret',
                 'noise',
                 'extra_systole',
+                "max_rr_interval",
+                "min_rr_interval",
+                "max_p_duration",
+                "min_p_duration",
+                "max_pr_interval",
+                "min_pr_interval",
+                "max_qrs_duration",
+                "min_qrs_duration",
+                "max_qt_interval",
+                "min_qt_interval",
+                "max_qt_corrected",
+                "min_qt_corrected"
             ]:
                 candidates = subcategory[template['subcategory']]
                 samples_with_candidate = dict()
@@ -1236,6 +1377,18 @@ def sample(
                 if template['subcategory'] in [
                     'heart_axis_direction',
                     'infarction_stadium_ret',
+                    "max_rr_interval",
+                    "min_rr_interval",
+                    "max_p_duration",
+                    "min_p_duration",
+                    "max_pr_interval",
+                    "min_pr_interval",
+                    "max_qrs_duration",
+                    "min_qrs_duration",
+                    "max_qt_interval",
+                    "min_qt_interval",
+                    "max_qt_corrected",
+                    "min_qt_corrected"
                 ]:
                     for c in candidates:
                         samples_with_candidate[
@@ -1320,23 +1473,6 @@ def sample(
                     )
                 samples_with_candidate['none'] = data[~is_exists(data, candidate)]
                 cnt = _count_min_from_n(samples_with_candidate.values(), n=min_answer_cnt+1) # +1 since it contains 'none'
-            # multi-class retrieve for numerics
-            elif template['subcategory'] in [
-                'numeric_max',
-                'numeric_min',
-            ]:
-                subsample = data[is_exists(data, candidate)]
-                buckets = numeric_buckets[candidate[4:]]
-                samples_with_candidate = dict()
-                # XXX apply ans_to_name?
-                for i, _ in enumerate(buckets[:-1]):
-                    samples_with_candidate[f'{candidate[4:]}_BUCKET_{i}'] = (
-                        subsample[
-                            (buckets[i] <= subsample[candidate])
-                            & (subsample[candidate] < buckets[i+1])
-                        ]
-                    )
-                cnt = _count_min_from_n(samples_with_candidate.values(), n=min_answer_cnt)
             else:
                 raise ValueError(
                     template['subcategory']
