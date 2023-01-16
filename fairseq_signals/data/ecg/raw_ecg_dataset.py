@@ -484,6 +484,8 @@ class PathECGDataset(FileECGDataset):
         out["label"] = [s["label"] for s in samples]
         if "question_id" in samples[0]:
             out["question_id"] = [s["question_id"] for s in samples]
+        if "attribute_id" in samples[0]:
+            out["attribute_id"] = [s["attribute_id"] for s in samples]
 
         if self.pad:
             input["padding_mask"] = padding_mask
@@ -521,5 +523,7 @@ class PathECGDataset(FileECGDataset):
 
         if "question_id" in data:
             res["question_id"] = data["question_id"][0]
+        if "attribute_id" in data:
+            res["attribute_id"] = data["attribute_id"][0]
 
         return res
