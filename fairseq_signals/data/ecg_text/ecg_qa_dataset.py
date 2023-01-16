@@ -80,6 +80,8 @@ class FileECGQADataset(RawECGTextDataset):
 
         out = {'id': torch.LongTensor([s['id'] for s in samples])}
         out["template_id"] = torch.LongTensor([s["template_id"] for s in samples])
+        if "attribute_id" in samples[0]:
+            out["attribute_id"] = torch.LongTensor([s["attribute_id"] for s in samples])
         out["question_id"] = torch.LongTensor([s["question_id"] for s in samples])
         out["question_type"] = torch.LongTensor([s["question_type"] for s in samples])
         out["is_multi_class"] = torch.LongTensor([s["is_multi_class"] for s in samples])
@@ -114,6 +116,8 @@ class FileECGQADataset(RawECGTextDataset):
         res['answer'] = torch.LongTensor(answer)
 
         res["template_id"] = data["template_id"][0][0]
+        if "attribute_id" in data:
+            res["attribute_id"] = data["attribute_id"][0][0]
         res["question_id"] = data["question_id"][0][0]
         res["question_type"] = data["qtype"][0][0]
         res["is_multi_class"] = data["atype"][0][0]
