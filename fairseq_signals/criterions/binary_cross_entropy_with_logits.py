@@ -117,18 +117,21 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
             "sample_size": sample_size
         }
 
+        per_log_keys = []
         for plk in self.per_log_keys:
-            logging_output[plk + "_em_count"] = dict()
-            logging_output[plk + "_em_correct"] = dict()
-            logging_output[plk + "_partial_count"] = dict()
-            logging_output[plk + "_partial_correct"] = dict()
-            logging_output[plk + "_tp"] = dict()
-            logging_output[plk + "_fp"] = dict()
-            logging_output[plk + "_fn"] = dict()
-            if not self.training and self.report_auc:
-                logging_output[plk + "_y_score"] = dict()
-                logging_output[plk + "_y_true"] = dict()
-                logging_output[plk + "_y_class"] = dict()
+            if plk in sample:
+                per_log_keys.append(plk)
+                logging_output[plk + "_em_count"] = dict()
+                logging_output[plk + "_em_correct"] = dict()
+                logging_output[plk + "_partial_count"] = dict()
+                logging_output[plk + "_partial_correct"] = dict()
+                logging_output[plk + "_tp"] = dict()
+                logging_output[plk + "_fp"] = dict()
+                logging_output[plk + "_fn"] = dict()
+                if not self.training and self.report_auc:
+                    logging_output[plk + "_y_score"] = dict()
+                    logging_output[plk + "_y_true"] = dict()
+                    logging_output[plk + "_y_class"] = dict()
 
         with torch.no_grad():
             probs = torch.sigmoid(logits)
@@ -246,7 +249,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
                 logging_output["c_score"] = correct_score
                 logging_output["i_score"] = inactive_score
 
-            for plk in self.per_log_keys:
+            for plk in per_log_keys:
                 plk_ids = [log_id.item() for log_id in sample[plk]]
                 for i, plk_id in enumerate(plk_ids):
                     #XXX hack for logging per question_id ONLY for verify questions
