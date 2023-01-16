@@ -3,9 +3,9 @@ import shutil
 
 import wfdb
 import scipy.io
-import pandas as pd
 
-def manifest(data, grounding_data, dest):
+#XXX
+def manifest(data, grounding_data, dest, per_lead_to_entire):
     dest_dir = os.path.realpath(dest)
     lead_positions = {
         # "entire": [0,1,2,3,4,5,6,7,8,9,10,11],
@@ -36,7 +36,7 @@ def manifest(data, grounding_data, dest):
         # remove and re-create destination data directories
         shutil.rmtree(os.path.join(dest, "qa", split), ignore_errors=True)
         os.makedirs(os.path.join(dest, "qa", split))
-        
+
         with open(os.path.join(dest, "qa", split +'.tsv'), 'w') as f:
             print(os.path.join(dest_dir, "qa", split), file=f)
             print(data[split]['tokenized'], file=f)
@@ -51,9 +51,12 @@ def manifest(data, grounding_data, dest):
                 print(ecg_sz, file=f, end='\t')
                 print(text_sz, file=f)
 
+    # NOTE grounding_data has 'test' as the **FIRST** key
     for split in grounding_data:
         classify_per_lead_grounding_data = {}
         classify_entire_grounding_data = {}
+        #XXX
+        classify_per_lead_to_entire_grounding_data = {}
 
         # we do not need grounding qa dataset for training / validation
         if split == "test":
@@ -61,19 +64,19 @@ def manifest(data, grounding_data, dest):
             os.makedirs(os.path.join(dest, "qa", split + "_per_lead_grounding"))
             shutil.rmtree(os.path.join(dest, "qa", split + "_entire_grounding"), ignore_errors=True)
             os.makedirs(os.path.join(dest, "qa", split + "_entire_grounding"))
+            #XXX
+            shutil.rmtree(os.path.join(dest, "qa", split + "_per_lead_to_entire_grounding"), ignore_errors=True)
+            os.makedirs(os.path.join(dest, "qa", split + "_per_lead_to_entire_grounding"))
 
         shutil.rmtree(os.path.join(dest, "classify", split + "_per_lead_grounding"), ignore_errors=True)
         os.makedirs(os.path.join(dest, "classify", split + "_per_lead_grounding"))
         shutil.rmtree(os.path.join(dest, "classify", split + "_entire_grounding"), ignore_errors=True)
         os.makedirs(os.path.join(dest, "classify", split + "_entire_grounding"))
+        #XXX
+        shutil.rmtree(os.path.join(dest, "classify", split + "_per_lead_to_entire_grounding"), ignore_errors=True)
+        os.makedirs(os.path.join(dest, "classify", split + "_per_lead_to_entire_grounding"))
 
         if split == "test":
-            grounding_classes = list(set(x["attribute"] for x in grounding_data[split]))
-            grounding_classes.sort()
-            pd.DataFrame(
-                {'index': i, 'class': c} for i, c in enumerate(grounding_classes)
-            ).to_csv(os.path.join('results', 'grounding_class.csv'), index=False)
-
             qa_entire_dest = open(os.path.join(dest, "qa", split + "_entire_grounding.tsv"), "w")
             qa_per_lead_dest = open(os.path.join(dest, "qa", split + "_per_lead_grounding.tsv"), "w")
             print(os.path.join(dest_dir, "qa", split + "_entire_grounding"), file=qa_entire_dest)
@@ -83,15 +86,18 @@ def manifest(data, grounding_data, dest):
             print(data[split]["num_labels"], file=qa_entire_dest)
             print(data[split]["num_labels"], file=qa_per_lead_dest)
 
-        for i, sample in enumerate(grounding_data[split]):
-            # in case that the class (attribute) is present in train/valid set but not in test set
-            if sample["attribute"] not in grounding_classes:
-                continue
+            #XXX
+            qa_per_lead_to_entire_dest = open(os.path.join(dest, "qa", split + "_per_lead_to_entire_grounding.tsv"), "w")
+            print(os.path.join(dest_dir, "qa", split + "_per_lead_to_entire_grounding"), file=qa_per_lead_to_entire_dest)
+            print(data[split]["tokenized"], file=qa_per_lead_to_entire_dest)
+            print(data[split]["num_labels"], file=qa_per_lead_to_entire_dest)
 
+        for i, sample in enumerate(grounding_data[split]):
             ecg_id = sample["ecg_id"]
+            attr_id = sample["attribute_id"]
             qid = sample["question_id"]
             ecg_path = sample["ecg_path"]
-            target_idx = grounding_classes.index(sample["attribute"])
+            target_idx = sample["target_idx"]
             label = sample["answer_bin"]
             obj = sample["obj"]
 
@@ -122,12 +128,17 @@ def manifest(data, grounding_data, dest):
             if obj == "entire":
                 if ecg_id not in classify_entire_grounding_data:
                     classify_entire_grounding_data[ecg_id] = []
-                classify_entire_grounding_data[ecg_id].append((target_idx, label, qid, ecg_path))
+                classify_entire_grounding_data[ecg_id].append(
+                    (target_idx, label, attr_id, qid, ecg_path)
+                )
             else:
                 grounding_obj = lead_positions[obj]
                 if (ecg_id, grounding_obj) not in classify_per_lead_grounding_data:
                     classify_per_lead_grounding_data[(ecg_id, grounding_obj)] = []
-                classify_per_lead_grounding_data[(ecg_id, grounding_obj)].append((target_idx, label, qid, ecg_path))
+
+                classify_per_lead_grounding_data[(ecg_id, grounding_obj)].append(
+                    (target_idx, label, attr_id, qid, ecg_path)
+                )
 
         if split == "test":
             qa_entire_dest.close()
@@ -142,8 +153,9 @@ def manifest(data, grounding_data, dest):
                     continue
                 target_idx = [x[0] for x in items]
                 label = [x[1] for x in items]
-                qid = [x[2] for x in items]
-                ecg_path = items[0][3]
+                attr_id = [x[2] for x in items]
+                qid = [x[3] for x in items]
+                ecg_path = items[0][4]
 
                 ecg, _ = wfdb.rdsamp(ecg_path)
                 size = len(ecg)
@@ -152,6 +164,7 @@ def manifest(data, grounding_data, dest):
                     "ecg_path": ecg_path,
                     "target_idx": target_idx,
                     "label": label,
+                    "attribute_id": attr_id,
                     "question_id": qid,
                 }
                 scipy.io.savemat(
@@ -171,8 +184,9 @@ def manifest(data, grounding_data, dest):
                 lead.sort()
                 target_idx = [x[0] for x in items]
                 label = [x[1] for x in items]
-                qid = [x[2] for x in items]
-                ecg_path = items[0][3]
+                attr_id = [x[2] for x in items]
+                qid = [x[3] for x in items]
+                ecg_path = items[0][4]
 
                 ecg, _ = wfdb.rdsamp(ecg_path)
                 size = len(ecg)
@@ -182,6 +196,7 @@ def manifest(data, grounding_data, dest):
                     "lead": lead,
                     "target_idx": target_idx,
                     "label": label,
+                    "attribute_id": attr_id,
                     "question_id": qid,
                 }
                 postfix = "_" + "_".join(map(str, lead))
@@ -194,3 +209,73 @@ def manifest(data, grounding_data, dest):
                 print(os.path.join(split + "_per_lead_grounding", str(ecg_id) + postfix + ".mat"), file=total_f, end="\t")
                 print(size, file=f)
                 print(size, file=total_f)
+
+        #XXX
+        for i, sample in enumerate(per_lead_to_entire[split]):
+            ecg_id = sample["ecg_id"]
+            attr_id = sample["attribute_id"]
+            qid = sample["question_id"]
+            ecg_path = sample["ecg_path"]
+            target_idx = sample["target_idx"]
+            label = sample["answer_bin"]
+            obj = sample["obj"]
+
+            if split == "test":
+                ecg, _ = wfdb.rdsamp(ecg_path)
+                ecg_sz = len(ecg)
+                text_sz = len(sample["question"])
+
+                if obj == "entire":
+                    scipy.io.savemat(
+                        os.path.join(
+                            dest_dir, "qa", split + "_per_lead_to_entire_grounding", str(i) + ".mat"
+                        ), sample
+                    )
+                    print(str(i) + ".mat", file=qa_per_lead_to_entire_dest, end="\t")
+                    print(ecg_sz, file=qa_per_lead_to_entire_dest, end="\t")
+                    print(text_sz, file=qa_per_lead_to_entire_dest)
+                else:
+                    raise AssertionError()
+
+            if obj == "entire":
+                if ecg_id not in classify_per_lead_to_entire_grounding_data:
+                    classify_per_lead_to_entire_grounding_data[ecg_id] = []
+                classify_per_lead_to_entire_grounding_data[ecg_id].append(
+                    (target_idx, label, attr_id, qid, ecg_path)
+                )
+            else:
+                raise AssertionError()
+        
+        if split == "test":
+            qa_per_lead_to_entire_dest.close()
+        
+        with open(os.path.join(dest, "classify", split + "_per_lead_to_entire_grounding.tsv"), "w") as f:
+            print(os.path.join(dest_dir, "classify", split + "_per_lead_to_entire_grounding"), file=f)
+            for ecg_id, items in classify_per_lead_to_entire_grounding_data.items():
+                if len(items) == 0:
+                    continue
+                target_idx = [x[0] for x in items]
+                label = [x[1] for x in items]
+                attr_id = [x[2] for x in items]
+                qid = [x[3] for x in items]
+                ecg_path = items[0][4]
+
+                ecg, _ = wfdb.rdsamp(ecg_path)
+                size = len(ecg)
+
+                output = {
+                    "ecg_path": ecg_path,
+                    "target_idx": target_idx,
+                    "label": label,
+                    "attribute_id": attr_id,
+                    "question_id": qid
+                }
+
+                scipy.io.savemat(
+                    os.path.join(
+                        dest_dir, "classify", split + "_per_lead_to_entire_grounding", str(ecg_id) + ".mat"
+                    ), output
+                )
+                print(str(ecg_id) + ".mat", file=f, end="\t")
+                print(os.path.join(split + "_per_lead_to_entire_grounding", str(ecg_id) + ".mat"), file=total_f, end="\t")
+                print(size, file=f)
