@@ -1025,7 +1025,7 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
     ptbxl_database["MIN_QT_INTERVAL_NORM"] = ptbxl_database["min_qt_interval"].apply(lambda x: 0.33 <= x and x <= 0.43 if x is not None else None)
     ptbxl_database["MIN_QT_INTERVAL_HIGH"] = ptbxl_database["min_qt_interval"].apply(lambda x: 0.43 < x if x is not None else None)
 
-    qtc_range = (0.33 / math.sqrt(0.2), 0.43 / math.sqrt(0.12))
+    qtc_range = (0.33 / math.sqrt(1.0), 0.43 / math.sqrt(0.6))
     ptbxl_database["MAX_QT_CORRECTED_LOW"] = ptbxl_database["max_qt_corrected"].apply(lambda x: x < qtc_range[0] if x is not None else None)
     ptbxl_database["MAX_QT_CORRECTED_NORM"] = ptbxl_database["max_qt_corrected"].apply(lambda x: qtc_range[0] <= x and x <= qtc_range[1] if x is not None else None)
     ptbxl_database["MAX_QT_CORRECTED_HIGH"] = ptbxl_database["max_qt_corrected"].apply(lambda x: qtc_range[1] < x if x is not None else None)

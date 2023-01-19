@@ -563,9 +563,7 @@ def instantiate_template(
                 grounding_ans = None
                 grounding_attr = None
                 grounding_obj = None
-                if "numeric" in category:
-                    pass
-                elif qtype == "verify":
+                if qtype == "verify":
                     if ans[0] == "not sure":
                         pass
                     else:
@@ -596,9 +594,9 @@ def instantiate_template(
                         grounding_ans = ["no"] * len(grounding_attr)
                     else:
                         grounding_attr = attr.copy()
+                        grounding_ans = ["yes" if x in ans else "no" for x in grounding_attr]
                         if is_numeric:
                             grounding_attr = [x + " of " + category for x in grounding_attr]
-                        grounding_ans = ["yes" if x in ans else "no" for x in grounding_attr]
 
                     # in case of choosing an attribute in a "specific lead"
                     # note that we are assuming there is no question of choosing a specific "lead",
@@ -641,9 +639,9 @@ def instantiate_template(
                             grounding_ans = ["no"] * len(grounding_attr)
                         else:
                             grounding_attr = attr.copy()
+                            grounding_ans = ["yes" if x in ans else "no" for x in grounding_attr]
                             if is_numeric:
                                 grounding_attr = [x + " of " + category for x in grounding_attr]
-                            grounding_ans = ["yes" if x in ans else "no" for x in grounding_attr]
 
                         grounding_obj = []
                         for attribute in grounding_attr:
@@ -1308,7 +1306,7 @@ def sample(
             else:
                 yes = data[is_exists(data, candidate)]
                 no = data[~is_exists(data, candidate)]
-                cnt = len(samples_with_candidate)
+                cnt = len(yes)
                 samples_with_candidate = {
                     'yes': yes,
                     'no': no
