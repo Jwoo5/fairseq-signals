@@ -4,4 +4,4 @@
 # LICENSE file in the root directory of this source tree.
 
 from .wav2vec2 import *  # noqa
-from .wav2vec2_clocs import * # noqa
+from .wav2vec2_cmsc import * # noqa

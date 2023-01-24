@@ -18,23 +18,20 @@ from fairseq_signals.criterions import BaseCriterion, register_criterion
 from fairseq_signals.dataclass import Dataclass, ChoiceEnum
 from fairseq_signals.tasks import Task
 from fairseq_signals.logging.meters import safe_round
-from fairseq_signals.models.clocs import CLOCS_MODE_CHOICES
 
 @dataclass
-class ClocsCriterionConfig(Dataclass):
+class CMSCCriterionConfig(Dataclass):
     temp: float = field(
         default=0.1, metadata={"help": "temperature in softmax"}
     )
     eps: float = field(
         default=1e-8, metadata={"help": "small value for numerical stability when normalizing"}
     )
-    clocs_mode: CLOCS_MODE_CHOICES = II("task.clocs_mode")
 
-@register_criterion("clocs", dataclass = ClocsCriterionConfig)
-class ClocsCriterion(BaseCriterion):
-    def __init__(self, cfg: ClocsCriterionConfig, task: Task):
+@register_criterion("cmsc", dataclass = CMSCCriterionConfig)
+class CMSCCriterion(BaseCriterion):
+    def __init__(self, cfg: CMSCCriterionConfig, task: Task):
         super().__init__(task)
-        self.mode = cfg.clocs_mode
         self.temp = cfg.temp
         self.eps = cfg.eps
 
@@ -61,63 +58,25 @@ class ClocsCriterion(BaseCriterion):
         losses = []
         loss = 0
 
-        if self.mode == "cmsc":
-            indices = torch.where(segment == 0)[0]
-            mat1 = logits[indices, :]
-            p1 = (
-                patient_id[indices]
-            ) if len(indices) > 1 else (
-                torch.tensor([patient_id[indices]])
-            )
+        indices = torch.where(segment == 0)[0]
+        mat1 = logits[indices, :]
+        p1 = (
+            patient_id[indices]
+        ) if len(indices) > 1 else (
+            torch.tensor([patient_id[indices]])
+        )
 
-            indices = torch.where(segment == 1)[0]
-            mat2 = logits[indices, :]
-            p2 = (
-                patient_id[indices]
-            ) if len(indices) > 1 else (
-                torch.tensor([patient_id[indices]])
-            )
+        indices = torch.where(segment == 1)[0]
+        mat2 = logits[indices, :]
+        p2 = (
+            patient_id[indices]
+        ) if len(indices) > 1 else (
+            torch.tensor([patient_id[indices]])
+        )
 
-            logits = torch.matmul(mat1, mat2.transpose(0,1))
-            logits /= self.temp
-
-            target = torch.stack([p == p2 for p in p1]).to(logits.device)
-        elif self.mode == "cmlc":
-            combs = combinations(range(logits.size(0)), 2)
-            logits = torch.stack(
-                [torch.matmul(logits[first], logits[second].T) for first, second in combs]
-            )
-            logits /= self.temp
-
-            target = torch.stack(
-                [p == patient_id for p in patient_id]
-            ).repeat(logits.size(0), 1, 1)
-        else:
-            indices = torch.where(segment == 0)[0]
-            mat1 = logits[:, indices, :]
-            p1 = (
-                patient_id[indices]
-            ) if len(indices) > 1 else (
-                torch.tensor([patient_id[indices]])
-            )
-
-            indices = torch.where(segment == 1)[0]
-            mat2 = logits[:, indices, :]
-            p2 = (
-                patient_id[indices]
-            ) if len(indices) > 1 else (
-                torch.tensor([patient_id[indices]])
-            )
-
-            combs = combinations(range(logits.size(0)), 2)
-            logits = torch.stack(
-                [torch.matmul(mat1[first], mat2[second].T) for first, second in combs]
-            )
-            logits /= self.temp
-
-            target = torch.stack(
-                ([p == p2 for p in p1])
-            ).repeat(logits.size(0), 1, 1)
+        logits = torch.matmul(mat1, mat2.transpose(0,1))
+        logits /= self.temp
+        target = torch.stack([p == p2 for p in p1]).to(logits.device)
 
         logits_1 = -F.log_softmax(logits, dim = -1)
         logits_2 = -F.log_softmax(logits.transpose(-2,-1), dim = -1)

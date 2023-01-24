@@ -15,7 +15,7 @@ import torch.nn.functional as F
 from fairseq_signals import logging, metrics
 from fairseq_signals.utils import utils
 from fairseq_signals.criterions import BaseCriterion, register_criterion
-from fairseq_signals.criterions.clocs_criterion import ClocsCriterionConfig
+from fairseq_signals.criterions.cmsc_criterion import CMSCCriterionConfig
 from fairseq_signals.criterions.mse_criterion import MSECriterionConfig
 from fairseq_signals.tasks import Task
 from fairseq_signals.dataclass import Dataclass
@@ -205,23 +205,22 @@ class Wav2Vec2Criterion(BaseCriterion):
         return False
 
 @dataclass
-class Wav2Vec2WithClocsCriterionConfig(Wav2Vec2CriterionConfig, ClocsCriterionConfig):
-    clocs_weights: Optional[float] = field(
+class Wav2Vec2WithCMSCCriterionConfig(Wav2Vec2CriterionConfig, CMSCCriterionConfig):
+    cmsc_weights: Optional[float] = field(
         default=None,
-        metadata={"help": "weights for clocs loss terms"}
+        metadata={"help": "weights for cmsc loss terms"}
     )
 
-@register_criterion("wav2vec2_with_clocs", dataclass=Wav2Vec2WithClocsCriterionConfig)
-class Wav2Vec2WithClocsCriterion(BaseCriterion):
-    def __init__(self, cfg: Wav2Vec2WithClocsCriterionConfig, task: Task):
+@register_criterion("wav2vec2_with_cmsc", dataclass=Wav2Vec2WithCMSCCriterionConfig)
+class Wav2Vec2WithCMSCCriterion(BaseCriterion):
+    def __init__(self, cfg: Wav2Vec2WithCMSCCriterionConfig, task: Task):
         super().__init__(task)
         self.infonce = cfg.infonce
         self.loss_weights = cfg.loss_weights
         self.log_keys = [] if cfg.log_keys is None else cfg.log_keys
         self.temp = cfg.temp
         self.eps = cfg.eps
-        self.clocs_mode = cfg.clocs_mode
-        self.clocs_weights = cfg.clocs_weights
+        self.cmsc_weights = cfg.cmsc_weights
     
     def forward(self, model, sample, reduce=True):
         """Compute the loss for the given sample
@@ -285,79 +284,42 @@ class Wav2Vec2WithClocsCriterion(BaseCriterion):
         patient_id = sample["patient_id"]
         segment = sample["segment"]
 
-        if self.clocs_mode == "cmsc":
-            indices = torch.where(segment == 0)[0]
-            mat1 = features[indices, :]
-            p1 = (
-                patient_id[indices]
-            ) if len(indices) > 1 else (
-                torch.tensor([patient_id[indices]])
-            )
+        indices = torch.where(segment == 0)[0]
+        mat1 = features[indices, :]
+        p1 = (
+            patient_id[indices]
+        ) if len(indices) > 1 else (
+            torch.tensor([patient_id[indices]])
+        )
 
-            indices = torch.where(segment == 1)[0]
-            mat2 = features[indices, :]
-            p2 = (
-                patient_id[indices]
-            ) if len(indices) > 1 else (
-                torch.tensor([patient_id[indices]])
-            )
+        indices = torch.where(segment == 1)[0]
+        mat2 = features[indices, :]
+        p2 = (
+            patient_id[indices]
+        ) if len(indices) > 1 else (
+            torch.tensor([patient_id[indices]])
+        )
 
-            clocs_logits = torch.matmul(mat1, mat2.transpose(0,1))
-            clocs_logits /= self.temp
+        cmsc_logits = torch.matmul(mat1, mat2.transpose(0,1))
+        cmsc_logits /= self.temp
 
-            clocs_target = torch.stack([p == p2 for p in p1]).to(clocs_logits.device)
-        elif self.mode == "cmlc":
-            combs = combinations(range(logits.size(0)), 2)
-            logits = torch.stack(
-                [torch.matmul(logits[first], logits[second].T) for first, second in combs]
-            )
-            logits /= self.temp
-
-            clocs_target = torch.stack(
-                [p == patient_id for p in patient_id]
-            ).repeat(logits.size(0), 1, 1)
-        else:
-            indices = torch.where(segment == 0)[0]
-            mat1 = logits[:, indices, :]
-            p1 = (
-                patient_id[indices]
-            ) if len(indices) > 1 else (
-                torch.tensor([patient_id[indices]])
-            )
-
-            indices = torch.where(segment == 1)[0]
-            mat2 = logits[:, indices, :]
-            p2 = (
-                patient_id[indices]
-            ) if len(indices) > 1 else (
-                torch.tensor([patient_id[indices]])
-            )
-
-            combs = combinations(range(logits.size(0)), 2)
-            logits = torch.stack(
-                [torch.matmul(mat1[first], mat2[second].T) for first, second in combs]
-            )
-            logits /= self.temp
-
-            clocs_target = torch.stack(
-                ([p == p2 for p in p1])
-            ).repeat(logits.size(0), 1, 1)
+        cmsc_target = torch.stack([p == p2 for p in p1]).to(cmsc_logits.device)
         
-        logits_1 = -F.log_softmax(clocs_logits, dim=-1)
-        logits_2 = -F.log_softmax(clocs_logits.transpose(-2,-1), dim=-1)
+        logits_1 = -F.log_softmax(cmsc_logits, dim=-1)
+        logits_2 = -F.log_softmax(cmsc_logits.transpose(-2,-1), dim=-1)
 
-        loss_1 = logits_1[clocs_target].mean()
-        clocs_loss = loss_1 / 2.0
+        loss_1 = logits_1[cmsc_target].mean()
+        cmsc_loss = loss_1 / 2.0
 
-        loss_2 = logits_2[clocs_target.transpose(-2,-1)].mean()
-        clocs_loss += loss_2 / 2.0
+        loss_2 = logits_2[cmsc_target.transpose(-2,-1)].mean()
+        cmsc_loss += loss_2 / 2.0
 
-        if self.clocs_weights is not None:
-            clocs_loss = self.clocs_weights * clocs_loss * sample_size
+        if self.cmsc_weights is not None:
+            cmsc_loss = self.cmsc_weights * cmsc_loss * sample_size
         else:
-            clocs_loss *= sample_size
-        loss += clocs_loss
-        losses.append(clocs_loss.detach().clone())
+            cmsc_loss *= sample_size
+        loss += cmsc_loss
+        losses.append(cmsc_loss.detach().clone())
 
         logging_output = {
             "loss": loss.item() if reduce else loss.detach(),

@@ -1,6 +1,5 @@
 from argparse import Namespace
 from dataclasses import dataclass, field
-from fairseq_signals.models.clocs.clocs import CLOCS_MODE_CHOICES
 from omegaconf import II
 
 import torch
@@ -12,12 +11,12 @@ from fairseq_signals.models.wav2vec2 import Wav2Vec2Config, Wav2Vec2Model
 from fairseq_signals.distributed import utils as dist_utils
 
 @dataclass
-class Wav2Vec2ClocsConfig(Wav2Vec2Config):
+class Wav2Vec2CMSCConfig(Wav2Vec2Config):
     pass
 
-@register_model("wav2vec2_clocs", dataclass = Wav2Vec2ClocsConfig)
-class Wav2Vec2ClocsModel(Wav2Vec2Model):
-    def __init__(self, cfg: Wav2Vec2ClocsConfig):
+@register_model("wav2vec2_cmsc", dataclass = Wav2Vec2CMSCConfig)
+class Wav2Vec2CMSCModel(Wav2Vec2Model):
+    def __init__(self, cfg: Wav2Vec2CMSCConfig):
         super().__init__(cfg)
         self.cfg = cfg
     

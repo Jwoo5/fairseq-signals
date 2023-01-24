@@ -12,7 +12,7 @@ from .raw_ecg_dataset import RawECGDataset
 
 logger = logging.getLogger(__name__)
 
-class ClocsECGDataset(RawECGDataset):
+class CMSCECGDataset(RawECGDataset):
     def __init__(
         self,
         manifest_path,
@@ -24,11 +24,9 @@ class ClocsECGDataset(RawECGDataset):
             sample_rate=sample_rate,
             **kwargs,
         )
-        self.clocs_mode = kwargs['clocs_mode']
-        assert self.clocs_mode in ["cmsc", "cmlc", "cmsmlc"]
         self.max_segment_size = sys.maxsize
-        self.min_segment_size = 2 if self.clocs_mode in ["cmsc", "cmsmlc"] else 1
-        required_segment_size_multiple = 2 if self.clocs_mode in ["cmsc", "cmsmlc"] else 1
+        self.min_segment_size = 2
+        required_segment_size_multiple = 2
 
         skipped = 0
         self.fnames = []
