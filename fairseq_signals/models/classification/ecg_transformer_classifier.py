@@ -15,13 +15,13 @@ from fairseq_signals.models.ecg_transformer import (
 from fairseq_signals.utils import utils
 
 @dataclass
-class LinearProjectionConfig(ECGTransformerFinetuningConfig):
+class ECGTransformerClassificationConfig(ECGTransformerFinetuningConfig):
     num_labels: int = field(
         default=MISSING, metadata={"help": "number of labels to be classified"}
     )
 
-@register_model("linear_projection", dataclass=LinearProjectionConfig)
-class LinearProjectionModel(ECGTransformerFinetuningModel):
+@register_model("ecg_transformer_classifier", dataclass=ECGTransformerClassificationConfig)
+class ECGTransformerClassificationModel(ECGTransformerFinetuningModel):
     def __init__(self, cfg, encoder):
         super().__init__(cfg, encoder)
 

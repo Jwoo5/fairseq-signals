@@ -1,5 +1,3 @@
-import contextlib
-
 import torch
 import torch.nn as nn
 
@@ -17,17 +15,17 @@ from fairseq_signals.models.ecg_language_transformer import (
 from fairseq_signals.utils import utils
 
 @dataclass
-class QALinearProjectionConfig(ECGLanguageTransformerFinetuningConfig):
+class ECGLanguageTransformerClassificationConfig(ECGLanguageTransformerFinetuningConfig):
     num_labels: int = field(
         default=MISSING,
         metadata= {
-            'help': 'final output size of the linear projection.'
+            'help': 'final output size of the linear projection'
         }
     )
 
-@register_model("qa_linear_projection", dataclass=QALinearProjectionConfig)
-class QALinearProjectionModel(ECGLanguageTransformerFinetuningModel):
-    def __init__(self, cfg: QALinearProjectionConfig, encoder: ECGLanguageTransformerModel):
+@register_model("ecg_language_transformer_classifier", dataclass=ECGLanguageTransformerClassificationConfig)
+class ECGLanguageTransformerClassificationModel(ECGLanguageTransformerFinetuningModel):
+    def __init__(self, cfg: ECGLanguageTransformerClassificationConfig, encoder: ECGLanguageTransformerModel):
         super().__init__(cfg, encoder)
 
         self.proj = nn.Linear(cfg.encoder_embed_dim * 2, cfg.num_labels)

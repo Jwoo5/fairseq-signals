@@ -29,7 +29,7 @@ logger = logging.getLogger(__name__)
 @dataclass
 class ECGTransformerConfig(TransformerConfig):
     # convnets
-    extractor_mode: str  = field (
+    extractor_mode: str  = field(
         default = "default",
         metadata = {
             "help": "mode for conv feature extractor. 'default' has a single group norm with d"
@@ -66,15 +66,10 @@ class ECGTransformerConfig(TransformerConfig):
         metadata={"help": "number of groups for convolutional positional embeddings"},
     )
 
-    normalize: bool = II("task.normalize")
-    data: str = II("task.data")
-    # this holds the loaded pre-trained model args
-    args: Any = None
-
+@register_model("ecg_transformer", dataclass=ECGTransformerConfig)
 class ECGTransformerModel(TransformerModel):
     def __init__(self, cfg: ECGTransformerConfig):
         super().__init__(cfg)
-        self.cfg = cfg
 
         feature_enc_layers = eval(cfg.conv_feature_layers)
         self.embed = feature_enc_layers[-1][0]
@@ -98,16 +93,6 @@ class ECGTransformerModel(TransformerModel):
         self.layer_norm = LayerNorm(self.embed)
     
         self.num_updates = 0
-
-    def upgrade_state_dict_named(self, state_dict, name):
-        super().upgrade_state_dict_named(state_dict, name)
-        """Upgrate a (possibly old) state dict for new versions."""
-        return state_dict
-
-    def set_num_updates(self, num_updates):
-        """Set the number of parameters updates."""
-        super().set_num_updates(num_updates)
-        self.num_updates = num_updates
 
     @classmethod
     def build_model(cls, cfg, task=None):
@@ -188,8 +173,19 @@ class ECGTransformerModel(TransformerModel):
         res = self.forward(source, padding_mask=padding_mask)
         return res
 
-    def get_logits(self, net_output):
-        raise NotImplementedError()
+    def get_logits(self, net_output, normalize=False, aggregate=False):
+        logits = net_output["x"]
+
+        if net_output["padding_mask"] is not None and net_output["padding_mask"].any():
+            logits[net_output["padding_mask"]] = 0
+        
+        if aggregate:
+            logits = torch.div(logits.sum(dim=1), (logits != 0).sum(dim=1))
+        
+        if normalize:
+            logits = utils.log_softmax(logits.float(), dim=1)
+        
+        return logits
 
     def get_targets(self, net_output):
         raise NotImplementedError()
@@ -202,12 +198,12 @@ class ECGTransformerModel(TransformerModel):
         **kwargs,
     ):
         """
-        Load a :class:`~fairseq_signals.models.ConvTransformerModel` from a pre-trained model
+        Load a :class:`~fairseq_signals.models.ECGTransformerModel` from a pre-trained model
         checkpoint.
 
         Args:
             model_path (str): a path to a pre-trained model state dict
-            cfg (ConvTransformerConfig): cfg to override some arguments of pre-trained model
+            cfg (ECGTransformerConfig): cfg to override some arguments of pre-trained model
         """
 
         arg_overrides = {

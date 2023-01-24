@@ -1,1 +1,1 @@
-from .qa_linear_projection  import * # noqa
+from .ecg_language_transformer_classifier  import * # noqa
