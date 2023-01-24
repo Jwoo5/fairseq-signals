@@ -52,7 +52,7 @@ lr_scheduler:
   warmup_updates: 1600
 
 model:
-  _name: qa_linear_projection
+  _name: ecg_language_transformer_classifier
   num_labels: 108
   model_path: null
   no_pretrained_weights: true

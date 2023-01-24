@@ -58,7 +58,7 @@ lr_scheduler:
   warmup_updates: 0
 
 model:
-  _name: ecg_transformer_classification
+  _name: ecg_transformer_classifier
   num_labels: ???
   model_path: null
   no_pretrained_weights: true
