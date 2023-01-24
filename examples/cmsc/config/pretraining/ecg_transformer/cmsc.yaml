@@ -14,7 +14,6 @@ checkpoint:
 
 task:
   _name: ecg_pretraining
-  clocs_mode: cmsc # cmsc, cmlc, cmsmlc
   data: ???
   normalize: false
   enable_padding: true

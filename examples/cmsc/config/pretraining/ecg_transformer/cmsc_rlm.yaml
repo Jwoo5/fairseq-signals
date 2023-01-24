@@ -14,7 +14,6 @@ checkpoint:
 
 task:
   _name: ecg_pretraining
-  clocs_mode: cmsc # cmsc, cmlc, cmsmlc
   data: ???
   perturbation_mode: ["random_leads_masking"]
   p: [1.0]
