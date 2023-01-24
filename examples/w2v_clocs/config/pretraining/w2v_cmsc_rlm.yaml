@@ -57,7 +57,7 @@ lr_scheduler:
   warmup_updates: 0
 
 model:
-  _name: wav2vec2_clocs
+  _name: wav2vec2_cmsc
   quantize_targets: true
   final_dim: 256
   # encoder_layerdrop: 0.05

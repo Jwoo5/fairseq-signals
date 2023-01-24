@@ -1,0 +1,70 @@
+common:
+  fp16: false
+  log_format: json
+  log_interval: 10
+  all_gather_list_size: 2048000
+  # wandb_entity: ecg-pretraining
+  # wandb_project: grounding-classification
+
+checkpoint:
+  save_dir: checkpoints
+  best_checkpoint_metric: accuracy
+  maximize_best_checkpoint_metric: true
+  save_interval: 1
+  keep_last_epochs: 1
+  save_interval_updates: 0
+  no_epoch_checkpoints: false
+  # patience: 20
+
+task:
+  _name: ecg_classification
+  data: ???
+  path_dataset: true
+  load_specific_lead: true
+  enable_padding: true
+  enable_padding_leads: true
+  filter: false
+  normalize: true
+  mean_path: ???
+  std_path: ???
+
+dataset:
+  num_workers: 6
+  max_tokens: null 
+  batch_size: 128
+  train_subset: "train_per_lead_grounding"
+  valid_subset: "valid_per_lead_grounding,test_per_lead_grounding"
+  fixed_validation_seed: 1
+
+distributed_training:
+  distributed_world_size: 1
+
+criterion:
+  _name: multi_head_binary_cross_entropy
+  report_auc: true
+  log_per_class: false
+  per_log_keys: [attribute_id]
+
+optimization:
+  max_epoch: 50
+  lr: [0.001]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-08
+  weight_decay: 0.0001
+
+lr_scheduler:
+  _name: tri_stage
+  phase_ratio: [0.0, 0.0, 1.0]
+  final_lr_scale: 0.01
+
+model:
+  _name: nejedly2021resnet_classifier
+  num_labels: ???
+  model_path: null
+  no_pretrained_weights: true
+
+  final_dropout: 0.5
+  in_d: 12

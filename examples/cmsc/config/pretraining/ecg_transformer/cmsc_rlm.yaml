@@ -2,7 +2,7 @@ common:
   fp16: false
   log_format: json
   log_interval: 10
-  # wandb_project: wav2vec2-pretraining
+  # wandb_project: clocs-pretraining
 
 checkpoint:
   save_dir: checkpoints
@@ -11,17 +11,21 @@ checkpoint:
   save_interval_updates: 0
   no_epoch_checkpoints: false
 
+
 task:
   _name: ecg_pretraining
-  clocs_mode: cmsc
+  clocs_mode: cmsc # cmsc, cmlc, cmsmlc
   data: ???
-  perturbation_mode: ["powerline_noise", "emg_noise", "baseline_shift", "baseline_wander", "random_leads_masking"]
+  perturbation_mode: ["random_leads_masking"]
   p: [1.0]
+  mask_leads_selection: random
+  mask_leads_prob: 0.5
   normalize: false
   enable_padding: true
   enable_padding_leads: false
   leads_to_load: null
     # I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6
+
 
 dataset:
   num_workers: 6
@@ -31,18 +35,14 @@ dataset:
   disable_validation: true
 
 distributed_training:
-  distributed_world_size: 4
+  distributed_world_size: 8
 
 criterion:
-  _name: wav2vec2_with_clocs
-  infonce: true
-  log_keys: ["prob_perplexity", "code_perplexity", "temp"]
-  loss_weights: [0.1, 10]
+  _name: clocs
 
 optimization:
   max_epoch: 200
   lr: [5e-5]
-  update_freq: [2]
 
 optimizer:
   _name: adam
@@ -55,8 +55,8 @@ lr_scheduler:
   warmup_updates: 0
 
 model:
-  _name: wav2vec2_cmsc
-  quantize_targets: true
+  _name: ecg_transformer
+  apply_mask: false
   final_dim: 256
   # encoder_layerdrop: 0.05
   dropout_input: 0.1

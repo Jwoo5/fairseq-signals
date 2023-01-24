@@ -1,30 +1,38 @@
-# A Simple Framework for Contrastive Learning of Visual Representations
-
-We provide various perturbation methods with ECG data for SimCLR model, which are listed as:
-* Random lead masking
-* Powerline noise
-* EMG noise
-* Baseline shift
-* Baseline wander
+# CLOCS: Contrastive Learning of Cardiac Signals Across Space, Time, and Patients
 
 Before training the model, please follow [these instructions](https://github.com/Jwoo5/fairseq-signals/blob/master/README.md) to install fairseq-signals and prepare required datasets.
 
+# Prepare training data manifest
+Before training, you should prepare training data manifest required for training CLOCS model.
+```shell script
+$ python /path/to/fairseq_signals/data/ecg/preprocess/convert_to_cmsc_manifest.py \
+    /path/to/total/train.tsv \
+    --dest /path/to/manifest
+```
+The expected results are like:
+```
+/path/to/manifest
+└─ cmsc
+    └─ train.tsv
+```
+
 # Pre-training a new ECG Transformer model
+## Pre-train CMSC model
 ```shell script
 $ fairseq-hydra-train \
-    task.data=/path/to/manifest/total \
-    --config-dir examples/simclr/config/pretraining/ecg_transformer \
-    --config-name simclr_rlm
+    task.data=/path/to/manifest/cmsc \
+    --config-dir examples/cmsc/config/pretraining/ecg_transformer \
+    --config-name cmsc
 ```
-If you want to apply more augmentations, refer to `examples/simclr/config/pretraining/.../simclr_augs.yaml`.
 
 # Fine-tuning a pre-trained ECG Transformer model
+
 ## Fine-tune on the Cardiac Arrhythmia Classification task
 ```shell script
 $ fairseq-hydra-train \
     task.data=/path/to/manifest/cinc \
     model.model_path=/path/to/checkpoint.pt \
-    --config-dir examples/simclr/config/finetuning/ecg_transformer \
+    --config-dir examples/cmsc/config/finetuning/ecg_transformer \
     --config-name diagnosis
 ```
 If you want to use CinC score as an evaluation metric, add command line parameters (before `--config-dir`)
@@ -38,7 +46,7 @@ $ fairseq-hydra-train \
     task.data=/path/to/manifest/identify \
     model.model_path=/path/to/checkpoint.pt \
     model.num_labels=$N \
-    --config-dir examples/simclr/config/finetuning/ecg_transformer \
+    --config-dir examples/cmsc/config/finetuning/ecg_transformer \
     --config-name identification
 ```
 `$N` should be set to the number of unique patients in the training dataset. You can manually open `/path/to/manifest/identify/train.tsv` file and check the last line of that file. For example, if the last line is like `*.mat 2500 69977`, then `$N` should be set to `69978`.
