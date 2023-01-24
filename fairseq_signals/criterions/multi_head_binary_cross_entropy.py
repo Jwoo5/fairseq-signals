@@ -66,19 +66,34 @@ class MultiHeadBinaryCrossEntropyCriterion(BinaryCrossEntropyCriterion):
         probs = torch.sigmoid(logits)
         targets = torch.cat(targets).float()
 
-        reduction = "none" if not reduce else "sum"
+        # reduction = "none" if not reduce else "sum"
+        # loss = F.binary_cross_entropy(
+        #     input=probs,
+        #     target=targets,
+        #     weight=self.weight,
+        #     reduction=reduction
+        # )
 
-        loss = F.binary_cross_entropy(
+        # if "sample_size" in sample:
+        #     sample_size = sample["sample_size"]
+        # else:
+        #     sample_size = targets.numel()
+
+        reduction = "none"
+        losses = F.binary_cross_entropy(
             input=probs,
             target=targets,
             weight=self.weight,
             reduction=reduction
         )
+        target_idcs = torch.cat(target_idcs).cpu().numpy()
+        nums = Counter(target_idcs)
+        loss = 0
+        for l, t in zip(losses, target_idcs):
+            loss += l / nums[t]
+        loss /= len(nums)
 
-        if "sample_size" in sample:
-            sample_size = sample["sample_size"]
-        else:
-            sample_size = targets.long().sum().item()
+        sample_size = 1
 
         logging_output = {
             "loss": loss.item() if reduce else loss.detach(),
@@ -192,7 +207,7 @@ class MultiHeadBinaryCrossEntropyCriterion(BinaryCrossEntropyCriterion):
         )
 
         metrics.log_scalar(
-            "loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
+            "loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round=3
         )
 
         metrics.log_scalar("nsignals", nsignals)
