@@ -44,7 +44,6 @@ class ECGQuestionAnsweringTask(ECGTextPretrainingTask):
         task_cfg = task_cfg or self.cfg
 
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
-
         self.datasets[split] = FileECGQADataset(
             manifest_path,
             pad_token_id=task_cfg.pad_token,
@@ -55,6 +54,9 @@ class ECGQuestionAnsweringTask(ECGTextPretrainingTask):
             min_sample_size=self.cfg.min_sample_size,
             max_text_size=self.cfg.max_text_size,
             min_text_size=self.cfg.min_text_size,
+            filter=task_cfg.filter,
             normalize=task_cfg.normalize,
+            mean_path=task_cfg.get("mean_path", self.cfg.mean_path),
+            std_path=task_cfg.get("std_path", self.cfg.std_path),
             training=True if 'train' in split else False,
         )

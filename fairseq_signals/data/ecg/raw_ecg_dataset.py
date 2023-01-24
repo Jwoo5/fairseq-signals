@@ -30,9 +30,12 @@ class RawECGDataset(BaseDataset):
         shuffle=True,
         pad=False,
         pad_leads=False,
-        leads_to_load=None,
+        leads_to_load: Optional[str]=None,
         label=False,
+        filter=False,
         normalize=False,
+        mean_path: Optional[str]=None,
+        std_path: Optional[str]=None,
         compute_mask_indices=False,
         leads_bucket=None,
         bucket_selection: BUCKET_CHOICE="uniform",
@@ -67,7 +70,7 @@ class RawECGDataset(BaseDataset):
         self.min_sample_size = min_sample_size
         self.pad = pad
         self.pad_leads = pad_leads
-        if leads_to_load:
+        if leads_to_load is not None:
             leads_to_load = eval(leads_to_load)
             self.leads_to_load = list(map(self.get_lead_index, leads_to_load))
         else:
@@ -86,7 +89,23 @@ class RawECGDataset(BaseDataset):
 
         self.label = label
         self.shuffle = shuffle
+        self.filter = filter
         self.normalize = normalize
+        if self.normalize:
+            assert not (mean_path is None or std_path is None), (
+                "Normalizing needs mean and std to be used for z-normalization. "
+                "Please check that --mean_path and --std_path are provided. "
+            )
+            mean = []
+            with open(mean_path, "r") as f:
+                for m in f.readlines():
+                    mean.append(float(m.strip()))
+            self.mean = np.array(mean)[:, None]
+            std = []
+            with open(std_path, "r") as f:
+                for s in f.readlines():
+                    std.append(float(s.strip()))
+            self.std = np.array(std)[:, None]                
         self.compute_mask_indices = compute_mask_indices
         if self.compute_mask_indices:
             self.mask_compute_kwargs = kwargs
@@ -133,15 +152,16 @@ class RawECGDataset(BaseDataset):
             raise Exception(f"sample rate: {curr_sample_rate}, need {self.sample_rate}")
 
         leads_to_load = self.leads_to_load if leads_to_load is None else leads_to_load
-
         feats = feats.float()
-
         feats = self.load_specific_leads(feats, leads_to_load=leads_to_load, pad=self.pad_leads)
 
+        if self.filter:
+            feats = torch.from_numpy(
+                np.stack([nk.ecg_clean(l, sampling_rate=500) for l in feats])
+            )
         if self.normalize:
-            feats = feats.float()
-            with torch.no_grad():
-                feats = F.layer_norm(feats, feats.shape)
+            for l in leads_to_load:
+                feats[l] = (feats[l] - self.mean[l]) / self.std[l]
 
         if self.training and self.apply_perturb:
             feats = self.perturb(feats)
@@ -512,9 +532,8 @@ class PathECGDataset(FileECGDataset):
         feats, _ = wfdb.rdsamp(data["ecg_path"][0])
         feats = torch.from_numpy(feats.T)
 
-        if self.load_specific_lead:
-            leads_to_load = data["lead"] if "lead" in data else self.leads_to_load
-            feats = self.postprocess(feats, curr_sample_rate=None, leads_to_load=leads_to_load)
+        leads_to_load = data["lead"].squeeze() if "lead" in data else self.leads_to_load
+        feats = self.postprocess(feats, curr_sample_rate=None, leads_to_load=leads_to_load)
 
         res["source"] = feats
 

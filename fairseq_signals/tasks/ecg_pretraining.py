@@ -10,9 +10,9 @@ from omegaconf import MISSING, II, OmegaConf
 
 from fairseq_signals.data import (    
     FileECGDataset,
-    ClocsECGDataset,
+    CMSCECGDataset,
     PerturbECGDataset,
-    _3KGECGDataset
+    ThreeKGECGDataset
 )
 from fairseq_signals.dataclass import Dataclass
 
@@ -80,9 +80,21 @@ class ECGPretrainingConfig(Dataclass):
             "help": "target sample rate. it not set, allow any sample rate."
         }
     )
+    filter: bool = field(
+        default=False,
+        metadata={"help": "if set, apply signal filtering to input signals"}
+    )
     normalize: bool = field(
         default = False,
         metadata = {"help": "if set, normalizes input to have 0 mean and unit variance"}
+    )
+    mean_path: Optional[str] = field(
+        default=None,
+        metadata={"help": "path to .txt file describing means for each lead channel"}
+    )
+    std_path: Optional[str] = field(
+        default=None,
+        metadata={"help": "path to .txt file describing stds for each lead channel"}
     )
     enable_padding: bool = field(
         default = False, metadata = {"help": "pad shorter samples instead of cropping"}
@@ -187,9 +199,8 @@ class ECGPretrainingConfig(Dataclass):
             "help": "3kg model arguments used to perturb data samples"
         }
     )
-    model_name: str = II("model._name")
-
-    clocs_mode: Optional[str] = None
+    # model_name: str = II("model._name")
+    criterion_name: str = II("criterion._name")
 
 @register_task("ecg_pretraining", dataclass = ECGPretrainingConfig)
 class ECGPretrainingTask(Task):
@@ -244,19 +255,20 @@ class ECGPretrainingTask(Task):
         task_cfg = task_cfg or self.cfg
 
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
-
-        if 'clocs' in task_cfg.model_name:
-            self.datasets[split] = ClocsECGDataset(
+        if "cmsc" in task_cfg.criterion_name:
+            self.datasets[split] = CMSCECGDataset(
                 manifest_path=manifest_path,
                 sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
                 perturbation_mode=self.cfg.perturbation_mode,
                 max_sample_size=self.cfg.max_sample_size,
                 min_sample_size=self.cfg.min_sample_size,
-                clocs_mode=task_cfg.clocs_mode,
                 pad=task_cfg.enable_padding,
                 pad_leads=task_cfg.enable_padding_leads,
                 leads_to_load=task_cfg.leads_to_load,
+                filter=task_cfg.filter,
                 normalize=task_cfg.normalize,
+                mean_path=task_cfg.get("mean_path", self.cfg.mean_path),
+                std_path=task_cfg.get("std_path", self.cfg.std_path),
                 num_buckets=self.cfg.num_batch_buckets,
                 compute_mask_indices=self.cfg.precompute_mask_indices,
                 leads_bucket=self.cfg.leads_bucket,
@@ -265,7 +277,7 @@ class ECGPretrainingTask(Task):
                 **self._get_mask_precompute_kwargs(task_cfg),
                 **self._get_perturbation_kwargs()
             )
-        elif task_cfg.model_name == '3kg':
+        elif task_cfg.criterion_name == '3kg':
             if task_cfg.leads_to_load is not None:
                 raise AssertionError(
                     "pre-training 3kg must contain all the 12-leads. "
@@ -274,18 +286,21 @@ class ECGPretrainingTask(Task):
             inferred_3kg_config = OmegaConf.to_container(
                 self.cfg.inferred_3kg_config, resolve=True, enum_to_str=True
             )
-            self.datasets[split] = _3KGECGDataset(
+            self.datasets[split] = ThreeKGECGDataset(
                 manifest_path=manifest_path,
                 sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
                 max_sample_size=self.cfg.max_sample_size,
                 min_sample_size=self.cfg.min_sample_size,
                 pad=task_cfg.enable_padding,
+                filter=task_cfg.filter,
                 normalize=task_cfg.normalize,
+                mean_path=task_cfg.get("mean_path", self.cfg.mean_path),
+                std_path=task_cfg.get("std_path", self.cfg.std_path),
                 num_buckets=self.cfg.num_batch_buckets,
                 training=True if 'train' in split else False,
                 **inferred_3kg_config,
             )
-        elif task_cfg.model_name == 'simclr':
+        elif task_cfg.criterion_name == 'simclr':
             self.datasets[split] = PerturbECGDataset(
                 manifest_path=manifest_path,
                 sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
@@ -295,7 +310,10 @@ class ECGPretrainingTask(Task):
                 pad=task_cfg.enable_padding,
                 pad_leads=task_cfg.enable_padding_leads,
                 leads_to_load=task_cfg.leads_to_load,
+                filter=task_cfg.filter,
                 normalize=task_cfg.normalize,
+                mean_path=task_cfg.get("mean_path", self.cfg.mean_path),
+                std_path=task_cfg.get("std_path", self.cfg.std_path),
                 num_buckets=self.cfg.num_batch_buckets,
                 compute_mask_indices=self.cfg.precompute_mask_indices,
                 leads_bucket=self.cfg.leads_bucket,
@@ -314,7 +332,10 @@ class ECGPretrainingTask(Task):
                 pad=task_cfg.enable_padding,
                 pad_leads=task_cfg.enable_padding_leads,
                 leads_to_load=task_cfg.leads_to_load,
+                filter=task_cfg.filter,
                 normalize=task_cfg.normalize,
+                mean_path=task_cfg.get("mean_path", self.cfg.mean_path),
+                std_path=task_cfg.get("std_path", self.cfg.std_path),
                 num_buckets=self.cfg.num_batch_buckets,
                 compute_mask_indices=self.cfg.precompute_mask_indices,
                 leads_bucket=self.cfg.leads_bucket,

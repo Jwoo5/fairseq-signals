@@ -25,9 +25,21 @@ class ECGTextPretrainingConfig(Dataclass):
             "help": "target sample rate. it not set, allow any sample rate."
         }
     )
+    filter: bool = field(
+        default=False,
+        metadata={"help": "if set, apply signal filtering to input signals"}
+    )
     normalize: bool = field(
         default=False,
         metadata={"help": "if set, normalizes input to have 0 mean and unit variance"}
+    )
+    mean_path: Optional[str] = field(
+        default=None,
+        metadata={"help": "path to .txt file describing means for each lead channel"}
+    )
+    std_path: Optional[str] = field(
+        default=None,
+        metadata={"help": "path to .txt file describing stds for each lead channel"}
     )
     enable_padding: bool = field(
         default=False, metadata = {"help": "pad shorter samples instead of cropping"}
@@ -85,7 +97,6 @@ class ECGTextPretrainingTask(Task):
         task_cfg = task_cfg or self.cfg
 
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
-
         self.datasets[split] = FileECGTextDataset(
             manifest_path,
             pad_token_id=task_cfg.pad_token,
@@ -96,7 +107,10 @@ class ECGTextPretrainingTask(Task):
             min_sample_size=self.cfg.min_sample_size,
             max_text_size=self.cfg.max_text_size,
             min_text_size=self.cfg.min_text_size,
+            filter=task_cfg.filter,
             normalize=task_cfg.normalize,
+            mean_path=task_cfg.get("mean_path", self.cfg.mean_path),
+            std_path=task_cfg.get("std_path", self.cfg.std_path),
             training=True if "train" in split else False,
         )
 
