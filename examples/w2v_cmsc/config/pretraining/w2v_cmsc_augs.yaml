@@ -33,7 +33,7 @@ distributed_training:
   distributed_world_size: 4
 
 criterion:
-  _name: wav2vec2_with_clocs
+  _name: wav2vec2_with_cmsc
   infonce: true
   log_keys: ["prob_perplexity", "code_perplexity", "temp"]
   loss_weights: [0.1, 10]
