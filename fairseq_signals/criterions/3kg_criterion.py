@@ -17,7 +17,7 @@ from fairseq_signals.tasks import Task
 from fairseq_signals.logging.meters import safe_round
 
 @dataclass
-class _3KGCriterionConfig(Dataclass):
+class ThreeKGCriterionConfig(Dataclass):
     temp: float = field(
         default=0.1, metadata={"help": "temperature in softmax"}
     )
@@ -26,9 +26,9 @@ class _3KGCriterionConfig(Dataclass):
     )
 
 
-@register_criterion("3kg", dataclass=_3KGCriterionConfig)
-class _3KGCriterion(BaseCriterion):
-    def __init__(self, cfg: _3KGCriterionConfig, task: Task):
+@register_criterion("3kg", dataclass=ThreeKGCriterionConfig)
+class ThreeKGCriterion(BaseCriterion):
+    def __init__(self, cfg: ThreeKGCriterionConfig, task: Task):
         super().__init__(task)
         self.temp = cfg.temp
         self.eps = cfg.eps

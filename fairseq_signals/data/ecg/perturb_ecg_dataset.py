@@ -84,7 +84,7 @@ class PerturbECGDataset(FileECGDataset):
             } for i in range(len(sources))
         ]
 
-class _3KGECGDataset(PerturbECGDataset):
+class ThreeKGECGDataset(PerturbECGDataset):
     def __init__(
         self,
         manifest_path,
