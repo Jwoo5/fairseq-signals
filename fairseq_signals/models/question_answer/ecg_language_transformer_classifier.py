@@ -19,7 +19,7 @@ class ECGLanguageTransformerClassificationConfig(ECGLanguageTransformerFinetunin
     num_labels: int = field(
         default=MISSING,
         metadata= {
-            'help': 'final output size of the linear projection'
+            "help": "number of classes in the dataset"
         }
     )
 
