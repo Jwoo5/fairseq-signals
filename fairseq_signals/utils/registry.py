@@ -35,8 +35,9 @@ def setup_registry(registry_name: str, base_class = None, default = None, requir
             choice = cfg._name
 
             if choice and choice in DATACLASS_REGISTRY:
+                from_checkpoint = extra_kwargs.get("from_checkpoint", False)
                 dc = DATACLASS_REGISTRY[choice]
-                cfg = merge_with_parent(dc(), cfg)
+                cfg = merge_with_parent(dc(), cfg, remove_missing=from_checkpoint)
         elif isinstance(cfg, str):
             choice = cfg
             if choice in DATACLASS_REGISTRY:
@@ -49,13 +50,17 @@ def setup_registry(registry_name: str, base_class = None, default = None, requir
         if choice is None:
             if required:
                 raise ValueError("{} is required!".format(registry_name))
+            return None
         
         cls = REGISTRY[choice]
         if hasattr(cls, "build_" + registry_name):
             builder = getattr(cls, "build_" + registry_name)
         else:
             builder = cls
-        
+
+        if "from_checkpoint" in extra_kwargs:
+            del extra_kwargs["from_checkpoint"]
+
         return builder(cfg, *extra_args, **extra_kwargs)
     
     def register_x(name, dataclass = None):
