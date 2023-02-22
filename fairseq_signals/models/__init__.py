@@ -7,11 +7,14 @@ import argparse
 import importlib
 import os
 
+from contextlib import ExitStack
+
 from fairseq_signals.dataclass import Dataclass
 from fairseq_signals.dataclass.utils import merge_with_parent, populate_dataclass
 from hydra.core.config_store import ConfigStore
+from omegaconf import open_dict, OmegaConf
 
-from .disrtibuted_model import DistributedModel
+from .distributed_model import DistributedModel
 from .model import (
     BaseModel,
 )
@@ -28,7 +31,7 @@ __all__ = [
     "DistributedModel"
 ]
 
-def build_model(cfg: Dataclass, task):
+def build_model(cfg: Dataclass, task, from_checkpoint=False):
     model = None
     model_type = getattr(cfg, "_name", None) or getattr(cfg, "arch", None)
 
@@ -60,8 +63,16 @@ def build_model(cfg: Dataclass, task):
         if isinstance(cfg, argparse.Namespace):
             cfg = populate_dataclass(dc(), cfg)
         else:
-            cfg = merge_with_parent(dc(), cfg)
-    
+            cfg = merge_with_parent(dc(), cfg, from_checkpoint)
+    else:
+        if model_type in ARCH_CONFIG_REGISTRY:
+            with open_dict(cfg) if OmegaConf.is_config(cfg) else ExitStack():
+                # this calls the different "arch" functions (like base_architecture()) that you indicate
+                # if you specify --arch on the command line. this is only applicable to the old argparse based models
+                # hydra models should expose different architectures via different config files
+                # it will modify the cfg object and default parameters according to the arch
+                ARCH_CONFIG_REGISTRY[model_type](cfg)
+
     assert model is not None, (
         f"Could not infer model type from {cfg}. "
         f"Available models: "
