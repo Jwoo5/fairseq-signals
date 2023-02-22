@@ -199,8 +199,10 @@ class ECGPretrainingConfig(Dataclass):
             "help": "3kg model arguments used to perturb data samples"
         }
     )
-    # model_name: str = II("model._name")
-    criterion_name: str = II("criterion._name")
+    criterion_name: Optional[str] = II("criterion._name")
+    #XXX to be removed
+    model_name: Optional[str] = None
+    clocs_mode: Optional[str] = None
 
 @register_task("ecg_pretraining", dataclass = ECGPretrainingConfig)
 class ECGPretrainingTask(Task):
@@ -344,7 +346,6 @@ class ECGPretrainingTask(Task):
                 **self._get_mask_precompute_kwargs(task_cfg),
                 **self._get_perturbation_kwargs()
             )
-
 
     def max_positions(self):
         """Maximum input length supported by the encoder,"""

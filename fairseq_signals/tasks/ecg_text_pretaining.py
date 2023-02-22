@@ -72,7 +72,7 @@ class ECGTextPretrainingConfig(Dataclass):
         }
     )
 
-    model_name: str = II("model._name")
+    model_name: Optional[str] = II("model._name")
 
 @register_task('ecg_text_pretraining', dataclass=ECGTextPretrainingConfig)
 class ECGTextPretrainingTask(Task):
