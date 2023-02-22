@@ -273,7 +273,7 @@ class Task(object):
         
         return epoch_iter
 
-    def build_model(self, cfg: Dataclass):
+    def build_model(self, cfg: Dataclass, from_checkpoint=False):
         """
         Build the :class:`~fairseq_signals.BaseModel` instance for this
         task.
@@ -286,10 +286,10 @@ class Task(object):
         """
         from fairseq_signals import models
 
-        model = models.build_model(cfg, self)
+        model = models.build_model(cfg, self, from_checkpoint)
         return model
     
-    def build_criterion(self, cfg: DictConfig):
+    def build_criterion(self, cfg: DictConfig, from_checkpoint=False):
         """
         Build the :class:`~fairseq_signals.criterions.BaseCriterion` instance for
         this task.
@@ -302,7 +302,7 @@ class Task(object):
         """
         from fairseq_signals import criterions
 
-        return criterions.build_criterion(cfg, self)
+        return criterions.build_criterion(cfg, self, from_checkpoint=from_checkpoint)
     
     def train_step(
         self, sample, model, criterion, optimizer, update_num, ignore_grad = False

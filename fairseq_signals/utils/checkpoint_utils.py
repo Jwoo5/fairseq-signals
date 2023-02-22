@@ -6,9 +6,11 @@
 import ast
 import collections
 import contextlib
+import inspect
 import logging
 import os
 import re
+import time
 import traceback
 from collections import OrderedDict
 from typing import Any, Dict, Optional, Union
@@ -19,6 +21,7 @@ from fairseq_signals.dataclass.utils import (
     convert_namespace_to_omegaconf,
     overwrite_args_by_name
 )
+from fairseq_signals.distributed.fully_sharded_data_parallel import FSDP, has_FSDP
 from fairseq_signals.utils.file_io import PathManager
 from omegaconf import Container, DictConfig, open_dict, OmegaConf
 
@@ -288,6 +291,115 @@ def load_checkpoint_to_cpu(path, arg_overrides = None, load_on_all_ranks = False
     
     state = _upgrade_state_dict(state)
     return state
+
+def get_maybe_sharded_checkpoint_filename(
+    filename: str, suffix: str, shard_idx: int, num_shards: int
+) -> str:
+    orig_filename = filename
+    filename = filename.replace(".pt", suffix + ".pt")
+    fsdp_filename = filename[:-3] + f"-shard{shard_idx}.pt"
+    model_parallel_filename = orig_filename[:-3] + f"_part{shard_idx}.pt"
+    if PathManager.exists(fsdp_filename):
+        return fsdp_filename
+    elif num_shards > 1:
+        return model_parallel_filename
+    else:
+        return filename
+
+def load_model_and_task(
+    filename,
+    arg_overrides: Optional[Dict[str, Any]] = None,
+    task=None,
+    strict=True,
+    suffix="",
+    num_shards=1,
+    state=None,
+):
+    from fairseq_signals import tasks
+
+    assert not (
+        strict and num_shards > 1
+    ), "Cannot load state dict with strict=True and checkpoint shards > 1"
+    cfg = None
+
+    model_shard_state = {"shard_weights": [], "shard_metadata": []}
+    assert num_shards > 0
+    st = time.time()
+    for shard_idx in range(num_shards):
+        filename = get_maybe_sharded_checkpoint_filename(
+            filename, suffix, shard_idx, num_shards
+        )
+
+        if not PathManager.exists(filename):
+            raise IOError("Model file not found: {}".format(filename))
+        if state is None:
+            state = load_checkpoint_to_cpu(filename, arg_overrides)
+        if "args" in state and state["args"] is not None:
+            cfg = convert_namespace_to_omegaconf(state["args"])
+        elif "cfg" in state and state["cfg"] is not None:
+            cfg = state["cfg"]
+        else:
+            raise RuntimeError(
+                f"Neither args nor cfg exist in state keys = {state.keys()}"
+            )
+    
+    if task is None:
+        task = tasks.setup_task(cfg.task, from_checkpoint=True)
+    
+    if "task_state" in state:
+        task.load_state_dict(state["task_state"])
+    
+    argspec = inspect.getfullargspec(task.build_model)
+
+    if "fsdp_metadata" in state and num_shards > 1:
+        model_shard_state["shard_weights"].append(state["model"])
+        model_shard_state["shard_metadata"].append(state["fsdp_metadata"])
+        # check FSDP import before the code goes too far
+        if not has_FSDP:
+            raise ImportError(
+                "Cannot find FullyShardedDataParallel. "
+                "Please install fairscale with: pip install fairscale"
+            )
+        if shard_idx == num_shards - 1:
+            consolidated_model_state = FSDP.consolidate_shard_weights(
+                shard_weights=model_shard_state["shard_weights"],
+                shard_metadata=model_shard_state["shard_metadata"]
+            )
+            if "from_checkpoint" in argspec.args:
+                model = task.build_model(cfg.model, from_checkpoint=True)
+            else:
+                model = task.build_model(cfg.model)
+            if (
+                "optimizer_history" in state
+                and len(state["optimizer_history"]) > 0
+                and "num_updates" in state["optimizer_history"][-1]
+            ):
+                model.set_num_updates(state["optimizer_history"][-1]["num_updates"])
+            model.load_state_dict(
+                consolidated_model_state, strict=strict, model_cfg=cfg.model
+            )
+    else:
+        # model parallel checkpoint or unsharded checkpoint
+        # support old external tasks
+        
+        if "from_checkpoint" in argspec.args:
+            model = task.build_model(cfg.model, from_checkpoint=True)
+        else:
+            model = task.build_model(cfg.model)
+        if (
+            "optimizer_history" in state
+            and len(state["optimizer_history"]) > 0
+            and "num_updates" in state["optimizer_history"][-1]
+        ):
+            model.set_num_updates(state["optimizer_history"][-1]["num_updates"])
+        model.load_state_dict(
+            state["model"], strict=strict, model_cfg=cfg.model
+        )
+
+    elapsed = time.time() - st
+    logger.info(f"Loaded a checkpoint in {elapsed:.2f}s")
+    
+    return model, cfg, task
 
 def checkpoint_paths(path, pattern = r"checkpoint(\d+)\.pt", keep_match = False):
     """Retrives all checkpoints found in `path` directory.
