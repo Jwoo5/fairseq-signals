@@ -8,7 +8,7 @@ common:
 
 checkpoint:
   save_dir: checkpoints
-  best_checkpoint_metric: em_accuracy
+  best_checkpoint_metric: partial_accuracy
   maximize_best_checkpoint_metric: true
   save_interval: 1
   keep_last_epochs: 1
@@ -28,6 +28,7 @@ dataset:
   batch_size: 32
   valid_subset: "valid,test,test_per_lead_grounding,test_entire_grounding"
   fixed_validation_seed: 1
+  validate_interval: 5
 
 distributed_training:
   distributed_world_size: 1

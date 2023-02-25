@@ -3,8 +3,8 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  # wandb_entity: ecg-pretraining
-  # wandb_project: grounding-classification
+  wandb_entity: ecg-pretraining
+  wandb_project: grounding-classification
 
 checkpoint:
   save_dir: checkpoints
@@ -24,9 +24,9 @@ task:
   enable_padding: true
   enable_padding_leads: true
   filter: false
-  normalize: true
-  mean_path: ???
-  std_path: ???
+  normalize: false
+  mean_path: null
+  std_path: null
 
 dataset:
   num_workers: 6
@@ -43,10 +43,11 @@ criterion:
   _name: multi_head_binary_cross_entropy
   report_auc: true
   log_per_class: false
-  per_log_keys: [attribute_id]
+  per_log_keys: [question_id, attribute_id]
 
 optimization:
-  max_epoch: 50
+  max_epoch: 200
+  max_update: 79800
   lr: [0.001]
 
 optimizer:
@@ -57,7 +58,7 @@ optimizer:
 
 lr_scheduler:
   _name: tri_stage
-  phase_ratio: [0.0, 0.0, 1.0]
+  phase_ratio: [0.1, 0.0, 0.9]
   final_lr_scale: 0.01
 
 model:

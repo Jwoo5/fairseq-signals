@@ -1,0 +1,25 @@
+common:
+  all_gather_list_size: 2048000
+  wandb_entity: ecg-pretraining
+  wandb_project: question-answering
+
+common_eval:
+  path: ???
+  quiet: false
+  model_overrides: "{'model_path': None, 'no_pretrained_weights': False}"
+
+dataset:
+  num_workers: 6
+  max_tokens: null
+  batch_size: 128
+  valid_subset: "test_derived_entire_grounding,test_independent_entire_grounding,test_derived_per_lead_grounding,test_independent_per_lead_grounding"
+  fixed_validation_seed: 1
+
+task:
+  _name: ecg_question_answering
+  model_name: null
+  data: ???
+  normalize: false
+  enable_padding: true
+
+model: null

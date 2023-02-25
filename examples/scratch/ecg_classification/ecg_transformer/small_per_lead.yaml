@@ -1,4 +1,3 @@
-
 common:
   fp16: false
   log_format: json
@@ -41,7 +40,7 @@ criterion:
   _name: multi_head_binary_cross_entropy
   report_auc: true
   log_per_class: false
-  per_log_keys: [attribute_id]
+  per_log_keys: [question_id, attribute_id]
 
 optimization:
   max_epoch: 100

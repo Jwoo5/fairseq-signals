@@ -1,4 +1,3 @@
-
 common:
   fp16: false
   log_format: json
@@ -21,17 +20,20 @@ task:
   _name: ecg_classification
   data: ???
   path_dataset: true
-  load_specific_lead: true
+  load_specific_lead: false
   enable_padding: true
-  enable_padding_leads: true
+  enable_padding_leads: false
+  filter: false
   normalize: false
+  mean_path: null
+  std_path: null
 
 dataset:
-  num_workers: 0
+  num_workers: 6
   max_tokens: null 
-  batch_size: 64
-  train_subset: "train_total"
-  valid_subset: "test_entire_grounding,test_per_lead_grounding"
+  batch_size: 128
+  train_subset: "train_entire_grounding"
+  valid_subset: "valid_entire_grounding,test_entire_grounding"
   fixed_validation_seed: 1
 
 distributed_training:
@@ -41,36 +43,32 @@ criterion:
   _name: multi_head_binary_cross_entropy
   report_auc: true
   log_per_class: false
-  per_log_keys: [question_id, attribute_id]
+  per_log_keys: [attribute_id]
 
 optimization:
-  max_epoch: 100
-  lr: [0.00001]
+  max_epoch: 200
+  max_update: 18200
+  lr: [0.001]
 
 optimizer:
   _name: adam
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-08
-  weight_decay: 1e-4
+  weight_decay: 0.0005
 
 lr_scheduler:
-  _name: fixed
-  warmup_updates: 0
+  _name: tri_stage
+  phase_ratio: [0.1, 0.0, 0.9]
+  final_lr_scale: 0.01
+
+# lr_scheduler:
+#   _name: fixed
+#   warmup_updates: 0
 
 model:
-  _name: ecg_transformer_classifier
+  _name: se_wrn_classifier
   num_labels: ???
-  model_path: ???
-  no_pretrained_weights: false
+  model_path: null
+  no_pretrained_weights: true
 
-  dropout: 0.0
-  attention_dropout: 0.0
-  activation_dropout: 0.1
-  # encoder_layerdrop: 0.1
-
-  feature_grad_mult: 0.1
-  freeze_finetune_updates: 0
-
-  encoder_layers: 8
-  encoder_embed_dim: 768
   in_d: 12
