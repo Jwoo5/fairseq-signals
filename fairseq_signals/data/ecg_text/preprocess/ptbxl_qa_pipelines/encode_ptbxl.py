@@ -12,8 +12,8 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
 
     leads = ['i','ii','iii','avr','avl','avf','v1','v2','v3','v4','v5','v6']
 
-    lead_positions_patterns = r'v leads|chest|limb|anterior|antero\-?\s?lateral|antero\-?\s?septal|inferior|infero\-?\s?lateral|infero\-?\s?septal|lateral|high\-?\s?lateral|precordial|standard|lateral\-?\s?chest'
-    lead_patterns = r'(((v?\d)|(lead)?\s?(?<=[^A-Za-z])iii(?=[^A-Za-z])|(lead)?\s?(?<=[^A-Za-z])ii(?=[^A-Za-z])|(lead)?\s?(?<=[^A-Za-z])i(?=[^A-Za-z])|(lead)?\s?avr|(lead)?\s?avl|(lead)?\s?avf|v leads|all leads|chest( lead(s)?)?|limb( lead(s)?)?|anterior( lead(s)?)?|antero\-?\s?lateral( lead(s)?)?|antero\-?\s?septal( lead(s)?)?|inferior( lead(s)?)?|infero\-?\s?lateral( lead(s)?)?|infero\-?\s?septal( lead(s)?)?|lateral( lead(s)?)?|high\-?\s?lateral( lead(s)?)?|precordial( lead(s)?)?|standard( lead(s)?)?|infero\-lateral( lead(s)?)?|lateral\-?\s?chest( lead(s)?)?)\s?([/\),\.\-\&\s])?\s?(and)?\s?)+'
+    lead_positions_patterns = r'v leads|chest|limb|anterior|antero\-?\s?lateral|antero\-?\s?septal|inferior|infero\-?\s?lateral|infero\-?\s?septal|lateral|high\-?\s?lateral|precordial|peripheral|standard|lateral\-?\s?chest'
+    lead_patterns = r'(((v?\d)|(lead)?\s?(?<=[^A-Za-z])iii(?=[^A-Za-z])|(lead)?\s?(?<=[^A-Za-z])ii(?=[^A-Za-z])|(lead)?\s?(?<=[^A-Za-z])i(?=[^A-Za-z])|(lead)?\s?avr|(lead)?\s?avl|(lead)?\s?avf|v leads|all leads|chest( lead(s)?)?|limb( lead(s)?)?|anterior( lead(s)?)?|antero\-?\s?lateral( lead(s)?)?|antero\-?\s?septal( lead(s)?)?|inferior( lead(s)?)?|infero\-?\s?lateral( lead(s)?)?|infero\-?\s?septal( lead(s)?)?|lateral( lead(s)?)?|high\-?\s?lateral( lead(s)?)?|precordial( lead(s)?)?|prepheral( lead(s)?)?|standard( lead(s)?)?|infero\-lateral( lead(s)?)?|lateral\-?\s?chest( lead(s)?)?)\s?([/\),\.\-\&\s])?\s?(and)?\s?)+'
     positions_to_leads = {
         'chest': ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'],
         'vleads': ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'],
@@ -27,6 +27,7 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
         'lateral': ['i', 'avl', 'v5', 'v6'],
         'highlateral': ['i', 'avl'],
         'precordial': ['v1', 'v2', 'v3', 'v4', 'v5', 'v6'],
+        "prephreal": ['i', 'ii', 'iii', 'avr', 'avl', 'avf'],
         'standard': ['i', 'ii', 'iii', 'avr', 'avl', 'avf', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6'],
         'lateralchest': ['i', 'avl', 'v1', 'v2', 'v3', 'v4', 'v5', 'v6']
     }
@@ -575,10 +576,9 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
             if stmt is not None:
                 for x in re.finditer(lead_patterns, stmt):
                     x = x.group()
-                    try:
-                        parsed |= parse_lead_positions(x, str)
-                    except TypeError:
-                        pass
+                    parsed_ = parse_lead_positions(x, str)
+                    if parsed_ is not None:
+                        parsed |= parsed_
             return parsed
 
         statements = None
@@ -597,9 +597,11 @@ def encode_ptbxl(ptbxl_dir, ptbxl_database):
                 if parsed := re.search(alternative, str):
                     parsed_leads |= _parse(parsed.group())
             return parsed_leads
+        else:
+            return np.zeros((12,), dtype=int)
 
-    # s = "atrial fibrillation with fast ventricular response. low voltage in standard leads. antero-septal infarct - may be old. antero-lateral st-t changes consistent with left ventricular strain or ischaemia.."
-    # p = patterns['LVOLT']
+    # s = "sinus rhythm left type nonspecific abnormal t."
+    # p = patterns['NDT']
     # z = parse(s, p)
     # breakpoint()
 

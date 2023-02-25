@@ -1,9 +1,10 @@
 import argparse
+import os
 
 import pickle
 import pandas as pd
 
-from ptbxl_qa_pipelines.map_to_mimiciii import map_to_mimiciii
+# from ptbxl_qa_pipelines.map_to_mimiciii import map_to_mimiciii
 from ptbxl_qa_pipelines.encode_ptbxl import encode_ptbxl
 from ptbxl_qa_pipelines.instantiate_template import instantiate_template
 from ptbxl_qa_pipelines.manifest import manifest
@@ -20,7 +21,7 @@ def get_parser():
         '--ptbxl-dir', type=str,
         help='directory containing ptbxl_database.csv and scp_statements.csv.'
         ' We recommend you to first translate `report` in ptbxl_database.csv'
-        ' (or you can download ptbxl_databse_translated.csv from ...'
+        ' (or you can download ptbxl_database_translated.csv from ...'
         ' and rename to "ptbxl_database.csv") '
         ' and then run this pipeline.'
     )
@@ -59,8 +60,12 @@ def get_parser():
         help='path to sampled_data.pkl'
     )
     parser.add_argument(
-        '--grounding-data', type=str, default='results/grounding_data.pkl',
-        help='path to grounding_data.pkl'
+        '--derived-grounding-data', type=str, default='results/derived_grounding_data.pkl',
+        help='path to derived_grounding_data.pkl'
+    )
+    parser.add_argument(
+        '--independent-grounding-data', type=str, default='results/independent_grounding_data.pkl',
+        help='path to independent_grounding_data.pkl'
     )
 
     parser.add_argument(
@@ -92,18 +97,24 @@ def main(args):
 
     assert task in [
         None,
-        'map_to_mimiciii',
+        # 'map_to_mimiciii',
         'encode_ptbxl',
         'instantiate_template',
         'manifest'
     ]
     if task is None:
-        print('[1] Map PTB-XL to MIMIC-III')
-        mapped_ptbxl = map_to_mimiciii(args.ptbxl_dir, args.mimic_dir)
-        print('[2] Encode mapped PTB-XL database')
-        encoded_ptbxl = encode_ptbxl(args.ptbxl_dir, ptbxl_database=mapped_ptbxl)
+        # print('[1] Map PTB-XL to MIMIC-III')
+        # mapped_ptbxl = map_to_mimiciii(args.ptbxl_dir, args.mimic_dir)
+        ptbxl_database = pd.read_csv(os.path.join(args.ptbxl_dir, "ptbxl_database.csv"))
+        ptbxl_database = ptbxl_database[ptbxl_database["validated_by_human"]]
+        ptbxl_database["report"] = (
+            ptbxl_database["report"].map(lambda x: x.replace("ekg", "ecg").replace(".", ""))
+        )
+        print('[2] Encode PTB-XL database')
+        encoded_ptbxl = encode_ptbxl(args.ptbxl_dir, ptbxl_database=ptbxl_database)
         print('[3] Instantiate templates based on the encoded PTB-XL')
-        sampled_data, grounding_data = instantiate_template(
+
+        sampled_data, derived_grounding_data, independent_grounding_data = instantiate_template(
             ptbxl_dir=args.ptbxl_dir,
             ptbxl_data_dir=args.ptbxl_data_dir,
             template_dir=args.template_dir,
@@ -115,11 +126,15 @@ def main(args):
             answer_encode=args.answer_encode
         )
         print('[4] Prepare manifest for the sampled data')
-        manifest(sampled_data, grounding_data, args.dest)
-    elif task == 'map_to_mimiciii':
-        map_to_mimiciii(args.ptbxl_dir, args.mimic_dir)
+        manifest(sampled_data, derived_grounding_data, independent_grounding_data, args.dest)
+    # elif task == 'map_to_mimiciii':
+    #     map_to_mimiciii(args.ptbxl_dir, args.mimic_dir)
     elif task == 'encode_ptbxl':
-        ptbxl_database = pd.read_csv(args.ptbxl_db)
+        ptbxl_database = pd.read_csv(os.path.join(args.ptbxl_dir, "ptbxl_database.csv"))
+        ptbxl_database = ptbxl_database[ptbxl_database["validated_by_human"]]
+        ptbxl_database["report"] = (
+            ptbxl_database["report"].map(lambda x: x.replace("ekg", "ecg").replace(".", ""))
+        )
 
         encode_ptbxl(args.ptbxl_dir, ptbxl_database)
     elif task == 'instantiate_template':
@@ -139,9 +154,11 @@ def main(args):
     elif task == 'manifest':
         with open(args.sampled_data, 'rb') as f:
             sampled_data = pickle.load(f)
-        with open(args.grounding_data, "rb") as f:
-            grounding_data = pickle.load(f)
-        manifest(sampled_data, grounding_data, args.dest)
+        with open(args.derived_grounding_data, "rb") as f:
+            derived_grounding_data = pickle.load(f)
+        with open(args.independent_grounding_data, "rb") as f:
+            independent_grounding_data = pickle.load(f)
+        manifest(sampled_data, derived_grounding_data, independent_grounding_data, args.dest)
 
 if __name__ == "__main__":
     parser = get_parser()

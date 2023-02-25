@@ -8,6 +8,9 @@ from itertools import combinations
 import numpy as np
 import pandas as pd
 
+from typing import List, Dict
+from tqdm import tqdm
+
 def instantiate_template(
     ptbxl_dir,
     ptbxl_data_dir,
@@ -23,7 +26,7 @@ def instantiate_template(
     pd.set_option('mode.chained_assignment', None)
 
     assert valid_percent + test_percent <= 1.0, (
-        '`--valid_percent` + `--test_pecent` shuold not exceed 1.0'
+        '`--valid_percent` + `--test_percent` shuold not exceed 1.0'
     )
     assert answer_encode in ['multi-label', 'text'], (
         f'invalid --answer_encode: {answer_encode}. '
@@ -261,7 +264,10 @@ def instantiate_template(
         "high qrs voltage": "HVOLT",
         "t-wave abnormality": "TAB_",
         "non-specific st elevation": "STE_",
-        "myocardial infarction": ["IMI", "ILMI", "IPMI", "IPLMI", "AMI", "ASMI", "ALMI", "LMI", "PMI"],
+        "myocardial infarction": [
+            "IMI", "ILMI", "IPMI", "IPLMI", "AMI", "ASMI", "ALMI", "LMI",
+            "PMI", "INJAS", "INJIN", "INJIL", "INJAS", "INJAL", "INJLA"
+        ],
         "ischemic": ["ISC_", "ISCAL", "ISCAS", "ISCLA", "ISCAN", "ISCIN", "ISCIL"],
         "subendocardial injury": ["INJIN", "INJIL", "INJAS", "INJAL", "INJLA"]
     }
@@ -270,7 +276,7 @@ def instantiate_template(
         "static noise": "STATIC",
         "burst noise": "BURST",
         "baseline drift": "DRIFT",
-        "electrode problems": "ELECT"
+        "electrodes problems": "ELECT"
     }
 
     templates = pd.read_csv(os.path.join(template_dir, 'type1QA_templates.csv'))
@@ -302,29 +308,10 @@ def instantiate_template(
         'lead I', 'lead II', 'lead III', 'lead aVR', 'lead aVL', 'lead aVF',
         'lead V1', 'lead V2', 'lead V3', 'lead V4', 'lead V5', 'lead V6'
     ]
-
-    ###############################################################################################
-    # numeric_ranges = {
-    #     "rr_interval": [],
-    #     "p_duration": [],
-    #     "pr_interval": [],
-    #     "qrs_duration": [],
-    #     "qt_interval": [],
-    #     "qt_corrected": []
-    # }
-    # n_buckets = 5
-    # q = np.arange(n_buckets + 1)
-    # q = q * 100 / q[-1]
-    # q = np.concatenate([[1., 99.], q])
-    # q.sort()
-    # q = q[1:-1]
-    # for k in numeric_ranges.keys():
-    #     v = sum(data["train"][~data["train"][k].isna()][k].to_list(), [])
-    #     v.sort()
-    #     percentiles = [round(p, 3) for p in np.percentile(v, q)]
-    #     numeric_ranges[k] = [(percentiles[i], percentiles[i+1]) for i in range(len(percentiles)-1)]
-    # breakpoint()
-    ###############################################################################################
+    lead_groups = {
+        "limb leads": ["lead I", "lead II", "lead III", "lead aVR", "lead aVL", "lead aVF"],
+        "chest leads": ["lead V1", "lead V2", "lead V3", "lead V4", "lead V5", "lead V6"]
+    }
 
     if tokenize:
         from transformers import BertTokenizer
@@ -335,13 +322,13 @@ def instantiate_template(
     qid_type = dict()
     for split in splits:
         qid = 0
-        for i, template in templates.iterrows():
-            print(f"Sample {split} for template: {i+1} / {len(templates)}")
+        print(f"Sample {split} examples for each template")
+        for i, template in tqdm(templates.iterrows(), total=len(templates)):
             assigned_ecgs = []
 
             iterate_over_leads = False
-            vars = [x.group() for x in re.finditer(r'(?<=\$\{)[a-zA-Z_]+(?=\d?\})', template['template'])]
-            if 'lead' in vars:
+            vars = [x.group() for x in re.finditer(r'(?<=\$\{)[a-zA-Z_]+(?=\d?\})', template["template"])]
+            if "lead" in vars:
                 vars.remove('lead')
                 iterate_over_leads = True
 
@@ -358,8 +345,20 @@ def instantiate_template(
             for candidate in candidates:
                 sampled = []
                 if iterate_over_leads:
-                    for l in lead_names:
-                        _sampled, seed = sample(
+                    if template["question_type1"] == "verify" and candidate in ["LVOLT", "HVOLT", "VCLVH"]:
+                        leads = ["limb leads", "chest leads"]
+                    else:
+                        leads = lead_names
+                        # if template["question_type1"] == "retrieve":
+                        #     if "LVOLT" in candidate:
+                            #     breakpoint()
+                        #     if "HVOLT" in candidate:
+                            #     breakpoint()
+                        #     if "VCLVH" in candidate:
+                            #     breakpoint()
+
+                    for l in leads:
+                        sampled_, seed = sample(
                             data[split],
                             candidate,
                             template,
@@ -371,14 +370,15 @@ def instantiate_template(
                             lead=l,
                             split=split,
                             lead_names=lead_names,
+                            lead_groups=lead_groups,
                             cnt_threshold=cnt_threshold,
                             n=5 if split == 'train' else 3,
                             question_id=qid,
                             seed=seed,
                         )
-                        sampled.append(_sampled)
+                        sampled.append(sampled_)
                 else:
-                    _sampled, seed = sample(
+                    sampled_, seed = sample(
                         data[split],
                         candidate,
                         template,
@@ -394,7 +394,7 @@ def instantiate_template(
                         question_id=qid,
                         seed=seed,
                     )
-                    sampled.append(_sampled)
+                    sampled.append(sampled_)
 
                 for s in sampled:
                     if s is not None:
@@ -494,8 +494,10 @@ def instantiate_template(
     scp_codes_full_names.extend([category_to_name[x] for x in scp_codes_superclass])
     scp_codes_full_names.extend(["myocardial infarction", "ischemic", "subendocardial injury"])
     sampled_data = {}
-    grounding_data = {}
-    grounding_tuples = {}
+    derived_grounding_data = {}
+    derived_grounding_tuples = {}
+    independent_grounding_data = {}
+    independent_grounding_tuples = {}
     grounding_qid = {}
     entire_grounding_qid = {}
     grounding_qid_i = 0
@@ -505,16 +507,11 @@ def instantiate_template(
         pd.DataFrame(sampled_list[split]).to_pickle(os.path.join('results', split +'.pkl'))
         pd.DataFrame(sampled_list[split]).to_csv(os.path.join('results', split + '.csv'), index=False)
         samples = []
-        grounding_samples = []
-        verify_cnt = 0
-        choose_cnt = 0
-        retrieve_cnt = 0
-        none_cnt = 0
-        none_verify_cnt = 0
-        none_choose_cnt = 0
-        none_retrieve_cnt = 0
-        idx = 0
-        for s in sampled_list[split]:
+        derived_grounding_samples = []
+        independent_grounding_samples = []
+        sample_id = 0
+        print(f"[{split}] Convert QA samples into appropriate data formats (QA data, grounding data)")
+        for s in tqdm(sampled_list[split], total=len(sampled_list[split])):
             qtype = templates[templates['template_id'] == s['template_id']].iloc[0]['question_type1']
             atype = templates[templates['template_id'] == s['template_id']].iloc[0]['question_type2']
             category = templates[templates['template_id'] == s['template_id']].iloc[0]["subcategory"]
@@ -548,223 +545,84 @@ def instantiate_template(
                 else:
                     attr = candidate
 
-            # if "any_" + category in subcategory:
-            #     attr.append(category_to_name["any_" + category])
-
             for (ecg_id, ans), size in zip(s['sampled_ids'].items(), s['sizes'].values()):
                 question = s['question']
                 if qtype == 'choose':
+                    attr = candidate.copy()
                     if random.random() > 0.5:
                         question = swap_words(question, candidate[0], candidate[1])
                         attr[0], attr[1] = attr[1], attr[0]
                         ans = ans[::-1]
 
-                # construct grounding dataset
-                grounding_ans = None
-                grounding_attr = None
-                grounding_obj = None
-                if qtype == "verify":
-                    if ans[0] == "not sure":
-                        pass
-                    else:
-                        grounding_ans = ans.copy()
-                        grounding_attr = attr.copy()
-                        if is_numeric:
-                            grounding_attr = [x + " of " + category for x in grounding_attr]
-                        # in case of verifying existence of an attribute in a "specific lead"
-                        if lead is not None:
-                            grounding_obj = [lead]
-                        # in case of verifying existence of an attribute from the "entire" ecg
-                        else:
-                            matched_lead_position = re.search(r"(?<=in ).* leads", attr[0])
-                            if matched_lead_position is not None:
-                                matched_lead_position = matched_lead_position.group()
-                                if "frontal" in matched_lead_position:
-                                    grounding_obj = ["entire"]
-                                else:
-                                    grounding_obj = [matched_lead_position]
-                            else:
-                                grounding_obj = ["entire"]
-                elif qtype == "choose":
-                    if "excluding uncertain symptoms" in template:
-                        grounding_attr = list(set(ans) - {"none"})
-                        grounding_ans = ["yes"] * len(grounding_attr)
-                    elif "including uncertain symptoms" in template:
-                        grounding_attr = list(set(attr) - set(ans))
-                        grounding_ans = ["no"] * len(grounding_attr)
-                    else:
-                        grounding_attr = attr.copy()
-                        grounding_ans = ["yes" if x in ans else "no" for x in grounding_attr]
-                        if is_numeric:
-                            grounding_attr = [x + " of " + category for x in grounding_attr]
-
-                    # in case of choosing an attribute in a "specific lead"
-                    # note that we are assuming there is no question of choosing a specific "lead",
-                    # which means that `lead` should be not ``None`` if `lead` in question
-                    if "${lead}" in template:
-                        assert lead is not None
-                        grounding_obj = [lead] * len(grounding_attr)
-                    # in case of choosing an attribute from the "entire" ecg
-                    else:
-                        grounding_obj = []
-                        for attribute in grounding_attr:
-                            matched_lead_position = re.search(r"(?<=in ).* leads", attribute)
-                            if matched_lead_position is not None:
-                                matched_lead_position = matched_lead_position.group()
-                                if "frontal" in matched_lead_position:
-                                    grounding_obj.append("entire")
-                                else:
-                                    grounding_obj.append(matched_lead_position)
-                            else:
-                                grounding_obj.append("entire")
-                elif qtype == "retrieve":
-                    # in case of retrieving attributes in a specific lead
-                    if "${lead}" in template:
-                        assert lead is not None
-                        grounding_ans = ["yes" if x in ans else "no" for x in attr]
-                        grounding_attr = attr.copy()
-                        grounding_obj = [lead] * len(attr)
-                    # in case of retrieving leads of a specific attribute
-                    elif "lead" in category:
-                        grounding_ans = ["yes" if x in ans else "no" for x in lead_names]
-                        grounding_attr = attr * len(grounding_ans)
-                        grounding_obj = lead_names
-                    # in case of retrieving attributes from the entire ecg
-                    else:
-                        if "excluding uncertain symptoms" in template:
-                            grounding_attr = list(set(ans) - {"none"})
-                            grounding_ans = ["yes"] * len(grounding_attr)
-                        elif "including uncertain symptoms" in template:
-                            grounding_attr = list(set(attr) - set(ans))
-                            grounding_ans = ["no"] * len(grounding_attr)
-                        else:
-                            grounding_attr = attr.copy()
-                            grounding_ans = ["yes" if x in ans else "no" for x in grounding_attr]
-                            if is_numeric:
-                                grounding_attr = [x + " of " + category for x in grounding_attr]
-
-                        grounding_obj = []
-                        for attribute in grounding_attr:
-                            matched_lead_position = re.search(r"(?<=in ).* leads", attribute)
-                            if matched_lead_position is not None:
-                                matched_lead_position = matched_lead_position.group()
-                                if "frontal" in matched_lead_position:
-                                    grounding_obj.append("entire")
-                                else:
-                                    grounding_obj.append(matched_lead_position)
-                            else:
-                                grounding_obj.append("entire")
-
-                if grounding_attr is not None:
-                    for i in range(len(grounding_attr)):
-                        grounding_attr[i] = re.sub(
-                            r"myocardial infarction in.* leads", "myocardial infarction", grounding_attr[i]
-                        )
-                        grounding_attr[i] = re.sub(
-                            r"subendocardial injury in.* leads", "subendocardial injury", grounding_attr[i]
-                        )
-                        grounding_attr[i] = re.sub(
-                            r"ischemic in.* leads", "ischemic", grounding_attr[i]
-                        )
-
-                question_str = question
-                if tokenize:
-                    question = tokenizer.encode(question.lower(), add_special_tokens=False)
-                    if answer_encode == 'text':
-                        ans = tokenizer.encode(', '.join(ans.lower()), add_special_tokens=False)
-
-                if answer_encode == 'multi-label':
-                    ans = [1 if x in ans else 0 for x in classes]
-                    if grounding_ans is not None:
-                        positive_idcs = [classes.index(x) for x in grounding_ans]
-
-                if (
-                    (answer_encode == "multi-label" and sum(ans) == 0)
-                    or (answer_encode == "text" and ans[0] == "none")
-                ):
-                    none_cnt += 1
-                    if qtype == 'verify':
-                        none_verify_cnt += 1
-                    elif qtype == 'choose':
-                        none_choose_cnt += 1
-                    elif qtype == 'retrieve':
-                        none_retrieve_cnt += 1
-
-                if qtype == 'verify':
-                    question_type = 0
-                elif qtype == 'choose':
-                    question_type = 1
-                elif qtype == 'retrieve':
-                    question_type = 2
-
-                if atype == "multi-label":
-                    answer_type = 0
-                elif atype == "multi-class":
-                    answer_type = 1
-
-                if answer_encode == "multi-label":
-                    if qtype == "choose":
-                        class_idcs = [classes.index(a) for a in attr]
-                        class_idcs.sort()
-                    else:
-                        class_idcs = [
-                            i for i, c in enumerate(classes)
-                            if c in classes_for_each_template[s["template_id"]]
-                        ]
-                else:
-                    class_idcs = []
-
-                ecg_path = os.path.join(
-                    ptbxl_data_dir,
-                    'records500',
-                    f'{int(ecg_id / 1000) * 1000 :05d}',
-                    f'{ecg_id:05d}_hr'
+                samples.append(
+                    get_qa_sample(
+                        ecg_id=ecg_id,
+                        attr=attr,
+                        question=question,
+                        ans=ans,
+                        size=size,
+                        qtype=qtype,
+                        atype=atype,
+                        ptbxl_data_dir=ptbxl_data_dir,
+                        sample_id=sample_id,
+                        template_id=s["template_id"],
+                        question_id=s["question_id"],
+                        classes=classes,
+                        classes_for_each_template=classes_for_each_template,
+                        tokenizer=tokenizer
+                    )
                 )
+                sample_id += 1
 
-                if grounding_attr is not None and len(grounding_attr) > 0:
-                    grounding_samples.append({
-                        "ecg_id": [ecg_id] * len(grounding_ans),
-                        "attr": grounding_attr,
-                        "obj": grounding_obj,
-                        "answer": positive_idcs if answer_encode == 'multi-label' else grounding_ans,
-                        "size": [size] * len(grounding_ans),
-                        # "category": [category] * len(grounding_ans),
-                        # "ecg_path": [ecg_path] * len(grounding_ans),
-                        # "qtype": [0] * len(grounding_ans),
-                        # "atype": [1] * len(grounding_ans),
-                        # "classes": [[0, 1] for _ in range(len(grounding_ans))],
-                    })
+                # derive grounding dataset
+                metadata = encoded_ptbxl[encoded_ptbxl["ecg_id"] == ecg_id].iloc[0]
+                grounding_sample = convert_to_grounding_format(
+                    ecg_id=ecg_id,
+                    lead=lead,
+                    attr=attr,
+                    ans=ans,
+                    size=size,
+                    template=template,
+                    category=category,
+                    qtype=qtype,
+                    is_numeric=is_numeric,
+                    lead_names=lead_names,
+                    classes=classes,
+                    metadata=metadata,
+                    per_lead_attr_scp_code=per_lead_attr_scp_code,
+                    per_lead_attr_noise_code=per_lead_attr_noise_code,
+                    per_lead_to_entire=True,
+                )
+                if grounding_sample is not None:
+                    derived_grounding_samples.append(grounding_sample)
 
-                samples.append({
-                    'template_id': s['template_id'],
-                    'question_id': s['question_id'],
-                    "question_str": question_str,
-                    "qtype": question_type,
-                    "atype": answer_type,
-                    'sample_id': idx,
-                    'question': question,
-                    'answer': ans.copy(),
-                    "classes": class_idcs,
-                    'ecg_path': ecg_path,
-                    'ecg_id': ecg_id,
-                    'size': size,
-                })
+            # construct independent grounding dataset (from verify questions)
+            for (ecg_id, ans), size in zip(
+                s["total_sampled_ids"].items(), s["total_sampled_sizes"].values()
+            ):
+                assert qtype == "verify", qtype
+                question = s["question"]
 
-                if qtype == 'verify':
-                    verify_cnt += 1
-                elif qtype == 'choose':
-                    choose_cnt += 1
-                elif qtype == 'retrieve':
-                    retrieve_cnt += 1
-
-                idx += 1
-        print()
-        print(f"{split}_ecg: {len(data[split])}")
-        print(f'{split}_none: {none_cnt} / {idx}')
-        print(f'{split}_none_verify: {none_verify_cnt} / {none_cnt}')
-        print(f'{split}_none_choose: {none_choose_cnt} / {none_cnt}')
-        print(f'{split}_none_retrieve: {none_retrieve_cnt} / {none_cnt}')
-        print(f'{split} verify: {verify_cnt}, choose: {choose_cnt}, retrieve: {retrieve_cnt}')
+                metadata = encoded_ptbxl[encoded_ptbxl["ecg_id"] == ecg_id].iloc[0]
+                grounding_sample = convert_to_grounding_format(
+                    ecg_id=ecg_id,
+                    lead=lead,
+                    attr=attr,
+                    ans=ans,
+                    size=size,
+                    template=template,
+                    category=category,
+                    qtype=qtype,
+                    is_numeric=is_numeric,
+                    lead_names=lead_names,
+                    classes=classes,
+                    metadata=metadata,
+                    per_lead_attr_scp_code=per_lead_attr_scp_code,
+                    per_lead_attr_noise_code=per_lead_attr_noise_code,
+                    per_lead_to_entire=False
+                )
+                if grounding_sample is not None:
+                    independent_grounding_samples.append(grounding_sample)
 
         with open(os.path.join('results', split + '.json'), 'w') as f:
             json.dump(
@@ -776,82 +634,96 @@ def instantiate_template(
                 }, f, indent=4
             )
 
-        grounding_data[split] = []
+        derived_grounding_data[split] = []
         # linearize grounding samples
-        if len(grounding_samples) > 0:
-            grounding_tuples[split] = [
-                (ecg_id, attr, obj, ans, size)
-                for s in grounding_samples for ecg_id, attr, obj, ans, size in zip(
-                    s["ecg_id"], s["attr"], s["obj"], s["answer"], s["size"]
+        if len(derived_grounding_samples) > 0:
+            print(f"[{split}] Linearize and extract derived grounding samples")
+
+            derived_grounding_tuples[split] = linearize_grounding_dict(derived_grounding_samples)
+            for ecg_id, attr, obj, positive_idx, size in tqdm(
+                derived_grounding_tuples[split], total=len(derived_grounding_tuples[split])
+            ):
+                grounding_sample = get_grounding_sample(
+                    ecg_id=ecg_id,
+                    attr=attr,
+                    obj=obj,
+                    positive_idx=positive_idx,
+                    size=size,
+                    numeric_features=numeric_features,
+                    scp_codes_full_names=scp_codes_full_names,
+                    ptbxl_data_dir=ptbxl_data_dir,
+                    classes=classes,
+                    tokenizer=tokenizer
                 )
-            ]
-            # only take unique tuples
-            grounding_tuples[split] = list(set(grounding_tuples[split]))
-
-            for ecg_id, attr, obj, ans, size in grounding_tuples[split]:
-                if (numeric_feature := re.search("|".join(numeric_features), attr)) is not None:
-                    numeric_feature = " ".join(numeric_feature.group().split("_"))
-                    adj = "lowest" if "min" in attr else "highest"
-                    level = "below" if "below" in attr else "within" if "within" in attr else "above"
-                    question = (
-                        "does the "+ adj + " " + numeric_feature + " of this ecg fall "
-                        + level + " the normal range"
-                    )
-                elif attr == "normal ecg":
-                    question = "is this a normal ecg"
-                elif attr in scp_codes_full_names:
-                    question = "does this ecg show symptoms of " + attr
+                if grounding_sample["question_str"] in grounding_qid:
+                    grounding_sample["question_id"] = grounding_qid[grounding_sample["question_str"]]
                 else:
-                    question = "does this ecg show " + attr
-
-                assert obj is not None
-                if obj == "entire":
-                    question += "?"
-                else:
-                    question += " in " + obj + "?"
-
-                if question in grounding_qid:
-                    question_id = grounding_qid[question]
-                else:
-                    question_id = grounding_qid_i
-                    grounding_qid[question] = grounding_qid_i
+                    grounding_sample["question_id"] = grounding_qid_i
+                    grounding_qid[grounding_sample["question_str"]] = grounding_qid_i
                     if obj == "entire":
-                        entire_grounding_qid[question] = grounding_qid_i
+                        entire_grounding_qid[grounding_sample["question_str"]] = grounding_qid_i
                     grounding_qid_i += 1
-                question_str = question
 
-                if tokenize:
-                    question = tokenizer.encode(question.lower(), add_special_tokens=False)
+                derived_grounding_data[split].append(grounding_sample)
 
-                if answer_encode == 'multi-label':
-                    answer = [0] * len(classes)
-                    answer[ans] = 1
-                    answer_bin = 0 if classes[ans] == "no" else 1
-                else:
-                    answer = ans
-                    answer_bin = 0 if ans == "no" else 1
+        #XXX check the uniqueness of 3-tuple (ecg_id, object, attribute)
+        tuples_ = [(x['ecg_id'], x['obj'],x['attribute']) for x in derived_grounding_data[split]]
+        if len(tuples_) == len(set(tuples_)):
+            print("Pass")
+        else:
+            breakpoint()
 
-                ecg_path = os.path.join(
-                    ptbxl_data_dir,
-                    'records500',
-                    f'{int(ecg_id / 1000) * 1000 :05d}',
-                    f'{ecg_id:05d}_hr'
-                )
-                grounding_data[split].append({
-                    "question_id": question_id,
-                    "question_str": question_str,
-                    "qtype": 0, # verify
-                    "atype": 1, # multi-class
-                    "question": question,
-                    "attribute": attr,
-                    "answer": answer,
-                    "answer_bin": answer_bin,
-                    "classes": [0,1],
-                    "ecg_path": ecg_path,
-                    "ecg_id": ecg_id,
-                    "size": size,
-                    "obj": obj,
-                })
+        independent_grounding_data[split] = []
+        if len(independent_grounding_samples) > 0:
+            print(f"[{split}] Linearize and extract independent grounding samples")
+
+            independent_grounding_tuples[split] = linearize_grounding_dict(
+                independent_grounding_samples
+            )
+            num_positives_per_attr_obj = {}
+            for ecg_id, attr, obj, positive_idx, size in independent_grounding_tuples[split]:
+                if (attr, obj) not in num_positives_per_attr_obj:
+                    num_positives_per_attr_obj[(attr, obj)] = 0
+                if classes[positive_idx] == "yes":
+                    num_positives_per_attr_obj[(attr, obj)] += 1
+
+            sampled_num_negatives_per_attr_obj = {k: 0 for k in num_positives_per_attr_obj.keys()}
+            for ecg_id, attr, obj, positive_idx, size in tqdm(
+                independent_grounding_tuples[split], total=len(independent_grounding_tuples[split])
+            ):
+                if (
+                    classes[positive_idx] == "yes"
+                    or sampled_num_negatives_per_attr_obj[(attr, obj)] < (
+                        num_positives_per_attr_obj[(attr, obj)]
+                    )
+                ):
+                    if classes[positive_idx] == "no":
+                        sampled_num_negatives_per_attr_obj[(attr, obj)] += 1
+                    grounding_sample = get_grounding_sample(
+                        ecg_id=ecg_id,
+                        attr=attr,
+                        obj=obj,
+                        positive_idx=positive_idx,
+                        size=size,
+                        numeric_features=numeric_features,
+                        scp_codes_full_names=scp_codes_full_names,
+                        ptbxl_data_dir=ptbxl_data_dir,
+                        classes=classes,
+                        tokenizer=tokenizer
+                    )
+                    if grounding_sample["question_str"] in grounding_qid:
+                        grounding_sample["question_id"] = grounding_qid[grounding_sample["question_str"]]
+                    else:
+                        raise ValueError(grounding_sample["question_str"])
+
+                    independent_grounding_data[split].append(grounding_sample)
+
+        #XXX check the uniqueness of 3-tuple (ecg_id, object, attribute)
+        tuples_ = [(x['ecg_id'], x['obj'],x['attribute']) for x in independent_grounding_data[split]]
+        if len(tuples_) == len(set(tuples_)):
+            print("Pass")
+        else:
+            breakpoint()
 
         sampled_data[split] = {
             'tokenized': tokenize,
@@ -864,111 +736,110 @@ def instantiate_template(
     question = list(grounding_qid.keys())
     grounding_questions = pd.DataFrame({"index": index, "question":question})
     grounding_questions.set_index("index", inplace=True)
-    per_lead_to_entire_grounding = {"train": [], "valid": [], "test": []}
-    print("copy and transfer per-lead grounding samples to entire grounding")
-    for split in grounding_data:
-        print(split)
-        grounding_qid_i = len(grounding_questions)
-        per_lead_to_entire = dict()
-        for s in grounding_data[split]:
-            if s["obj"] != "entire":
-                if (s["ecg_id"], s["attribute"]) not in per_lead_to_entire:
-                    per_lead_to_entire[(s["ecg_id"], s["attribute"])] = []
-                per_lead_to_entire[(s["ecg_id"], s["attribute"])].append(s)
+    # for split in derived_grounding_data:
+    #     print(f"[{split}] copy and transfer per-lead grounding samples to entire grounding")
+    #     reduced_grounding_tuples = list(map(lambda x: (x[0], x[1], x[2]), derived_grounding_tuples[split]))
+    #     grounding_qid_i = len(grounding_questions)
+    #     per_lead_to_entire = dict()
+    #     for s in derived_grounding_data[split]:
+    #         if s["obj"] != "entire":
+    #             if (s["ecg_id"], s["attribute"]) not in per_lead_to_entire:
+    #                 per_lead_to_entire[(s["ecg_id"], s["attribute"])] = []
+    #             per_lead_to_entire[(s["ecg_id"], s["attribute"])].append(s)
 
-        final_per_lead_to_entire = []
-        for (ecg_id, attr), samples in per_lead_to_entire.items():
-            s = samples[0].copy()
-            s["question_str"] = s["question_str"].split(" in " + s["obj"])[0] + "?"
-            if s["question_str"] in entire_grounding_qid:
-                s["question_id"] = entire_grounding_qid[s["question_str"]]
-            else:
-                entire_grounding_qid[s["question_str"]] = grounding_qid_i
-                s["question_id"] = grounding_qid_i
-                grounding_questions.loc[grounding_qid_i] = s["question_str"]
-                grounding_qid_i += 1
-            s["question"] = tokenizer.encode(s["question_str"], add_special_tokens=False)
-            s["original_obj"] = s["obj"]
-            s["obj"] = "entire"
+    #     final_per_lead_to_entire = []
+    #     for (ecg_id, attr), samples in tqdm(per_lead_to_entire.items(), total=len(per_lead_to_entire)):
+    #         s = samples[0].copy()
+    #         s["question_str"] = s["question_str"].split(" in " + s["obj"])[0] + "?"
+    #         if s["question_str"] in entire_grounding_qid:
+    #             s["question_id"] = entire_grounding_qid[s["question_str"]]
+    #         else:
+    #             entire_grounding_qid[s["question_str"]] = grounding_qid_i
+    #             s["question_id"] = grounding_qid_i
+    #             grounding_questions.loc[grounding_qid_i] = s["question_str"]
+    #             grounding_qid_i += 1
+    #         s["question"] = tokenizer.encode(s["question_str"], add_special_tokens=False)
+    #         s["original_obj"] = s["obj"]
+    #         s["obj"] = "entire"
 
-            metadata = encoded_ptbxl[encoded_ptbxl["ecg_id"] == ecg_id]
-            flag = False
-            if attr in per_lead_attr_scp_code:
-                attr_code = per_lead_attr_scp_code[attr]
-                scp_codes = eval(metadata["scp_codes"].iloc[0])
+    #         metadata = encoded_ptbxl[encoded_ptbxl["ecg_id"] == ecg_id]
+    #         flag = False
+    #         if attr in per_lead_attr_scp_code:
+    #             attr_code = per_lead_attr_scp_code[attr]
+    #             scp_codes = eval(metadata["scp_codes"].iloc[0])
 
-                if isinstance(attr_code, list):
-                    for c in attr_code:
-                        if c in scp_codes:
-                            flag = True
-                            break
-                else:
-                    if attr_code in scp_codes:
-                        flag = True
-            elif attr in per_lead_attr_noise_code:
-                attr_code = per_lead_attr_noise_code[attr]
-                if metadata[attr_code].iloc[0] is not None:
-                    flag = True
+    #             if isinstance(attr_code, list):
+    #                 for c in attr_code:
+    #                     if c in scp_codes:
+    #                         flag = True
+    #                         break
+    #             else:
+    #                 if attr_code in scp_codes:
+    #                     flag = True
+    #         elif attr in per_lead_attr_noise_code:
+    #             attr_code = per_lead_attr_noise_code[attr]
+    #             if metadata[attr_code].iloc[0] is not None:
+    #                 flag = True
 
-            answer = np.zeros(len(s["answer"]), dtype=int)
-            if flag:
-                answer[1] = 1
-                s["answer_bin"] = 1
-            else:
-                answer[0] = 1
-                s["answer_bin"] = 0
-            s["answer"] = list(answer)
-            if (ecg_id, attr, "entire", s["answer_bin"], s["size"]) not in grounding_tuples[split]:
-                grounding_tuples[split].append((ecg_id, attr, "entire", s["answer_bin"], s["size"]))
-                final_per_lead_to_entire.append(s)
+    #         answer = np.zeros(len(s["answer"]), dtype=int)
+    #         if flag:
+    #             answer[1] = 1
+    #             s["answer_bin"] = 1
+    #         else:
+    #             answer[0] = 1
+    #             s["answer_bin"] = 0
+    #         s["answer"] = list(answer)
+    #         if (ecg_id, attr, "entire") not in reduced_grounding_tuples:
+    #             final_per_lead_to_entire.append(s)
 
-            #XXX
-            for sample_ in samples:
-                s = s.copy()
-                s["original_obj"] = sample_["obj"]
-                per_lead_to_entire_grounding[split].append(s)
-
-        grounding_data[split].extend(final_per_lead_to_entire)
+    #     derived_grounding_data[split].extend(final_per_lead_to_entire)
 
     test_num_grounding_per_attribute_obj = dict()
-    for s in grounding_data["test"]:
+    for s in derived_grounding_data["test"]:
         if (s["attribute"], s["obj"]) not in test_num_grounding_per_attribute_obj:
             test_num_grounding_per_attribute_obj[(s["attribute"], s["obj"])] = 0
 
         if s["answer_bin"] == 1:
             test_num_grounding_per_attribute_obj[(s["attribute"], s["obj"])] += 1
     exclude = [key for key, value in test_num_grounding_per_attribute_obj.items() if value < 10]
-    for split in grounding_data:
-        grounding_data[split] = [
-            s for s in grounding_data[split]
+
+    for split in derived_grounding_data:
+        derived_grounding_data[split] = [
+            s for s in derived_grounding_data[split]
             if (
                 (s["attribute"], s["obj"]) not in exclude
                 and (s["attribute"], s["obj"]) in test_num_grounding_per_attribute_obj
             )
         ]
-        print(f"{split}_grounding: {len(grounding_data[split])}")
+
+    for split in independent_grounding_data:
+        independent_grounding_data[split] = [
+            s for s in independent_grounding_data[split]
+            if (
+                (s["attribute"], s["obj"]) not in exclude
+                and (s["attribute"], s["obj"]) in test_num_grounding_per_attribute_obj
+            )
+        ]
 
     grounding_questions.to_csv("results/grounding_questions.csv")
 
-    grounding_classes = list(set(x["attribute"] for x in grounding_data["test"]))
+    grounding_classes = list(set(x["attribute"] for x in derived_grounding_data["test"]))
     grounding_classes.sort()
+
     pd.DataFrame(
         {'index': i, 'class': c} for i, c in enumerate(grounding_classes)
     ).to_csv(os.path.join('results', 'grounding_class.csv'), index=False)
 
-    # numeric_attr_id = {}
-    # for i, gc in enumerate(grounding_classes):
-    #     cond = (
-    #         ["max_" + x for x in numeric_features] + ["min_" + x for x in numeric_features]
-    #     )
-    #     numeric_feature = re.search("(?<=\()" + "|".join(cond) + "(?=\))", gc)
-    #     if numeric_feature is not None:
-    #         numeric_feature = numeric_feature.group()
-    #         if numeric_feature not in numeric_attr_id:
-    #             numeric_attr_id[numeric_feature] = i
+    for split in derived_grounding_data:
+        for i, s in enumerate(derived_grounding_data[split]):
+            # in case that the class (attribute) is present in train/valid set but not in test set
+            if s["attribute"] not in grounding_classes:
+                continue
 
-    for split in grounding_data:
-        for i, s in enumerate(grounding_data[split]):
+            s["target_idx"] = grounding_classes.index(s["attribute"])
+            s["attribute_id"] = s["target_idx"]
+    for split in independent_grounding_data:
+        for i, s in enumerate(independent_grounding_data[split]):
             # in case that the class (attribute) is present in train/valid set but not in test set
             if s["attribute"] not in grounding_classes:
                 continue
@@ -976,66 +847,348 @@ def instantiate_template(
             s["target_idx"] = grounding_classes.index(s["attribute"])
             s["attribute_id"] = s["target_idx"]
 
-            # if s["min_or_max"] != "":
-            #     min_or_max = s["min_or_max"]
-            #     numeric_feature = re.search(
-            #         "(?<=\()" + "|".join(numeric_ranges.keys()) + "(?=\))", s["attribute"]
-            #     ).group()
-            #     numeric_range = s["attribute"][len(numeric_feature)+3:]
-            #     s["target_idx"] = grounding_classes.index(
-            #         f"({min_or_max}_{numeric_feature}) {numeric_range}"
-            #     )
-            #     s["attribute_id"] = numeric_attr_id[f"{min_or_max}_{numeric_feature}"]
-            #     s["attribute"] = f"{min_or_max}_{numeric_feature}"
-
     with open(os.path.join('results', 'sampled_data.pkl'), 'wb') as f:
         pickle.dump(sampled_data, f)
-    with open(os.path.join('results', 'grounding_data.pkl'), 'wb') as f:
-        pickle.dump(grounding_data, f)
+    with open(os.path.join('results', 'derived_grounding_data.pkl'), 'wb') as f:
+        pickle.dump(derived_grounding_data, f)
+    with open(os.path.join('results', 'independent_grounding_data.pkl'), 'wb') as f:
+        pickle.dump(independent_grounding_data, f)
 
-    #XXX
-    for split in per_lead_to_entire_grounding:
-        per_lead_to_entire_grounding[split] = [
-            s for s in per_lead_to_entire_grounding[split]
-            if (
-                (s["attribute"], s["original_obj"]) not in exclude
-                and (s["attribute"], s["original_obj"]) in test_num_grounding_per_attribute_obj
-            )
+    return sampled_data, derived_grounding_data, independent_grounding_data
+
+def get_qa_sample(
+    ecg_id,
+    attr,
+    question,
+    ans,
+    size,
+    qtype,
+    atype,
+    ptbxl_data_dir,
+    sample_id,
+    template_id,
+    question_id,
+    classes,
+    classes_for_each_template,
+    tokenizer
+):
+    question_str = question
+    question = tokenizer.encode(question.lower(), add_special_tokens=False)
+
+    answer_str = ans.copy()
+    answer = [1 if x in ans else 0 for x in classes]
+    
+    if qtype == "verify":
+        question_type = 0
+    elif qtype == "choose":
+        question_type = 1
+    elif qtype == "retrieve":
+        question_type = 2
+    else:
+        raise ValueError(qtype)
+    
+    if atype == "multi-label":
+        answer_type = 0
+    elif atype == "multi-class":
+        answer_type = 1
+    else:
+        raise ValueError(atype)
+    
+    if qtype == "choose":
+        class_idcs = [classes.index(a) for a in attr]
+        class_idcs.sort()
+    else:
+        class_idcs = [
+            i for i, c in enumerate(classes)
+            if c in classes_for_each_template[template_id]
         ]
-        tmp = []
-        tmp_ids = []
-        for s in per_lead_to_entire_grounding[split]:
-            # in case that the class (attribute) is present in train/valid set but not in test set
-            if s["attribute"] not in grounding_classes:
-                continue
 
-            if (s["ecg_id"], s["attribute"]) not in tmp_ids:
-                tmp_ids.append((s["ecg_id"], s["attribute"]))
+    ecg_path = get_ptbxl_data_path(ecg_id, ptbxl_data_dir)
 
-                s["target_idx"] = grounding_classes.index(s["attribute"])
-                s["attribute_id"] = s["target_idx"]
+    return {
+        "sample_id": sample_id,
+        "template_id": template_id,
+        "question_id": question_id,
+        "question_str": question_str,
+        "answer_str": answer_str,
+        "qtype": question_type,
+        "atype": answer_type,
+        "question": question,
+        "answer": answer.copy(),
+        "classes": class_idcs,
+        "ecg_path": ecg_path,
+        "ecg_id": ecg_id,
+        "size": size
+    }
 
-                # if s["min_or_max"] != "":
-                #     min_or_max = s["min_or_max"]
-                #     numeric_feature = re.search(
-                #         "(?<=\()" + "|".join(numeric_ranges.keys()) + "(?=\))", s["attribute"]
-                #     ).group()
-                #     numeric_range = s["attribute"][len(numeric_feature)+3:]
-                #     s["target_idx"] = grounding_classes.index(
-                #         f"({min_or_max}_{numeric_feature}) {numeric_range}"
-                #     )
-                #     s["attribute_id"] = numeric_attr_id[f"{min_or_max}_{numeric_feature}"]
-                #     s["attribute"] = f"{min_or_max}_{numeric_feature}"
+def convert_to_grounding_format(
+    ecg_id,
+    lead,
+    attr,
+    ans,
+    size,
+    template,
+    category,
+    qtype,
+    is_numeric,
+    lead_names,
+    classes,
+    metadata,
+    per_lead_attr_scp_code,
+    per_lead_attr_noise_code,
+    per_lead_to_entire=False,
+):
+    assert ecg_id == metadata.ecg_id
 
-                tmp.append(s)
+    grounding_ans = None
+    grounding_attr = None
+    grounding_obj = None
 
-        per_lead_to_entire_grounding[split] = tmp
+    if qtype == "verify":
+        if ans[0] == "not sure":
+            return None
+        else:
+            if "excluding uncertain symptoms" in template:
+                if ans[0] == "no":
+                    return None
+                else:
+                    grounding_ans = ["yes"]
+            elif "including uncertain symptoms" in template:
+                if ans[0] == "yes":
+                    return None
+                else:
+                    grounding_ans = ["no"]
+            else:
+                grounding_ans = ans.copy()
 
-    with open(os.path.join("results", "per_lead_to_entire_grounding.pkl"), "wb") as f:
-        pickle.dump(per_lead_to_entire_grounding, f)
-    #XXX
+            grounding_attr = attr.copy()
+            if is_numeric:
+                grounding_attr = [x + " of " + category for x in grounding_attr]
 
-    return sampled_data, grounding_data, per_lead_to_entire_grounding
+            assert len(grounding_attr) == 1
+            # in case of verifying existence of an attribute in a "specific lead"
+            if lead is not None:
+                grounding_obj = [lead]
+            # in case of verifying existence of an attribute from the "entire" ecg
+            else:
+                grounding_obj = [parse_lead_position(attr[0])]
+    elif qtype == "choose":
+        if "excluding uncertain symptoms" in template:
+            grounding_attr = list(set(ans) - {"none"})
+            grounding_ans = ["yes"] * len(grounding_attr)
+        elif "including uncertain symptoms" in template:
+            grounding_attr = list(set(attr) - set(ans))
+            grounding_ans = ["no"] * len(grounding_attr)
+        else:
+            grounding_attr = attr.copy()
+            grounding_ans = ["yes" if x in ans else "no" for x in grounding_attr]
+            if is_numeric:
+                grounding_attr = [x + " of " + category for x in grounding_attr]
+
+        # in case of choosing an attribute in a "specific lead"
+        # note that we are assuming there is no question of choosing a specific "lead",
+        # which means that `lead` should be not ``None`` if `lead` in question
+        if "${lead}" in template:
+            assert lead is not None
+            grounding_obj = [lead] * len(grounding_attr)
+        # in case of choosing an attribute from the "entire" ecg
+        else:
+            grounding_obj = []
+            for attribute in grounding_attr:
+                grounding_obj.append(parse_lead_position(attribute))
+    elif qtype == "retrieve":
+        # in case of retrieving attributes in a specific lead
+        if "${lead}" in template:
+            assert lead is not None
+            grounding_ans = ["yes" if x in ans else "no" for x in attr]
+            grounding_attr = attr.copy()
+            grounding_obj = [lead] * len(attr)
+        # in case of retrieving leads of a specific attribute
+        elif "lead" in category:
+            grounding_ans = ["yes" if x in ans else "no" for x in lead_names]
+            grounding_attr = attr.copy() * len(grounding_ans)
+            grounding_obj = lead_names.copy()
+        # in case of retrieving attributes from the entire ecg
+        else:
+            if "excluding uncertain symptoms" in template:
+                grounding_attr = list(set(ans) - {"none"})
+                grounding_ans = ["yes"] * len(grounding_attr)
+            elif "including uncertain symptoms" in template:
+                grounding_attr = list(set(attr) - set(ans))
+                grounding_ans = ["no"] * len(grounding_attr)
+            else:
+                grounding_attr = attr.copy()
+                grounding_ans = ["yes" if x in ans else "no" for x in grounding_attr]
+                if is_numeric:
+                    grounding_attr = [x + " of " + category for x in grounding_attr]
+            
+            grounding_obj = []
+            for attribute in grounding_attr:
+                grounding_obj.append(parse_lead_position(attribute))
+    else:
+        raise ValueError(qtype)
+
+
+    for i in range(len(grounding_attr)):
+        if "myocardial infarction" in grounding_attr[i]:
+            grounding_attr[i] = re.sub(
+                r"myocardial infarction in.* leads", "myocardial infarction", grounding_attr[i]
+            )
+        elif "subendocardial injury" in grounding_attr[i]:
+            grounding_attr[i] = re.sub(
+                r"subendocardial injury in.* leads", "subendocardial injury", grounding_attr[i]
+            )
+        elif "ischemic" in grounding_attr[i]:
+            grounding_attr[i] = re.sub(
+                r"ischemic in.* leads", "ischemic", grounding_attr[i]
+            )
+
+    per_lead_to_entire_attr = []
+    per_lead_to_entire_obj = []
+    per_lead_to_entire_ans = []
+    for i in range(len(grounding_obj)):
+        if grounding_obj[i] != "entire":
+            if (
+                grounding_attr[i] in [
+                    "subendocardial injury",
+                    "ischemic"
+                ]
+                or per_lead_to_entire
+            ):
+                per_lead_to_entire_attr.append(grounding_attr[i])
+                per_lead_to_entire_obj.append("entire")
+
+                flag = False
+                if grounding_attr[i] in per_lead_attr_scp_code:
+                    attr_code = per_lead_attr_scp_code[grounding_attr[i]]
+                    scp_codes = eval(metadata["scp_codes"])
+
+                    if isinstance(attr_code, list):
+                        for c in attr_code:
+                            if c in scp_codes:
+                                flag = True
+                                break
+                    else:
+                        if attr_code in scp_codes:
+                            flag = True
+                elif grounding_attr[i] in per_lead_attr_noise_code:
+                    attr_code = per_lead_attr_noise_code[grounding_attr[i]]
+                    if metadata[attr_code] is not None:
+                        flag = True
+                else:
+                    raise AssertionError()
+
+                if flag:
+                    per_lead_to_entire_ans.append("yes")
+                else:
+                    per_lead_to_entire_ans.append("no")
+
+    checked = []
+    for attr_, obj_, ans_ in zip(
+        per_lead_to_entire_attr, per_lead_to_entire_obj, per_lead_to_entire_ans
+    ):
+        if (attr_, obj_, ans_) not in checked:
+            grounding_attr.append(attr_)
+            grounding_obj.append(obj_)
+            grounding_ans.append(ans_)
+            checked.append((attr_, obj_, ans_))
+
+    positive_idcs = [classes.index(x) for x in grounding_ans]
+
+    return {
+        "ecg_id": [ecg_id] * len(grounding_ans),
+        "attr": grounding_attr.copy(),
+        "obj": grounding_obj.copy(),
+        "positive_idcs": positive_idcs.copy(),
+        "size": [size] * len(grounding_ans)
+    }
+
+def linearize_grounding_dict(ls: List[Dict[str, list]]):
+    key = list(ls[0].keys())
+    assert key == ["ecg_id", "attr", "obj", "positive_idcs", "size"]
+
+    for x in ls:
+        if list(x.keys()) != key:
+            raise ValueError("dictionarys in the list should have the same key one another")
+
+    unique_tuples = [
+        (ecg_id, attr, obj, positive_idx, size)
+        for x in ls for ecg_id, attr, obj, positive_idx, size in zip(
+            x["ecg_id"], x["attr"], x["obj"], x["positive_idcs"], x["size"]
+        )
+    ]
+    unique_tuples = list(set(unique_tuples))
+
+    return unique_tuples
+
+def get_grounding_sample(
+    ecg_id,
+    attr,
+    obj,
+    positive_idx,
+    size,
+    numeric_features,
+    scp_codes_full_names,
+    ptbxl_data_dir,
+    classes,
+    tokenizer
+):
+    if (numeric_feature := re.search("|".join(numeric_features), attr)) is not None:
+        numeric_feature = " ".join(numeric_feature.group().split("_"))
+        adj = "lowest" if "min" in attr else "highest"
+        level = "below" if "below" in attr else "within" if "within" in attr else "above"
+        question = (
+            "does the " + adj + " " + numeric_feature + " of this ecg fall "
+            + level + " the normal range"
+        )
+    elif attr == "normal ecg":
+        question = "is this a normal ecg"
+    elif attr in scp_codes_full_names:
+        question = "does this ecg show symptoms of " + attr
+    else:
+        question = "does this ecg show " + attr
+    
+    assert obj is not None
+    if obj == "entire":
+        question += "?"
+    else:
+        question += " in " + obj + "?"
+
+    question_str = question
+    question = tokenizer.encode(question.lower(), add_special_tokens=False)
+
+    answer_str = classes[positive_idx]
+    answer = [0] * len(classes)
+    answer[positive_idx] = 1
+    answer_bin = 0 if classes[positive_idx] == "no" else 1
+
+    ecg_path = get_ptbxl_data_path(ecg_id, ptbxl_data_dir)
+
+    return {
+        "question_str": question_str,
+        "answer_str": answer_str,
+        "qtype": 0, # verify
+        "atype": 1, # multi-class
+        "question": question,
+        "attribute": attr,
+        "answer": answer,
+        "answer_bin": answer_bin,
+        "classes": [0, 1],
+        "ecg_path": ecg_path,
+        "ecg_id": ecg_id,
+        "size": size,
+        "obj": obj
+    }
+
+def parse_lead_position(str):
+    matched_lead_position = re.search(r"(?<=in ).* leads", str)
+    if matched_lead_position is not None:
+        matched_lead_position = matched_lead_position.group()
+        if "frontal" in matched_lead_position:
+            return "entire"
+        else:
+            return matched_lead_position
+    return "entire"
 
 def _count_min_from_n(ls, n, cnt_threshold=1):
     conds = list(map(lambda x: len(x) >= cnt_threshold, ls))
@@ -1045,16 +1198,24 @@ def _count_min_from_n(ls, n, cnt_threshold=1):
         cnt = 0
     return cnt
 
-def _sample(samples_with_candidate: dict, qtype, assigned_ecgs=[], n=1, seed=None):
+def _sample(samples_with_candidate: dict, qtype, assigned_ecgs=[], n=1, seed=None, update_seed=True):
     res = dict()
     # random sample
+    num = n
     for k, v in samples_with_candidate.items():
         if qtype == "choose":
             v = v[~v['ecg_id'].isin(assigned_ecgs)]
             if k == "none":
-                n = int(n/2 + random.random())
-        res[k] = v.sample(n=min(n, len(v)), random_state=seed)
-        seed = seed + random.randint(1, 10)
+                num = int(n/2 + random.random())
+        elif qtype == "verify" and k in ["no_type1", "no_type2"]:
+            if k == "no_type1":
+                num = n - min(int(n / 2), len(samples_with_candidate["no_type2"]))
+            elif k == "no_type2":
+                num = int(n / 2)
+
+        res[k] = v.sample(n=min(num, len(v)), random_state=seed)
+        if seed is not None and update_seed:
+            seed = seed + random.randint(1, 10)
 
     return res, seed
 
@@ -1068,7 +1229,14 @@ def sample(
     assigned_ecgs=[],
     lead=None,
     split='train',
-    lead_names=['I', 'II', 'III', 'aVR', 'aVL', 'aVF', 'V1', 'V2', 'V3', 'V4', 'V5', 'V6'],
+    lead_names=[
+        'lead I', 'lead II', 'lead III', 'lead aVR', 'lead aVL', 'lead aVF',
+        'lead V1', 'lead V2', 'lead V3', 'lead V4', 'lead V5', 'lead V6'
+    ],
+    lead_groups={
+        "limb leads": ["lead I", "lead II", "lead III", "lead aVR", "lead aVL", "lead aVF"],
+        "chest leads": ["lead V1", "lead V2", "lead V3", "lead V4", "lead V5", "lead V6"]
+    },
     cnt_threshold=1,
     n=5,
     question_id=-1,
@@ -1076,8 +1244,14 @@ def sample(
 ):
     assert template['question_type1'] in ['verify', 'choose', 'retrieve']
 
-    if lead is not None and lead in lead_names:
-        lead = lead_names.index(lead)
+    if lead is not None:
+        lead_name = lead
+        if lead in lead_names:
+            lead = lead_names.index(lead)
+        elif lead in lead_groups:
+            lead = [lead_names.index(l) for l in lead_groups[lead]]
+        else:
+            raise ValueError("{} is invalid lead indicator".format(lead))
 
     if template['subcategory'] in [
             'scp_codes_superclass',
@@ -1110,7 +1284,7 @@ def sample(
             'noise_with_leads',
             'any_noise',
     ]:
-        is_exists = lambda x, c: ~x[c].isna()
+        is_exists = lambda x, c: x[c].notnull()
     elif template['subcategory'] in [
             'scp_codes_subclass',
             'scp_codes_norm',
@@ -1130,39 +1304,39 @@ def sample(
         )
 
     min_answer_cnt = 2 if split == 'train' else 1
-    # min_answer_cnt = 2
     if template['question_type1'] == 'choose':
         if lead is not None:
             # the following condition is just for readability and sanity check
-            if template['subcategory'] in [
-                'noise',
-            ]:
-                subsample = data[
-                    is_exists(data, candidate[0]) | is_exists(data, candidate[1])
-                ].sort_index()
-                a = data[is_exists(data, candidate[0])][candidate[0]].apply(
-                    lambda x: x[lead]
-                ).astype(bool)
-                b = data[is_exists(data, candidate[1])][candidate[1]].apply(
-                    lambda x: x[lead]
-                ).astype(bool)
-                both = subsample[a & b]
-                a_only = subsample[a & ~b]
-                b_only = subsample[~a & b]
-                cnt = _count_min_from_n([both, a_only, b_only], n=min_answer_cnt)
+            if not isinstance(lead, list):
+                if template['subcategory'] in [
+                    "noise",
+                ]:
+                    subsample = data[
+                        is_exists(data, candidate[0]) | is_exists(data, candidate[1])
+                    ].sort_index()
+                    a = data[is_exists(data, candidate[0])][candidate[0]].apply(
+                        lambda x: x[lead]
+                    ).astype(bool)
+                    b = data[is_exists(data, candidate[1])][candidate[1]].apply(
+                        lambda x: x[lead]
+                    ).astype(bool)
+                    both = subsample[a & b]
+                    a_only = subsample[a & ~b]
+                    b_only = subsample[~a & b]
+                    cnt = _count_min_from_n([both, a_only, b_only], n=min_answer_cnt)
 
-                none = subsample[~a & ~b]
-                subsample = subsample[~subsample['ecg_id'].isin(none['ecg_id'])]
-                none = data[~data['ecg_id'].isin(subsample['ecg_id'])]
+                    none = subsample[~a & ~b]
+                    subsample = subsample[~subsample['ecg_id'].isin(none['ecg_id'])]
+                    none = data[~data['ecg_id'].isin(subsample['ecg_id'])]
 
-                ans1 = ans_to_name[candidate[0]] if candidate[0] in ans_to_name else candidate[0]
-                ans2 = ans_to_name[candidate[1]] if candidate[1] in ans_to_name else candidate[1]
-                samples_with_candidate = {
-                    ans1: a_only,
-                    ans2: b_only,
-                    frozenset([ans1, ans2]): both,
-                    'none': none,
-                }
+                    ans1 = ans_to_name[candidate[0]] if candidate[0] in ans_to_name else candidate[0]
+                    ans2 = ans_to_name[candidate[1]] if candidate[1] in ans_to_name else candidate[1]
+                    samples_with_candidate = {
+                        ans1: a_only,
+                        ans2: b_only,
+                        frozenset([ans1, ans2]): both,
+                        'none': none,
+                    }
             else:
                 raise ValueError(
                     template['subcategory']
@@ -1236,26 +1410,57 @@ def sample(
     elif template['question_type1'] == 'verify':
         if lead is not None:
             # the following condition is just for readability and sanity check
-            if template['subcategory'] in [
-                'scp_codes_form_with_leads',
-                'noise',
-                'any_noise',
-            ]:
-                subsample = data[is_exists(data, candidate)]
-                yes = subsample[
-                    subsample[candidate].apply(lambda x: x[lead]).astype(bool)
-                ]
-                # no = subsample[~subsample['ecg_id'].isin(yes['ecg_id'])]
-                no = data[~data["ecg_id"].isin(yes["ecg_id"])]
-                cnt = len(yes)
-                samples_with_candidate = {
-                    'yes': yes,
-                    'no': no,
-                }
+            if not isinstance(lead, list):
+                if template['subcategory'] in [
+                    'scp_codes_form_with_leads',
+                    'noise',
+                    'any_noise',
+                ]:
+                    subsample = data[is_exists(data, candidate)]
+                    yes = subsample[
+                        subsample[candidate].apply(lambda x: x[lead]).astype(bool)
+                    ]
+                    # type1: samples that have no corresponding attribute at all
+                    no_type1 = data[~is_exists(data, candidate)]
+                    # type2: samples that have the corresponding attribute but not in that lead
+                    no_type2 = subsample[
+                        subsample[candidate].apply(lambda x: x.sum() > 0 and x[lead] == 0).astype(bool)
+                    ]
+
+                    cnt = len(yes)
+                    samples_with_candidate = {
+                        'yes': yes,
+                        "no_type1": no_type1,
+                        "no_type2": no_type2
+                    }
+                else:
+                    raise ValueError(
+                        template['subcategory']
+                    )
             else:
-                raise ValueError(
-                    template['subcategory']
-                )
+                if template["subcategory"] in [
+                    "scp_codes_form_with_leads"
+                ]:
+                    subsample = data[is_exists(data, candidate)]
+                    yes = subsample[
+                        subsample[candidate].apply(lambda x: x[lead].all())
+                    ]
+                    # type1: samples that have no corresponding attribute at all
+                    no_type1 = data[~is_exists(data, candidate)]
+                    # type2: samples that have the corresponding attribute but not in that lead
+                    no_type2 = subsample[
+                        subsample[candidate].apply(lambda x: x.sum() > 0 and not x[lead].all()).astype(bool)
+                    ]
+                    cnt = len(yes)
+                    samples_with_candidate = {
+                        "yes": yes,
+                        "no_type1": no_type1,
+                        "no_type2": no_type2,
+                    }
+                else:
+                    raise ValueError(
+                        template['subcategory']
+                    )
         else:
             if (
                 template['subcategory'] == 'scp_codes_subclass'
@@ -1314,21 +1519,26 @@ def sample(
     elif template['question_type1'] == 'retrieve':
         # grounded to a specific lead
         if lead is not None:
-            candidates = subcategory[template['subcategory']]
-            samples_with_candidate = dict()
-            # the following condition is just for readability and sanity check
-            # multi-label retrieve (with a specific lead)
-            if template['subcategory'] in [
-                'noise'
-            ]:
-                data['_interests'] = data.apply(
-                    lambda x: frozenset(
-                        ans_to_name[noise] if noise in ans_to_name else noise
-                        for noise in candidates
-                        if x[noise] is not None and x[noise][lead] == 1
-                    ),
-                    axis=1
-                )
+            if not isinstance(lead, list):
+                candidates = subcategory[template['subcategory']]
+                samples_with_candidate = dict()
+                # the following condition is just for readability and sanity check
+                # multi-label retrieve (with a specific lead)
+                if template['subcategory'] in [
+                    'noise'
+                ]:
+                    data['_interests'] = data.apply(
+                        lambda x: frozenset(
+                            ans_to_name[noise] if noise in ans_to_name else noise
+                            for noise in candidates
+                            if x[noise] is not None and x[noise][lead] == 1
+                        ),
+                        axis=1
+                    )
+                else:
+                    raise ValueError(
+                        template['subcategory']
+                    )
             else:
                 raise ValueError(
                     template['subcategory']
@@ -1498,7 +1708,7 @@ def sample(
             question = template['template'].replace('${' + template['subcategory'] + '}', _candidate[0])
 
         if lead is not None:
-            question = question.replace("${lead}", lead_names[lead])
+            question = question.replace("${lead}", lead_name)
 
         if template["question_type1"] == "verify":
             n = 4 * n
@@ -1515,10 +1725,34 @@ def sample(
             n=n,
             seed=seed
         )
+        if "no_type1" in _sampled:
+            _sampled["no"] = pd.concat([_sampled["no_type1"], _sampled["no_type2"]])
+            del _sampled["no_type1"]
+            del _sampled["no_type2"]
+
+        _total_sampled = None
+        if template["question_type1"] == "verify":
+            if "no_type1" in samples_with_candidate:
+                n = min(
+                    len(samples_with_candidate["yes"]),
+                    len(samples_with_candidate["no_type1"]) + len(samples_with_candidate["no_type2"])
+                )
+            else:
+                n = min(len(samples_with_candidate["yes"]), len(samples_with_candidate["no"]))
+            _total_sampled, _ = _sample(
+                samples_with_candidate,
+                qtype=template["question_type1"],
+                n=n,
+                seed=seed,
+                update_seed=False
+            )
+            if "no_type1" in _total_sampled:
+                _total_sampled["no"] = pd.concat([_total_sampled["no_type1"], _total_sampled["no_type2"]])
+                del _total_sampled["no_type1"]
+                del _total_sampled["no_type2"]
 
         sampled = dict()
         sizes = dict()
-
         for k, v in _sampled.items():
             _ids = v['ecg_id'].to_list()
             _sizes = v['size'].to_list()
@@ -1526,15 +1760,27 @@ def sample(
                 sampled[id] = [k] if isinstance(k, str) else list(k)
                 sizes[id] = size
 
+        total_sampled = dict()
+        total_sizes = dict()
+        if _total_sampled is not None:
+            for k, v in _total_sampled.items():
+                _ids = v['ecg_id'].to_list()
+                _sizes = v['size'].to_list()
+                for id, size in zip(_ids, _sizes):
+                    total_sampled[id] = [k] if isinstance(k, str) else list(k)
+                    total_sizes[id] = size
+
         res = {
             'template_id': template['template_id'],
             'question_id': question_id,
             'question': question,
-            "lead": lead_names[lead] if lead is not None else None,
+            "lead": lead_name if lead is not None else None,
             'num_samples': cnt,
             'sampled_ids': sampled,
             'sizes': sizes,
             'candidate': _candidate,
+            "total_sampled_ids": total_sampled,
+            "total_sampled_sizes": total_sizes,
         }
 
     return res, seed
@@ -1545,3 +1791,11 @@ def swap_words(s, x, y):
     copied from https://stackoverflow.com/questions/70209111/how-to-swap-words-multiple-characters-in-a-string
     """
     return y.join(part.replace(y, x) for part in s.split(x))
+
+def get_ptbxl_data_path(ecg_id, ptbxl_data_dir):
+    return os.path.join(
+        ptbxl_data_dir,
+        "records500",
+        f"{int(ecg_id / 1000) * 1000 :05d}",
+        f"{ecg_id:05d}_hr"
+    )
