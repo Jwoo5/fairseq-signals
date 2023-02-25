@@ -253,7 +253,7 @@ def train(
 
     trainer.begin_epoch(epoch_itr.epoch)
 
-    valid_subsets = cfg.dataset.valid_subset.split(",")
+    valid_subsets = [x.strip() for x in cfg.dataset.valid_subset.split(",")]
     should_stop = False
     num_updates = trainer.get_num_updates()
     logger.info("Start iterating over samples")
