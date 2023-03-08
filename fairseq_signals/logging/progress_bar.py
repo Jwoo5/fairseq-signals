@@ -320,7 +320,7 @@ class WandBProgressBarWrapper(BaseProgressBar):
         return iter(self.wrapped_bar)
 
     def log(self, stats, tag=None, step=None):
-        """Log intermediate stats to tensorboard."""
+        """Log intermediate stats to wandb."""
         self._log_to_wandb(stats, tag, step)
         self.wrapped_bar.log(stats, tag=tag, step=step)
 
@@ -339,12 +339,15 @@ class WandBProgressBarWrapper(BaseProgressBar):
         if wandb is None:
             return
         if step is None:
-            step = stats["num_updates"]
+            step = stats["num_updates"] if "num_updates" in stats else None
 
         prefix = "" if tag is None else tag + "/"
 
+        wandb_logs = {}
         for key in stats.keys() - {"num_updates"}:
             if isinstance(stats[key], AverageMeter):
-                wandb.log({prefix + key: stats[key].val}, step=step)
+                wandb_logs[prefix + key] = stats[key].val
             elif isinstance(stats[key], Number):
-                wandb.log({prefix + key: stats[key]}, step=step)
+                wandb_logs[prefix + key] = stats[key]
+
+        wandb.log(wandb_logs, step=step)

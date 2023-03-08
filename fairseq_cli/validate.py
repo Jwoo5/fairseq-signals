@@ -118,6 +118,7 @@ def main(cfg: DictConfig, override_args=None):
             dataset = task.dataset(subset)
         except KeyError:
             raise Exception("Cannot find dataset: " + subset)
+        logger.info("begin validation on {} subset".format(subset))
 
         # Initialize data iterator
         itr = task.get_batch_iterator(
@@ -135,8 +136,10 @@ def main(cfg: DictConfig, override_args=None):
         progress = progress_bar.progress_bar(
             itr,
             log_format=cfg.common.log_format,
+            log_file = cfg.common.log_file,
             log_interval=cfg.common.log_interval,
             prefix=f"valid on '{subset}' subset",
+            tensorboard_logdir=None,
             default_log_format=("tqdm" if not cfg.common.no_progress_bar else "simple"),
             wandb_project=(
                 cfg.common.wandb_project
@@ -149,8 +152,9 @@ def main(cfg: DictConfig, override_args=None):
                 else None
             ),
             wandb_run_name=os.environ.get(
-            "WANDB_NAME", os.path.basename(cfg.checkpoint.save_dir)
-            )
+                "WANDB_NAME", os.path.basename(cfg.checkpoint.save_dir)
+            ),
+            azureml_logging=False
         )
 
         log_outputs = []
@@ -159,7 +163,7 @@ def main(cfg: DictConfig, override_args=None):
                 sample = utils.move_to_cuda(sample) if use_cuda else sample
                 sample = _fp_convert_sample(sample)
                 _loss, _sample_size, log_output = task.valid_step(sample, model, criterion, subset)
-                progress.log(log_output, step=i)
+                
                 log_outputs.append(log_output)
 
         if data_parallel_world_size > 1:
@@ -169,16 +173,16 @@ def main(cfg: DictConfig, override_args=None):
                 group=distributed_utils.get_data_parallel_group()
             )
             log_outputs = list(chain.from_iterable(log_outputs))
-        
-        with metrics.aggregate() as agg:
+
+        with metrics.aggregate(new_root=True) as agg:
             task.reduce_metrics(log_outputs, criterion)
+            del log_outputs
             log_output = agg.get_smoothed_values()
 
         if hasattr(task, "post_validate"):
             task.post_validate(model, log_output, agg, num_updates=0)
         
-        progress.print(log_output, tag=subset, step=i)
-
+        progress.print(log_output, tag=subset, step=None)
 
 def cli_main():
     parser = options.get_validation_parser()
