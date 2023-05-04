@@ -62,54 +62,6 @@ class Wav2Vec2Config(ECGTransformerConfig):
         },
     )
 
-    # masking
-    mask_length: int = field(default=10, metadata={"help": "mask length"})
-    mask_prob: float = field(
-        default=0.65, metadata={"help": "probability of replacing a token with mask"}
-    )
-    mask_selection: MASKING_DISTRIBUTION_CHOICES = field(
-        default="static", metadata={"help": "how to choose mask length"}
-    )
-    mask_other: float = field(
-        default=0,
-        metadata={
-            "help": "secondary mask argument (used for more complex distributions), "
-            "see help in compute_mask_indices"
-        },
-    )
-    no_mask_overlap: bool = field(
-        default=False, metadata={"help": "whether to allow masks to overlap"}
-    )
-    mask_min_space: int = field(
-        default=1,
-        metadata={"help": "min space between spans (if no overlap is enabled)"},
-    )
-
-    # channel masking
-    mask_channel_length: int = field(
-        default=10, metadata={"help": "length of the mask for features (channels)"}
-    )
-    mask_channel_prob: float = field(
-        default=0.0, metadata={"help": "probability of replacing a feature with 0"}
-    )
-    mask_channel_selection: MASKING_DISTRIBUTION_CHOICES = field(
-        default="static",
-        metadata={"help": "how to choose mask length for channel masking"},
-    )
-    mask_channel_other: float = field(
-        default=0,
-        metadata={
-            "help": "secondary mask argument (used for more complex distributions)"
-        },
-    )
-    no_mask_channel_overlap: bool = field(
-        default=False, metadata={"help": "whether to allow channel masks to overlap"}
-    )
-    mask_channel_min_space: int = field(
-        default=1,
-        metadata={"help": "min space between spans (if no overlap is enabled)"},
-    )
-
     # negative selection
     num_negatives: int = field(
         default=100,
@@ -139,24 +91,6 @@ class Wav2Vec2Model(ECGTransformerModel):
     def __init__(self, cfg: Wav2Vec2Config):
         super().__init__(cfg)
         self.cfg = cfg
-
-        self.mask_prob = cfg.mask_prob
-        self.mask_selection = cfg.mask_selection
-        self.mask_other = cfg.mask_other
-        self.mask_length = cfg.mask_length
-        self.no_mask_overlap = cfg.no_mask_overlap
-        self.mask_min_space = cfg.mask_min_space
-
-        self.mask_channel_prob = cfg.mask_channel_prob
-        self.mask_channel_selection = cfg.mask_channel_selection
-        self.mask_channel_other = cfg.mask_channel_other
-        self.mask_channel_length = cfg.mask_channel_length
-        self.no_mask_channel_overlap = cfg.no_mask_channel_overlap
-        self.mask_channel_min_space = cfg.mask_channel_min_space
-
-        self.mask_emb = nn.Parameter(
-            torch.FloatTensor(cfg.encoder_embed_dim).uniform_()
-        )
 
         self.quantizer = None
         self.input_quantizer = None
