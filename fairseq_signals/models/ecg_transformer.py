@@ -120,6 +120,12 @@ class ECGTransformerModel(TransformerModel):
         padding_mask=None,
         **kwargs
     ):
+        x, padding_mask = self.get_embeddings(source, padding_mask)
+        x = self.get_output(x, padding_mask)
+
+        return {"x": x, "padding_mask": padding_mask}
+
+    def get_embeddings(self, source, padding_mask):
         if self.feature_grad_mult > 0:
             features = self.feature_extractor(source)
             if self.feature_grad_mult != 1.0:
@@ -160,14 +166,17 @@ class ECGTransformerModel(TransformerModel):
             features = self.post_extract_proj(features)
         
         features = self.dropout_input(features)
-        x = features
 
+        x = features
         x_conv = self.conv_pos(x, channel_first=False)
         x = x + x_conv
 
-        x = self.encoder(x, padding_mask=padding_mask)
 
-        return {"x": x, "padding_mask": padding_mask}
+        return x, padding_mask
+
+    def get_output(self, x, padding_mask=None):
+        x = self.encoder(x, padding_mask=padding_mask)
+        return x
 
     def extract_features(self, source, padding_mask):
         res = self.forward(source, padding_mask=padding_mask)
