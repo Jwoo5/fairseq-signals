@@ -222,7 +222,7 @@ class CudaEnvironment(object):
     @staticmethod
     def pretty_print_cuda_env_list(cuda_env_list):
         """
-        Given a list of CudaEnviorments, pretty print them
+        Given a list of CudaEnvironments, pretty print them
         """
         num_workers = len(cuda_env_list)
         center = "CUDA enviroments for all {} workers".format(num_workers)

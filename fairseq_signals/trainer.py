@@ -175,7 +175,7 @@ class Trainer(object):
             else:
                 self._wrapped_criterion = self._criterion
         return self._wrapped_criterion
-    
+
     @property
     def model(self):
         if self._wrapped_model is None:
@@ -379,7 +379,7 @@ class Trainer(object):
             
             self.optimzier.load_state_dict(last_optim_state, optimizer_overrides)
             self.set_num_updates(last_optim["num_updates"])
-        
+
         if extra_state is not None:
             itr_state = extra_state["train_iterator"]
             epoch = itr_state["epoch"]
@@ -519,8 +519,8 @@ class Trainer(object):
 
             def maybe_no_sync():
                 """
-                Whenver *samples* cotains more than one mini-batch, we
-                want to accmulate gradients locally and only call
+                Whenever *samples* cotains more than one mini-batch, we
+                want to accumulate gradients locally and only call
                 all-reduce in the last backwards pass.
                 """
                 if (

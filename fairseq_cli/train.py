@@ -247,7 +247,7 @@ def train(
         wandb_run_name = os.environ.get(
             "WANDB_NAME", os.path.basename(cfg.checkpoint.save_dir)
         ),
-        azureml_logging= False
+        azureml_logging=False
     )
     progress.update_config(_flatten_config(cfg))
 

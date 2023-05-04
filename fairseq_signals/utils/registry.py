@@ -62,7 +62,7 @@ def setup_registry(registry_name: str, base_class = None, default = None, requir
             del extra_kwargs["from_checkpoint"]
 
         return builder(cfg, *extra_args, **extra_kwargs)
-    
+
     def register_x(name, dataclass = None):
         def register_x_cls(cls):
             if name in REGISTRY:

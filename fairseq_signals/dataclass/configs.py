@@ -166,7 +166,7 @@ class DistributedTrainingConfig(Dataclass):
     distributed_rank: Optional[int] = field(
         default = 0, metadata={"help": "rank of the current worker"}
     )
-    disributed_backend: str = field(
+    distributed_backend: str = field(
         default = "nccl", metadata={"help": "distributed backend"}
     )
     distributed_init_method: Optional[str] = field(

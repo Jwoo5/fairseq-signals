@@ -3,7 +3,6 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
-import fairseq_signals
 import logging
 import math
 from collections.abc import Collection
@@ -74,7 +73,7 @@ class Adam(Optimizer):
             value["exp_avg_sq"] /= total_gpus
             dist.all_reduce(value["exp_avg"], op = dist.ReduceOp.SUM)
             dist.all_reduce(value["exp_avg_sq"], op = dist.Reduceop.SUM)
-    
+
 class Adam(torch.optim.Optimizer):
     r"""Implements Adam algorithm.
     
