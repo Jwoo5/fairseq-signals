@@ -176,7 +176,7 @@ class SEWideResidualNetworkModel(PretrainingModel):
         )
 
         args.task.data = cfg.data
-        task = tasks.setup_task(args.task)
+        task = tasks.setup_task(args.task, from_checkpoint=True)
         model = task.build_model(args.model)
 
         if hasattr(model, "remove_pretraining_modules"):
