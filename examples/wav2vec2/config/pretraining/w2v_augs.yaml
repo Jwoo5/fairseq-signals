@@ -56,6 +56,10 @@ lr_scheduler:
 
 model:
   _name: wav2vec2
+  # mask
+  apply_mask: true
+  mask_prob: 0.65
+
   quantize_targets: true
   final_dim: 256
   # encoder_layerdrop: 0.05
