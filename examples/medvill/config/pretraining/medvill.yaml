@@ -17,17 +17,17 @@ task:
   data: ???
   normalize: false
   enable_padding: true
-  min_text_size: 10
+  medvill: true
 
 dataset:
   num_workers: 6
   max_tokens: null
-  batch_size: 32
+  batch_size: 16
   valid_subset: ""
   disable_validation: true
 
 distributed_training:
-  distributed_world_size: 4
+  distributed_world_size: 8
 
 criterion:
   _name: medvill
@@ -35,6 +35,7 @@ criterion:
 optimization:
   max_epoch: 800
   lr: [0.00005]
+  update_freq: [2]
 
 optimizer:
   _name: adam
@@ -48,7 +49,7 @@ lr_scheduler:
 
 model:
   _name: medvill
-  mask_prob: [0.25, 0.8, 0.1, 0.1]
+  mask_ratio: [0.25, 0.8, 0.1, 0.1]
   attn_mask_type: bi_ar
 
   # encoder_layerdrop: 0.05
@@ -56,6 +57,6 @@ model:
   dropout_features: 0.1
   feature_grad_mult: 1.0
 
-  encoder_layers: 8
+  encoder_layers: 12
   encoder_embed_dim: 768
   in_d: 12

@@ -52,12 +52,9 @@ class ECGTextPretrainingConfig(Dataclass):
     )
     
     # texts
-    max_text_size: Optional[int] = field(
-        default=512,
-        metadata={'help': 'max length of input text to crop to for batching'}
-    )
-    min_text_size: Optional[int] = field(
-        default=None, metadata={'help': 'min length of input text to skip small examples'}
+    tokenizer: str = field(
+        default="bert-base-uncased",
+        metadata={"help": "tokenizer name to be loaded from huggingface hub"}
     )
     pad_token: int = field(
         default=0,
@@ -70,6 +67,26 @@ class ECGTextPretrainingConfig(Dataclass):
         metadata={
             'help': 'token id for the special token [SEP]'
         }
+    )
+    max_text_size: Optional[int] = field(
+        default=512,
+        metadata={'help': 'max length of input text to crop to for batching'}
+    )
+    compute_mlm_indices: bool = field(
+        default=False,
+        metadata={
+            "help": "compute mlm indices during constructing a mini-batch"
+        }
+    )
+    mlm_prob: float = field(
+        default=0.15,
+        metadata={
+            "help": "mlm probability"
+        }
+    )
+    #XXX to be removed
+    medvill: bool = field(
+        default=False,
     )
 
     model_name: Optional[str] = II("model._name")
@@ -99,19 +116,21 @@ class ECGTextPretrainingTask(Task):
         manifest_path = os.path.join(data_path, "{}.tsv".format(split))
         self.datasets[split] = FileECGTextDataset(
             manifest_path,
-            pad_token_id=task_cfg.pad_token,
-            sep_token_id=task_cfg.sep_token,
             pad=task_cfg.enable_padding,
+            tokenizer=task_cfg.tokenizer,
+            compute_mlm_indices=task_cfg.compute_mlm_indices,
+            mlm_prob=task_cfg.mlm_prob,
             sample_rate=task_cfg.get("sample_rate", self.cfg.sample_rate),
             max_sample_size=self.cfg.max_sample_size,
             min_sample_size=self.cfg.min_sample_size,
             max_text_size=self.cfg.max_text_size,
-            min_text_size=self.cfg.min_text_size,
             filter=task_cfg.filter,
             normalize=task_cfg.normalize,
             mean_path=task_cfg.get("mean_path", self.cfg.mean_path),
             std_path=task_cfg.get("std_path", self.cfg.std_path),
             training=True if "train" in split else False,
+            #XXX to be removed
+            medvill=task_cfg.medvill
         )
 
     def max_positions(self):

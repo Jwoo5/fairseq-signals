@@ -22,7 +22,7 @@ ATTN_MASK_CHOICES = ChoiceEnum(["bidirectional", "bi_ar"])
 
 @dataclass
 class MedViLLConfig(ECGLanguageTransformerConfig):
-    mask_prob: List[float] = field(
+    mask_ratio: List[float] = field(
         default_factory=lambda: [0.15, 0.8, 0.1, 0.1],
         metadata={
             "help": "list of bert masking configurations. "
@@ -39,7 +39,7 @@ class MedViLLModel(ECGLanguageTransformerModel):
         super().__init__(cfg)
         self.cfg = cfg
     
-        self.mask_prob = cfg.mask_prob
+        self.mask_ratio = cfg.mask_ratio
         self.attn_mask_type = cfg.attn_mask_type
 
         self.mask_emb = nn.Parameter(
@@ -67,10 +67,10 @@ class MedViLLModel(ECGLanguageTransformerModel):
     ):
         B, T, C = x.shape
 
-        replace_ratio = self.mask_prob[0]
-        mask_ratio = self.mask_prob[1]
-        random_token_ratio = self.mask_prob[2]
-        original_ratio = self.mask_prob[3]
+        replace_ratio = self.mask_ratio[0]
+        mask_ratio = self.mask_ratio[1]
+        random_token_ratio = self.mask_ratio[2]
+        original_ratio = self.mask_ratio[3]
 
         assert (mask_ratio + random_token_ratio + original_ratio) == 1, (
             mask_ratio, random_token_ratio, original_ratio
@@ -274,16 +274,6 @@ class MedViLLModel(ECGLanguageTransformerModel):
         ecg_features = features[:, :ecg_features.size(1)]
         text_features = features[:, ecg_features.size(1):]
 
-
-        if features_only:
-            return {
-                "x": features,
-                "padding_mask": padding_mask,
-                "ecg_features": ecg_features,
-                "ecg_padding_mask": ecg_padding_mask,
-                "text_features": text_features,
-                "text_padding_mask": text_padding_mask
-            }
         # TODO text[mask_indices] sometimes raise IndexError
         # same with the above reports
         mlm_x = (
@@ -316,14 +306,22 @@ class MedViLLModel(ECGLanguageTransformerModel):
 
         return result
     
-    def extract_features(self, ecg, ecg_padding_mask, text, text_padding_mask, mask=False):
-        res = self.forward(
-            ecg,
-            text,
-            ecg_padding_mask,
-            text_padding_mask,
-            mask=mask,
-            features_only=True
+    def extract_features(
+        self,
+        ecg,
+        ecg_padding_mask,
+        text,
+        text_padding_mask,
+        ecg_2,
+        ecg_2_padding_mask,
+    ):
+        res = super().forward(
+            ecg=ecg,
+            text=text,
+            ecg_padding_mask=ecg_padding_mask,
+            text_padding_mask=text_padding_mask,
+            ecg_2=ecg_2,
+            ecg_2_padding_mask=ecg_2_padding_mask
         )
         return res
     
