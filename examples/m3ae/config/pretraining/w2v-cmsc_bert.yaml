@@ -1,0 +1,68 @@
+common:
+  fp16: false
+  log_format: json
+  log_interval: 10
+  wandb_entity: ecg-pretraining
+  wandb_project: m3ae-pretraining
+
+checkpoint:
+  save_dir: checkpoints
+  save_interval: 1
+  keep_last_epochs: 1
+  save_interval_updates: 0
+  no_epoch_checkpoints: false
+
+task:
+  _name: ecg_text_pretraining
+  data: ???
+  normalize: false
+  enable_padding: true
+
+  compute_mlm_indices: true
+  mlm_prob: 0.25
+  tokenizer: bert-base-uncased
+
+dataset:
+  num_workers: 6
+  max_tokens: null
+  batch_size: 32
+  valid_subset: ""
+  disable_validation: true
+
+distributed_training:
+  distributed_world_size: 1
+
+criterion:
+  _name: m3ae
+
+optimization:
+  max_update: 60000
+  lr: [0.00005]
+  update_freq: [2]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-06
+  weight_decay: 0.01
+
+lr_scheduler:
+  _name: tri_stage
+  phase_ratio: [0.1, 0.4, 0.5]
+  final_lr_scale: 0.05
+
+model:
+  _name: m3ae
+  load_pretrained_weights: true
+  pretrained_model_path: ???
+
+  # encoder_layerdrop: 0.05
+  dropout_input: 0.1
+  dropout_features: 0.1
+  feature_grad_mult: 1.0
+
+  encoder_layers: 12
+  encoder_embed_dim: 768
+  in_d: 12
+
+  apply_mask: false
