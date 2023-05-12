@@ -53,7 +53,6 @@ class ECGQuestionAnsweringTask(ECGTextPretrainingTask):
             max_sample_size=self.cfg.max_sample_size,
             min_sample_size=self.cfg.min_sample_size,
             max_text_size=self.cfg.max_text_size,
-            min_text_size=self.cfg.min_text_size,
             filter=task_cfg.filter,
             normalize=task_cfg.normalize,
             mean_path=task_cfg.get("mean_path", self.cfg.mean_path),
