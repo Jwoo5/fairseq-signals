@@ -34,7 +34,7 @@ dataset:
   batch_size: 128
   train_subset: "train_entire_grounding"
   valid_subset: "valid_entire_grounding,test_entire_grounding"
-  fixed_validation_seed: 1
+  validate_interval: 5
 
 distributed_training:
   distributed_world_size: 1
@@ -47,8 +47,7 @@ criterion:
 
 optimization:
   max_epoch: 200
-  max_update: 18200
-  lr: [0.001]
+  lr: [0.00005]
 
 optimizer:
   _name: adam
@@ -57,15 +56,16 @@ optimizer:
   weight_decay: 0.0001
 
 lr_scheduler:
-  _name: tri_stage
-  phase_ratio: [0.1, 0.0, 0.9]
-  final_lr_scale: 0.01
+  _name: fixed
 
 model:
   _name: nejedly2021resnet_classifier
   num_labels: ???
   model_path: null
   no_pretrained_weights: true
+
+  indicate_leads: true
+  use_mha: true
 
   final_dropout: 0.5
   in_d: 12

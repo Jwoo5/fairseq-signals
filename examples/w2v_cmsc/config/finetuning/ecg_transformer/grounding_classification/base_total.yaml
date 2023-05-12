@@ -1,3 +1,4 @@
+
 common:
   fp16: false
   log_format: json
@@ -23,18 +24,15 @@ task:
   load_specific_lead: true
   enable_padding: true
   enable_padding_leads: true
-  filter: false
   normalize: false
-  mean_path: null
-  std_path: null
 
 dataset:
   num_workers: 6
   max_tokens: null 
-  batch_size: 128
-  train_subset: "train_per_lead_grounding"
-  valid_subset: "valid_per_lead_grounding,test_per_lead_grounding"
-  validate_interval: 5
+  batch_size: 64
+  train_subset: "train_derived_grounding"
+  valid_subset: "valid_derived_grounding,test_derived_grounding"
+  validate_interval: 2
 
 distributed_training:
   distributed_world_size: 1
@@ -43,30 +41,39 @@ criterion:
   _name: multi_head_binary_cross_entropy
   report_auc: true
   log_per_class: false
-  per_log_keys: [question_id, attribute_id]
+  per_log_keys: [attribute_id]
 
 optimization:
-  max_epoch: 200
+  max_update: 100000
   lr: [0.00005]
 
 optimizer:
   _name: adam
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-08
-  weight_decay: 0.0001
+  weight_decay: 1e-4
 
 lr_scheduler:
-  _name: fixed
-  warmup_updates: 0
+  _name: tri_stage
+  phase_ratio: [0.1, 0.4, 0.5]
+  final_lr_scale: 0.05
 
 model:
-  _name: nejedly2021resnet_classifier
+  _name: ecg_transformer_classifier
   num_labels: ???
-  model_path: null
-  no_pretrained_weights: true
+  model_path: ???
+  no_pretrained_weights: false
 
-  indicate_leads: true
-  use_mha: true
+  dropout: 0.0
+  attention_dropout: 0.0
+  activation_dropout: 0.1
+  # encoder_layerdrop: 0.1
 
-  final_dropout: 0.5
+  feature_grad_mult: 0.1
+  freeze_finetune_updates: 0
+
+  encoder_layers: 12
+  encoder_embed_dim: 768
   in_d: 12
+
+  apply_mask: false

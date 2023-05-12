@@ -3,8 +3,8 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  wandb_entity: ecg-pretraining
-  wandb_project: question-answering
+  # wandb_entity: ecg-pretraining
+  # wandb_project: question-answering
 
 checkpoint:
   save_dir: checkpoints
@@ -25,7 +25,7 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null 
-  batch_size: 16
+  batch_size: 8
   valid_subset: "valid,test"
   validate_interval: 1
 
@@ -42,7 +42,7 @@ optimization:
   # max_epoch: 25
   max_update: 50000
   lr: [0.0001]
-  update_freq: [4]
+  update_freq: [8]
 
 optimizer:
   _name: adam
@@ -58,7 +58,7 @@ lr_scheduler:
   final_lr_scale: 0.05
 
 model:
-  _name: ecg_language_transformer_classifier
+  _name: deaf_transformer_qa
   num_labels: ???
   num_ecgs: 2
   model_path: null
@@ -72,7 +72,7 @@ model:
   feature_grad_mult: 1.0
   freeze_finetune_updates: 0
 
-  encoder_layers: 8
+  encoder_layers: 12
   encoder_embed_dim: 768
   in_d: 12
 

@@ -47,8 +47,7 @@ criterion:
 
 optimization:
   max_epoch: 200
-  max_update: 79800
-  lr: [0.001]
+  lr: [0.00005]
 
 optimizer:
   _name: adam
@@ -57,13 +56,7 @@ optimizer:
   weight_decay: 0.0005
 
 lr_scheduler:
-  _name: tri_stage
-  phase_ratio: [0.1, 0.0, 0.9]
-  final_lr_scale: 0.01
-
-# lr_scheduler:
-#   _name: fixed
-#   warmup_updates: 0
+  _name: fixed
 
 model:
   _name: se_wrn_classifier

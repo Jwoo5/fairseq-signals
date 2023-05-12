@@ -3,8 +3,8 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  wandb_entity: ecg-pretraining
-  wandb_project: question-answering
+  # wandb_entity: ecg-pretraining
+  # wandb_project: question-answering
 
 checkpoint:
   save_dir: checkpoints
@@ -26,10 +26,8 @@ dataset:
   num_workers: 6
   max_tokens: null 
   batch_size: 64
-  valid_subset: "valid,test,test_derived_entire_grounding,test_independent_entire_grounding,\
-                  test_derived_per_lead_grounding,test_independent_per_lead_grounding"
-  fixed_validation_seed: 1
-  validate_interval: 5
+  valid_subset: "valid,test"
+  validate_interval: 1
 
 distributed_training:
   distributed_world_size: 1
@@ -38,10 +36,10 @@ criterion:
   _name: binary_cross_entropy_with_logits
   report_auc: true
   multi_class_multi_label: true
-  per_log_keys: [question_type, template_id, question_id, attribute_id]
+  per_log_keys: [question_type, template_id, attribute_id]
 
 optimization:
-  max_epoch: 100
+  max_epoch: 50
   lr: [0.00005]
 
 optimizer:
@@ -52,7 +50,6 @@ optimizer:
 
 lr_scheduler:
   _name: fixed
-  warmup_updates: 1600
 
 model:
   _name: resnet_lstm_classifier

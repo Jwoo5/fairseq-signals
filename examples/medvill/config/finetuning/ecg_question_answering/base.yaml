@@ -1,66 +1,63 @@
-
 common:
   fp16: false
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
   wandb_entity: ecg-pretraining
-  wandb_project: grounding-classification
+  wandb_project: question-answering
 
 checkpoint:
   save_dir: checkpoints
-  best_checkpoint_metric: accuracy
+  best_checkpoint_metric: em_accuracy
   maximize_best_checkpoint_metric: true
   save_interval: 1
   keep_last_epochs: 1
   save_interval_updates: 0
   no_epoch_checkpoints: false
-  # patience: 20
+  # patience: 30
 
 task:
-  _name: ecg_classification
+  _name: ecg_question_answering
   data: ???
-  path_dataset: true
-  load_specific_lead: false
   normalize: false
   enable_padding: true
-  enable_padding_leads: false
 
 dataset:
   num_workers: 6
   max_tokens: null
-  batch_size: 64
-  train_subset: "train_entire_grounding"
-  valid_subset: "valid_entire_grounding,test_entire_grounding"
-  validate_interval: 5
+  batch_size: 8
+  valid_subset: "valid,test"
+  validate_interval: 1
 
 distributed_training:
   distributed_world_size: 1
-  find_unused_parameters: true
 
 criterion:
-  _name: multi_head_binary_cross_entropy
+  _name: binary_cross_entropy_with_logits
   report_auc: true
-  log_per_class: false
-  per_log_keys: [attribute_id]
+  multi_class_multi_label: true
+  per_log_keys: [question_type1, question_type2, question_type3, template_id, attribute_id]
 
 optimization:
-  max_epoch: 100
-  lr: [0.00005]
+  # max_epoch: 25
+  max_update: 50000
+  lr: [0.0001]
+  update_freq: [8]
 
 optimizer:
   _name: adam
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-08
-  weight_decay: 1e-4
 
 lr_scheduler:
-  _name: fixed
-  warmup_updates: 0
+  _name: tri_stage
+  phase_ratio: [0.1, 0.4, 0.5]
+  final_lr_scale: 0.05
 
 model:
-  _name: ecg_transformer_classifier
+  _name: ecg_language_transformer_classifier
   num_labels: ???
+  num_ecgs: 2
   model_path: ???
   no_pretrained_weights: false
 
@@ -72,6 +69,8 @@ model:
   feature_grad_mult: 0.1
   freeze_finetune_updates: 0
 
-  encoder_layers: 8
+  encoder_layers: 12
   encoder_embed_dim: 768
   in_d: 12
+
+  apply_mask: false

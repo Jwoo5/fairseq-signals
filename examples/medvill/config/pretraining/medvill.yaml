@@ -60,3 +60,5 @@ model:
   encoder_layers: 12
   encoder_embed_dim: 768
   in_d: 12
+
+  apply_mask: false

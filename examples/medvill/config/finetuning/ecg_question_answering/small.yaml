@@ -25,10 +25,9 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null
-  batch_size: 32
-  valid_subset: "valid,test,test_per_lead_grounding,test_entire_grounding"
-  fixed_validation_seed: 1
-  validate_interval: 5
+  batch_size: 16
+  valid_subset: "valid,test"
+  validate_interval: 1
 
 distributed_training:
   distributed_world_size: 1
@@ -37,25 +36,24 @@ criterion:
   _name: binary_cross_entropy_with_logits
   report_auc: true
   multi_class_multi_label: true
-  per_log_keys: [question_type, template_id, question_id, attribute_id]
+  per_log_keys: [question_type1, question_type2, question_type3, template_id, attribute_id]
 
 optimization:
-  max_epoch: 100
+  max_epoch: 25
   lr: [0.00005]
+  # update_freq: [4]
 
 optimizer:
   _name: adam
   adam_betas: (0.9, 0.98)
   adam_eps: 1e-08
-  weight_decay: 1e-4
 
 lr_scheduler:
   _name: fixed
-  warmup_updates: 1600
 
 model:
   _name: ecg_language_transformer_classifier
-  num_labels: 108
+  num_labels: ???
   model_path: ???
   no_pretrained_weights: false
 
