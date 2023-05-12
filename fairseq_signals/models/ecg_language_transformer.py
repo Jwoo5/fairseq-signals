@@ -83,6 +83,7 @@ class ECGLanguageTransformerConfig(TransformerConfig):
     sep_token: int = II("task.sep_token")
     max_text_size: int = II('task.max_text_size')
 
+    #XXX to be removed
     normalize: bool = II('task.normalize')
     data: str = II('task.data')
     args: Any = None
@@ -118,6 +119,7 @@ class ECGLanguageTransformerModel(TransformerModel):
         if cfg.load_bert_embedding:
             from transformers import AutoModel
             bert_embeddings = AutoModel.from_pretrained('bert-base-uncased').embeddings
+            #XXX to be changed to self.word_embeddings, ...
             self.language_embedding = bert_embeddings.word_embeddings
             self.position_embedding = bert_embeddings.position_embeddings
             self.token_type_embedding = bert_embeddings.token_type_embeddings
@@ -140,8 +142,8 @@ class ECGLanguageTransformerModel(TransformerModel):
         self.num_updates = 0
 
     def upgrade_state_dict_named(self, state_dict, name):
-        super().upgrade_state_dict_named(state_dict, name)
         """Upgrate a (possibly old) state dict for new versions."""
+        super().upgrade_state_dict_named(state_dict, name)
         return state_dict
 
     def set_num_updates(self, num_updates):
@@ -175,15 +177,24 @@ class ECGLanguageTransformerModel(TransformerModel):
         text,
         ecg_padding_mask=None,
         text_padding_mask=None,
+        ecg_2=None,
+        ecg_2_padding_mask=None,
         **kwargs
     ):
+        ecg_features_2 = None
         if self.feature_grad_mult > 0:
             ecg_features = self.feature_extractor(ecg)
+            if ecg_2 is not None:
+                ecg_features_2 = self.feature_extractor(ecg_2)
             if self.feature_grad_mult != 1.0:
                 ecg_features = GradMultiply.apply(ecg_features, self.feature_grad_mult)
+                if ecg_features_2 is not None:
+                    ecg_features_2 = GradMultiply.apply(ecg_features_2, self.feature_grad_mult)
         else:
             with torch.no_grad():
                 ecg_features = self.feature_extractor(ecg)
+                if ecg_features_2 is not None:
+                    ecg_features_2 = self.feature_extractor(ecg_2)
 
         ecg_features = ecg_features.transpose(1,2)
         ecg_features = self.feats_layer_norm(ecg_features)
@@ -193,12 +204,12 @@ class ECGLanguageTransformerModel(TransformerModel):
             if input_lengths.dim() > 1:
                 for input_len in input_lengths:
                     assert (input_len == input_len[0]).all()
-                input_lengths = input_lengths[:,0]
+                input_lengths = input_lengths[:, 0]
             # apply conv formula to get real output_lengths
             output_lengths = self._get_feat_extract_output_lengths(input_lengths)
 
             ecg_padding_mask = torch.zeros(
-                ecg_features.shape[:2], dtype = ecg_features.dtype, device = ecg_features.device
+                ecg_features.shape[:2], dtype=ecg_features.dtype, device=ecg_features.device
             )
 
             # these two operations makes sure that all values
@@ -212,13 +223,87 @@ class ECGLanguageTransformerModel(TransformerModel):
             ecg_padding_mask = (1 - ecg_padding_mask.flip([-1]).cumsum(-1).flip([-1])).bool()
         else:
             ecg_padding_mask = None
+
+        if ecg_features_2 is not None:
+            ecg_features_2 = ecg_features_2.transpose(1, 2)
+            ecg_features_2 = self.feats_layer_norm(ecg_features_2)
+
+        if ecg_2_padding_mask is not None and ecg_2_padding_mask.any():
+            input_lengths = (1 - ecg_2_padding_mask.long()).sum(-1)
+            if input_lengths.dim() > 1:
+                for input_len in input_lengths:
+                    assert (input_len == input_len[0]).all()
+                input_lengths = input_lengths[:, 0]
+            # apply conv formula to get real output_lengths
+            output_lengths = self._get_feat_extract_output_lengths(input_lengths)
+
+            ecg_2_padding_mask = torch.zeros(
+                ecg_features_2.shape[:2], dtype=ecg_features_2.dtype, device=ecg_features_2.device
+            )
+
+            # these two operations makes sure that all values
+            # before the output lengths indices are attended to
+            ecg_2_padding_mask[
+                (
+                    torch.arange(ecg_2_padding_mask.shape[0], device=ecg_2_padding_mask.device),
+                    output_lengths - 1
+                )
+            ] = 1
+            ecg_2_padding_mask[torch.where(output_lengths == 0)] = 0
+            ecg_2_padding_mask = (1 - ecg_2_padding_mask.flip([-1]).cumsum(-1).flip([-1])).bool()
+        else:
+            ecg_2_padding_mask = None
+
         if text_padding_mask is not None and not text_padding_mask.any():
             text_padding_mask = None
 
         if self.post_extract_proj is not None:
             ecg_features = self.post_extract_proj(ecg_features)
+            if ecg_features_2 is not None:
+                ecg_features_2 = self.post_extract_proj(ecg_features_2)
 
         ecg_features = self.dropout_input(ecg_features)
+        if self.cfg.apply_mask and self.training:
+            ecg_features, _ = self.apply_mask(
+                ecg_features,
+                ecg_padding_mask,
+                mask_indices=None
+            )
+
+        if ecg_features_2 is not None:
+            ecg_features_2 = self.dropout_input(ecg_features_2)
+            if self.cfg.apply_mask and self.training:
+                ecg_features_2, _ = self.apply_mask(
+                    ecg_features_2,
+                    ecg_2_padding_mask,
+                    mask_indices=None
+                )
+            sep_token_embeddings = self.language_embedding(
+                torch.full((len(ecg_features), 1), fill_value=self.sep_token, device=ecg_features.device)
+            )
+            ecg_features_2 = torch.cat(
+                [sep_token_embeddings, ecg_features_2], dim=1
+            )
+
+            if ecg_padding_mask is None and ecg_2_padding_mask is not None:
+                ecg_padding_mask = ecg_features.new_zeros(ecg_features.shape[:2], dtype=bool)
+            elif ecg_padding_mask is not None and ecg_2_padding_mask is None:
+                ecg_2_padding_mask = ecg_features_2.new_zeros(ecg_features_2.shape[:2], dtype=bool)
+
+            if ecg_padding_mask is not None and ecg_2_padding_mask is not None:
+                sep_padding_mask = ecg_2_padding_mask.new_zeros((len(ecg_2_padding_mask), 1,))
+                sep_padding_mask[torch.where(ecg_2_padding_mask.all(dim=-1))] = True
+                ecg_padding_mask = torch.cat(
+                    [
+                        ecg_padding_mask,
+                        sep_padding_mask,
+                        ecg_2_padding_mask
+                    ], dim=1
+                )
+
+            ecg_features = torch.cat(
+                [ecg_features, ecg_features_2], dim=1
+            )
 
         ecg_features_conv = self.conv_pos(ecg_features, channel_first=False)
         ecg_features += ecg_features_conv
@@ -260,14 +345,29 @@ class ECGLanguageTransformerModel(TransformerModel):
 
             padding_mask = torch.cat([ecg_padding_mask, text_padding_mask], dim=1)
         else:
-            padding_mask = None        
+            padding_mask = None
 
         x = self.encoder(x, padding_mask=padding_mask)
 
         return {'x': x, 'padding_mask': padding_mask}
 
-    def extract_features(self, ecg, text, ecg_padding_mask, text_padding_mask):
-        res = self.forward(ecg, text, ecg_padding_mask, text_padding_mask)
+    def extract_features(
+        self,
+        ecg,
+        text,
+        ecg_padding_mask,
+        text_padding_mask,
+        ecg_2,
+        ecg_2_padding_mask
+    ):
+        res = self.forward(
+            ecg=ecg,
+            text=text,
+            ecg_padding_mask=ecg_padding_mask,
+            text_apdding_mask=text_padding_mask,
+            ecg_2=ecg_2,
+            ecg_2_padding_mask=ecg_2_padding_mask
+        )
         return res
 
     def get_logits(self, net_output):
@@ -284,12 +384,12 @@ class ECGLanguageTransformerModel(TransformerModel):
         **kwargs,
     ):
         """
-        Load a :class:`~fairseq_signals.models.QATransformerModel` from a pre-trained model
+        Load a :class:`~fairseq_signals.models.ECGLanguageTransformerModel` from a pre-trained model
         checkpoint.
 
         Args:
             model_path (str): a path to a pre-trained model state dict
-            cfg (QATransformerConfig): cfg to override some arguments of pre-trained model
+            cfg (ECGLanguageTransformerConfig): cfg to override some arguments of pre-trained model
         """
 
         arg_overrides = {
@@ -344,12 +444,23 @@ class ECGLanguageTransformerFinetuningModel(TransformerFinetuningModel):
     def get_targets(self, sample, net_output):
         raise NotImplementedError()
 
-    def forward(self, ecg, text, ecg_padding_mask=None, text_padding_mask=None, **kwargs):
+    def forward(
+        self,
+        ecg,
+        text,
+        ecg_padding_mask=None,
+        text_padding_mask=None,
+        ecg_2=None,
+        ecg_2_padding_mask=None,
+        **kwargs
+    ):
         args = {
             "ecg": ecg,
             "text": text,
             "ecg_padding_mask": ecg_padding_mask,
             "text_padding_mask": text_padding_mask,
+            "ecg_2": ecg_2,
+            "ecg_2_padding_mask": ecg_2_padding_mask
         }
 
         ft = self.freeze_finetune_updates <= self.num_updates
