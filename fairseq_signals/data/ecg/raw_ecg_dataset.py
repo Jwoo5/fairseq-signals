@@ -532,7 +532,7 @@ class PathECGDataset(FileECGDataset):
         feats, _ = wfdb.rdsamp(data["ecg_path"][0])
         feats = torch.from_numpy(feats.T)
 
-        leads_to_load = data["lead"].squeeze() if "lead" in data else self.leads_to_load
+        leads_to_load = data["lead"][0] if "lead" in data else self.leads_to_load
         feats = self.postprocess(feats, curr_sample_rate=None, leads_to_load=leads_to_load)
 
         res["source"] = feats

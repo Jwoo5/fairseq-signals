@@ -49,10 +49,6 @@ class FileECGQADataset(RawECGTextDataset):
 
         self.sizes = np.array(sizes, dtype=np.int64)
 
-        if not self.tokenized:
-            from transformers import BertTokenizer
-            self.tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
         try:
             import pyarrow
 

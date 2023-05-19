@@ -158,6 +158,7 @@ class ECGTransformerModel(TransformerModel):
                     output_lengths - 1
                 )
             ] = 1
+            padding_mask[torch.where(output_lengths == 0)] = 0
             padding_mask = (1 - padding_mask.flip([-1]).cumsum(-1).flip([-1])).bool()
         else:
             padding_mask = None
