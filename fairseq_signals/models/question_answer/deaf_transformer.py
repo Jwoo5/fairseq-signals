@@ -93,7 +93,9 @@ class DeafTransformerQAModel(ECGTransformerModel):
             else:
                 assert ecg_padding_mask is None or (not ecg_padding_mask.any())
                 padding_mask = None
-        
+        else:
+            padding_mask = ecg_padding_mask
+
         if ecg_padding_mask is not None and ecg_padding_mask.any():
             input_lengths = (1 - ecg_padding_mask.long()).sum(-1)
             if input_lengths.dim() > 1:
@@ -116,7 +118,11 @@ class DeafTransformerQAModel(ECGTransformerModel):
             feats_2 = x[:, output_length:]
             feats_2 = torch.div(feats_2.sum(dim=1), (feats_2 != 0).sum(dim=1) + 1e-8)
             feats = torch.cat([feats, feats_2], dim=1)
-        
+        else:
+            feats = torch.cat(
+                [feats, feats.new_zeros(feats.shape)], dim=1
+            )
+
         x = self.proj(feats)
         
         return {
