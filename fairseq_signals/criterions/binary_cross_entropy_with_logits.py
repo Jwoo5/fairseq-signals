@@ -44,14 +44,6 @@ class BinaryCrossEntropyWithLogitsCriterionConfig(BinaryCrossEntropyCriterionCon
             "help": "score weights file for cinc challenge, only used when --report_cinc_score is True"
         }
     )
-    multi_class_multi_label: bool = field(
-        default=False,
-        metadata={
-            "help": "whether to measure metrics based on multi-class & multi-label setting. "
-                "if set, `sample` should have `is_multi_class` and `classes` as a key "
-                "to indicate which samples are based on multi-class and which class indices are corresponded"
-        }
-    )
     per_log_keys: List[str] = field(
         default_factory = lambda: [],
         metadata={
@@ -74,8 +66,6 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
                 ecg_utils.get_physionet_weights(cfg.weights_file)
             )
             self.sinus_rhythm_index = ecg_utils.get_sinus_rhythm_index(classes)
-
-        self.multi_class_multi_label = cfg.multi_class_multi_label
 
         self.per_log_keys = cfg.per_log_keys
 
