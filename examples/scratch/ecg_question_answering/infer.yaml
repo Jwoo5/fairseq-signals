@@ -1,5 +1,7 @@
 common:
-  all_gather_list_size: 2048000
+  all_gather_list_size: 4096000
+  log_format: tqdm
+  log_interval: 10
   wandb_entity: ecg-pretraining
   wandb_project: question-answering
 
@@ -12,7 +14,7 @@ dataset:
   num_workers: 6
   max_tokens: null
   batch_size: 128
-  valid_subset: "test_derived_entire_grounding,test_independent_entire_grounding,test_derived_per_lead_grounding,test_independent_per_lead_grounding"
+  valid_subset: "test"
   fixed_validation_seed: 1
 
 task:

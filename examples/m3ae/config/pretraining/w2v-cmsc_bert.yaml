@@ -2,8 +2,7 @@ common:
   fp16: false
   log_format: json
   log_interval: 10
-  wandb_entity: ecg-pretraining
-  wandb_project: m3ae-pretraining
+  # wandb_project: m3ae-pretraining
 
 checkpoint:
   save_dir: checkpoints

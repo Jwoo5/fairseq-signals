@@ -3,8 +3,7 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  wandb_entity: ecg-pretraining
-  wandb_project: question-answering
+  # wandb_project: question-answering
 
 checkpoint:
   save_dir: checkpoints
@@ -14,7 +13,6 @@ checkpoint:
   keep_last_epochs: 1
   save_interval_updates: 0
   no_epoch_checkpoints: false
-  # patience: 30
 
 task:
   _name: ecg_question_answering
@@ -35,11 +33,9 @@ distributed_training:
 criterion:
   _name: binary_cross_entropy_with_logits
   report_auc: true
-  multi_class_multi_label: true
-  per_log_keys: [question_type1, question_type2, question_type3, template_id, attribute_id]
+  per_log_keys: [question_type1, question_type2, question_type3]
 
 optimization:
-  # max_epoch: 25
   max_update: 50000
   lr: [0.0001]
   update_freq: [8]
