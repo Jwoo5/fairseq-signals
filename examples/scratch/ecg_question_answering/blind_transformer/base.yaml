@@ -22,8 +22,8 @@ task:
 
 dataset:
   num_workers: 6
-  max_tokens: null 
-  batch_size: 16
+  max_tokens: null
+  batch_size: 256
   valid_subset: "valid,test"
   validate_interval: 1
 
@@ -36,10 +36,9 @@ criterion:
   per_log_keys: [question_type1, question_type2, question_type3]
 
 optimization:
-  # max_epoch: 25
   max_update: 50000
   lr: [0.0001]
-  update_freq: [4]
+  update_freq: [1]
 
 optimizer:
   _name: adam
@@ -52,22 +51,15 @@ lr_scheduler:
   final_lr_scale: 0.05
 
 model:
-  _name: ecg_language_transformer_classifier
+  _name: blind_transformer_qa
   num_labels: ???
-  num_ecgs: 2
-  model_path: null
-  no_pretrained_weights: true
 
   dropout: 0.0
   attention_dropout: 0.0
   activation_dropout: 0.1
   # encoder_layerdrop: 0.1
 
-  feature_grad_mult: 1.0
-  freeze_finetune_updates: 0
-
-  encoder_layers: 8
+  encoder_layers: 12
   encoder_embed_dim: 768
-  in_d: 12
 
   apply_mask: false
