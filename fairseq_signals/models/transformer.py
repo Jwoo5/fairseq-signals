@@ -10,14 +10,13 @@ from fairseq_signals import tasks
 from fairseq_signals.utils import checkpoint_utils
 from fairseq_signals.data.data_utils import compute_mask_indices
 from fairseq_signals.dataclass.utils import convert_namespace_to_omegaconf
-from fairseq_signals.models import BaseModel
 from fairseq_signals.models.pretraining_model import PretrainingConfig, PretrainingModel
 from fairseq_signals.models.finetuning_model import FinetuningConfig, FinetuningModel
 from fairseq_signals.modules import (
     TransformerEncoder,
 )
 from fairseq_signals.tasks import Task
-from fairseq_signals.dataclass import ChoiceEnum, Dataclass
+from fairseq_signals.dataclass import ChoiceEnum
 
 EXTRACTOR_MODE_CHOICES = ChoiceEnum(["default", "layer_norm"])
 MASKING_DISTRIBUTION_CHOICES = ChoiceEnum(["static", "uniform", "normal", "poisson"])
@@ -246,13 +245,6 @@ class TransformerModel(PretrainingModel):
             "Fine-tuning works best when data normalization is the same. "
             "Please check that --normalize is set or unset for both pre-training and here"
         )
-        #XXX
-        # temporary hack for loading legacy
-        if "filter" not in args.task:
-            from omegaconf import open_dict
-            with open_dict(args.task):
-                args.task.filter = False
-        #XXX
         assert cfg.filter == args.task.filter, (
             "Fine-tuning works best when signal filtering for data is the same. "
             "Please check that --filter is set or unset for both pre-training and here"

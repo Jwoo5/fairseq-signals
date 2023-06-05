@@ -19,6 +19,8 @@ from fairseq_signals.dataclass.utils import gen_parser_from_dataclass
 
 from omegaconf import DictConfig
 
+from fairseq_signals.distributed import utils as dist_utils
+
 logger = logging.getLogger(__name__)
 
 class StatefulContainer(object):
@@ -331,6 +333,7 @@ class Task(object):
             loss, sample_size, logging_output = criterion(model, sample)
         if ignore_grad:
             loss *= 0
+
         with torch.autograd.profiler.record_function("backward"):
             optimizer.backward(loss)
 

@@ -195,14 +195,14 @@ def get_data_parallel_world_size():
     """Return world size for the data parallel group."""
     return get_world_size(get_data_parallel_group())
 
-def all_reduce(tensor, group, op = "sum"):
+def all_reduce(tensor, group, op="sum"):
     if op == "sum":
         op = dist.ReduceOp.SUM
     elif op == "max":
         op = dist.ReduceOp.MAX
     else:
         raise NotImplementedError
-    dist.all_reduce(tensor, op = op, group = group)
+    dist.all_reduce(tensor, op=op, group=group)
     return tensor
 
 def broadcast(tensor, src, group):
@@ -307,13 +307,13 @@ def all_gather_list(data, group = None, max_size = 16384):
         raise ValueError(
             "encoded data size ({}) exceeds max_size ({})".format(size, max_size)
         )
-    
+
     header = struct.pack(">I", enc_size)
     cpu_buffer[:size] = torch.ByteTensor(list(header + enc))
     start = rank * max_size
     buffer[start : start + size].copy_(cpu_buffer[:size])
 
-    all_reduce(buffer, group = group)
+    all_reduce(buffer, group=group)
 
     buffer = buffer.cpu()
     try:

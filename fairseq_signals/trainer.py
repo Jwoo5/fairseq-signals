@@ -535,12 +535,12 @@ class Trainer(object):
             try:
                 with maybe_no_sync():
                     loss, sample_size_i, logging_output = self.task.train_step(
-                        sample = sample,
-                        model = self.model,
-                        criterion = self.criterion,
-                        optimizer = self.optimizer,
-                        update_num = self.get_num_updates(),
-                        ignore_grad = is_dummy_batch
+                        sample=sample,
+                        model=self.model,
+                        criterion=self.criterion,
+                        optimizer=self.optimizer,
+                        update_num=self.get_num_updates(),
+                        ignore_grad=is_dummy_batch
                     )
                     del loss
 
@@ -969,7 +969,7 @@ class Trainer(object):
         self,
         logging_outputs: List[Dict[str, Any]],
         *extra_stats_to_sum,
-        ignore = False
+        ignore=False
     ):
         """
         Sync logging outputs across workers. all_gather_list_sync is
@@ -981,8 +981,8 @@ class Trainer(object):
             zip(
                 *distributed_utils.all_gather_list(
                     [logging_outputs] + list(extra_stats_to_sum),
-                    max_size = getattr(self.cfg.common, "all_gather_list_size", 16384),
-                    group = self.data_parallel_process_group
+                    max_size=getattr(self.cfg.common, "all_gather_list_size", 16384),
+                    group=self.data_parallel_process_group
                 )
             )
         )
