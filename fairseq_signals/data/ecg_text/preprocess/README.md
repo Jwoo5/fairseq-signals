@@ -72,7 +72,7 @@ Before pre-processing the data, the file structure should be like this:
      ├─ train.json
      └─ valid.json
 ```
-Then, tun:
+Then, run:
 ```shell script
 $ python preprocess_ecgqa.py \
     /path/to/ecgqa \
