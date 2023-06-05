@@ -47,6 +47,14 @@ The expected results are:
 └─ valid.tsv
 ```
 
+## Run experiments
+Please follow the instruction on the [root directory](../../../../) to install `fairseq-signals` before running experiments.
+
+### Pre-training
+For multi-modal pre-training of ECGs and reports, please refer to detailed README for each model implementation.
+* [Multi-Modal Masked Autoencoders for Medical Vision-and-Language Pre-Training](../../../../examples/m3ae/README.md)
+* [Multi-modal Understanding and Generation for Medical Images and Text via Vision-Language Pre-Training](../../../../examples/medvill/README.md)
+
 # ECG-QA
 You can download ECG-QA dataset from [here](https://github.com/Jwoo5/ecg-qa).
 
@@ -110,5 +118,22 @@ It will output .mat files to `/path/to/output/$split` directory for each split, 
          ├─ ...
          └─ 63776.mat
 ```
+
+## Run QA experiments
+Please follow the instruction on the [root directory](../../../../) to install `fairseq-signals` before running experiments.
+
+Run:
+```shell script
+$ fairseq-hydra-train task.data=/path/to/output/paraphrased \
+    model.num_labels=103 \
+    --config-dir /fairseq-signals/examples/scratch/ecg_question_answering/$model_name \
+    --config-name $model_config_name
+```
+$model_name: the name of the ECG-QA model (e.g., `ecg_transformer`)  
+$model_config_name the name of the configuration file (e.g., `base`)
+
+If you want to fine-tune a pre-trained model on QA task, please refer to detailed README for each pre-training model implementation.
+* [Multi-Modal Masked Autoencoders for Medical Vision-and-Language Pre-Training](../../../../examples/m3ae/README.md)
+* [Multi-modal Understanding and Generation for Medical Images and Text via Vision-Language Pre-Training](../../../../examples/medvill/README.md)
 
 ## Pre-process for Upperbound experiments
