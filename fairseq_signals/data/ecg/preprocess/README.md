@@ -50,9 +50,9 @@ $N is the number of workers for multi-processing.
 It will output .mat files to `/path/to/output` directory after encoding labels (age, diagnosis, patient id), and repeatedly cropping 5 seconds for each ECG record.
 
 # PTB-XL
-You can download PTB-XL dataset from [here](https://physionet.org/content/ptb-xl/1.0.1/) or directly using your terminal:
+You can download PTB-XL dataset from [here](https://physionet.org/content/ptb-xl/1.0.3/) or directly using your terminal:
 ```shell script
-$ wget -r -N -c -np https://physionet.org/files/ptb-xl/1.0.1/
+$ wget -r -N -c -np https://physionet.org/files/ptb-xl/1.0.3/
 ```
 
 ## Pre-process
