@@ -144,7 +144,7 @@ class M3AEModel(PretrainingModel):
         self.mim_prob = cfg.mim_prob
         self.mim_layer = cfg.mim_layer
 
-        if cfg.load_pretrained_weights:
+        if cfg.load_pretrained_weights and cfg.pretrained_model_path is not None:
             self.ecg_encoder = ECGTransformerModel.from_pretrained(cfg.pretrained_model_path, cfg)
         else:
             self.ecg_encoder = ECGTransformerModel(cfg)
@@ -466,7 +466,9 @@ class M3AEModel(PretrainingModel):
         
         if hasattr(model, "remove_pretraining_modules"):
             model.remove_pretraining_modules()
-        
+
+        if "ecg_encoder.mask_emb" in state["model"].keys():
+            del state["model"]["ecg_encoder.mask_emb"]
         model.load_state_dict(state["model"], strict=True)
         logger.info(f"Loaded pre-trained model parameters from {model_path}")
 
@@ -493,7 +495,9 @@ class M3AEFinetuningModel(FinetuningModel):
             encoder = M3AEModel.from_pretrained(cfg.model_path, cfg)
         else:
             encoder = M3AEModel(cfg)
-        
+            if hasattr(encoder, "remove_pretraining_modules"):
+                encoder.remove_pretraining_modules()
+
         return cls(cfg, encoder)
 
     def forward(

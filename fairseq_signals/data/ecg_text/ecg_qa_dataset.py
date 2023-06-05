@@ -27,9 +27,6 @@ class FileECGQADataset(RawECGTextDataset):
 
         with open(manifest_path, 'r') as f:
             self.root_dir = f.readline().strip()
-            self.tokenized = eval(f.readline().strip())
-            self.num_labels = int(f.readline().strip())
-
             for i, line in enumerate(f):
                 items = line.strip().split('\t')
                 assert len(items) == 3 or len(items) == 4, line
@@ -119,28 +116,16 @@ class FileECGQADataset(RawECGTextDataset):
             input["ecg_2_padding_mask"] = padding_mask
 
         out = {'id': torch.LongTensor([s['id'] for s in samples])}
-        if "template_id" in samples[0]:
-            out["template_id"] = torch.LongTensor([s["template_id"] for s in samples])
-        if "attribute_id" in samples[0]:
-            out["attribute_id"] = torch.LongTensor([s["attribute_id"] for s in samples])
-        #XXX zero-shot
-        # if "attribute_idx" in samples[0]:
-        #     out["attribute_idx"] = torch.LongTensor([s["attribute_idx"] for s in samples])
-        out["question_id"] = torch.LongTensor([s["question_id"] for s in samples])
-        #XXX
         if "question_type1" in samples[0]:
             out["question_type1"] = torch.LongTensor([s["question_type1"] for s in samples])
             out["question_type2"] = torch.LongTensor([s["question_type2"] for s in samples])
             out["question_type3"] = torch.LongTensor([s["question_type3"] for s in samples])
 
-        out["is_multi_class"] = torch.LongTensor([s["is_multi_class"] for s in samples])
         out['answer'] = torch.cat([s['answer'] for s in samples])
-        out["classes"] = [s["classes"] for s in samples]
+        out["valid_classes"] = [s["valid_classes"] for s in samples]
 
         out['net_input'] = input
-
-        #XXX
-        # out["ecg_id"] = torch.LongTensor([s["ecg_id"] for s in samples])
+        out["question"] = np.stack([s["text"] for s in samples])
 
         return out
 
@@ -162,38 +147,16 @@ class FileECGQADataset(RawECGTextDataset):
         else:
             res["ecg_2"] = None
 
-        # question = torch.from_numpy(data['question'][0])
-        # if not self.tokenized:
-        #     question = self.tokenizer.encode(question.lower(), add_special_tokens=False)
-        # res['text'] = torch.cat([
-        #     torch.LongTensor([self.sep_token]),
-        #     question,
-        #     torch.LongTensor([self.sep_token])
-        # ])
-
-        #XXX
-        res["text"] = data["question_str"][0]
+        res["text"] = data["question"][0]
 
         answer = data['answer']
         res['answer'] = torch.LongTensor(answer)
 
-        if "template_id" in data:
-            res["template_id"] = data["template_id"][0][0]
-        if "attribute_id" in data:
-            res["attribute_id"] = data["attribute_id"][0][0]
-        #XXX zero-shot
-        # if "attribute_idx" in data:
-        #     res["attribute_idx"] = data["attribute_idx"][0][0]
-        res["question_id"] = data["question_id"][0][0]
-        res["question_type1"] = data["qtype1"][0][0]
-        res["question_type2"] = data["qtype2"][0][0]
-        res["question_type3"] = data["qtype3"][0][0]
-        res["is_multi_class"] = data["atype"][0][0]
-        res["classes"] = torch.LongTensor(data["classes"][0])
+        res["question_type1"] = data["question_type1"][0][0]
+        res["question_type2"] = data["question_type2"][0][0]
+        res["question_type3"] = data["question_type3"][0][0]
 
-        #XXX
-        # ecg_id = data["ecg_id"][0]
-        # res["ecg_id"] = ecg_id
+        res["valid_classes"] = torch.LongTensor(data["valid_classes"][0])
 
         return res
 

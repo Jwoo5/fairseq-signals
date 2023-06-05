@@ -87,7 +87,6 @@ class M3AEQAModel(M3AEFinetuningModel):
         )
         
         x = self.head(res["multi_modal_cls_feats"])
-        
         return {
             "out": x,
         }

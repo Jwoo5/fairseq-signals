@@ -97,11 +97,11 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
             self.pos_weight = torch.tensor(self.pos_weight).to(logits.device)
 
         loss = F.binary_cross_entropy_with_logits(
-            input = logits,
-            target = target,
-            weight = self.weight,
-            pos_weight = self.pos_weight,
-            reduction = reduction
+            input=logits,
+            target=target,
+            weight=self.weight,
+            pos_weight=self.pos_weight,
+            reduction=reduction
         )
 
         if 'sample_size' in sample:
@@ -123,8 +123,6 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
                 per_log_keys.append(plk)
                 logging_output[plk + "_em_count"] = dict()
                 logging_output[plk + "_em_correct"] = dict()
-                logging_output[plk + "_partial_count"] = dict()
-                logging_output[plk + "_partial_correct"] = dict()
                 logging_output[plk + "_tp"] = dict()
                 logging_output[plk + "_fp"] = dict()
                 logging_output[plk + "_fn"] = dict()
@@ -140,9 +138,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
             corr = 0
             count = 0
             em_count = 0
-            partial_count = 0
             em_corr = 0
-            partial_corr = 0
             tp = 0
             fp = 0
             fn = 0
@@ -151,8 +147,8 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
             y_score = []
             y_class = []
 
-            for logit, prob, output, gt, classes, is_multi_class in zip(
-                logits, probs, outputs, target, sample["classes"], sample["is_multi_class"]
+            for logit, prob, output, gt, classes in zip(
+                logits, probs, outputs, target, sample["valid_classes"]
             ):
                 logit = logit[classes]
                 prob = prob[classes]
@@ -166,32 +162,17 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
                 fp += output[false].sum()
 
                 em_count += 1
-                partial_count += 1
-                if is_multi_class:
-                    count += 1
-                    max = logit.argmax()
-                    if gt[max]:
-                        corr += 1
-                        em_corr += 1
-                        partial_corr += 1
-                else:
-                    count += len(classes)
+                count += len(classes)
 
-                    output = (output == gt)
-                    corr += output.sum().item()
-                    if output.all():
-                        em_corr += 1
-                        partial_corr += 1
-                    else:
-                        partial_corr += (output.sum() / output.numel()).item()
+                output = (output == gt)
+                corr += output.sum().item()
+                if output.all():
+                    em_corr += 1
 
                 if not self.training and self.report_auc:
                     _y_true = gt.cpu().numpy()
                     _y_class = classes.cpu().numpy()
-                    if is_multi_class:
-                        _y_score = torch.softmax(logit, 0).cpu().numpy()
-                    else:
-                        _y_score = prob.cpu().numpy()
+                    _y_score = prob.cpu().numpy()
 
                     y_true.append(_y_true)
                     y_score.append(_y_score)
@@ -202,21 +183,25 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
             logging_output["count"] = count
             logging_output["em_correct"] = em_corr
             logging_output["em_count"] = em_count
-            logging_output["partial_correct"] = partial_corr
-            logging_output["partial_count"] = partial_count
-            logging_output["tp"] = tp.item()
-            logging_output["fp"] = fp.item()
-            logging_output["fn"] = fn.item()
+            if tp == 0 or fp == 0 or fn == 0:
+                logging_output["tp"] = tp
+                logging_output["fp"] = fp
+                logging_output["fn"] = fn
+            else:
+                logging_output["tp"] = tp.item()
+                logging_output["fp"] = fp.item()
+                logging_output["fn"] = fn.item()
 
             if not self.training and self.report_auc:
-                # NOTE concat instead of vstack, which yields np.array with shape of (N,)
-                # it can be averaged by macro based on y_class from ``fairseq_signals.meters.AUCMeter```
-                logging_output["_y_true"] = np.concatenate(y_true)
-                logging_output["_y_score"] = np.concatenate(y_score)
-                if self.auc_average == "macro":
-                    logging_output["_y_class"] = np.concatenate(y_class)
-                else:
-                    logging_output["_y_class"] = np.array([])
+                if len(y_true) > 0:
+                    # NOTE concat instead of vstack, which yields np.array with shape of (N,)
+                    # it can be averaged by macro across y_class from ``fairseq_signals.meters.AUCMeter``
+                    logging_output["_y_true"] = np.concatenate(y_true)
+                    logging_output["_y_score"] = np.concatenate(y_score)
+                    if self.auc_average == "macro":
+                        logging_output["_y_class"] = np.concatenate(y_class)
+                    else:
+                        logging_output["_y_class"] = np.array([])
 
             if self.report_cinc_score:
                 labels = target.cpu().numpy()
@@ -252,22 +237,15 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
             for plk in per_log_keys:
                 plk_ids = [log_id.item() for log_id in sample[plk]]
                 for i, plk_id in enumerate(plk_ids):
-                    #XXX hack for logging per question_id ONLY for verify questions
-                    if plk == "question_id" and sample["question_type"][i] != 0:
-                        continue
-
-                    classes = sample["classes"][i]
+                    classes = sample["valid_classes"][i]
                     logit = logits[i][classes]
                     prob = probs[i][classes]
                     output = (prob > self.threshold)
                     gt = target[i][classes]
-                    is_multi_class = sample["is_multi_class"][i]
 
                     if plk_id not in logging_output[plk + "_em_count"]:
                         logging_output[plk + "_em_count"][plk_id] = 0
                         logging_output[plk + "_em_correct"][plk_id] = 0
-                        logging_output[plk + "_partial_count"][plk_id] = 0
-                        logging_output[plk + "_partial_correct"][plk_id] = 0
                         logging_output[plk + "_tp"][plk_id] = 0
                         logging_output[plk + "_fp"][plk_id] = 0
                         logging_output[plk + "_fn"][plk_id] = 0
@@ -283,26 +261,14 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
                     logging_output[plk + "_fp"][plk_id] += output[false].sum().item()
 
                     logging_output[plk + "_em_count"][plk_id] += 1
-                    logging_output[plk + "_partial_count"][plk_id] += 1
-                    if is_multi_class:
-                        if gt[logit.argmax()]:
-                            logging_output[plk + "_em_correct"][plk_id] += 1
-                            logging_output[plk + "_partial_correct"][plk_id] += 1
-                    else:
-                        output = (output == gt)
-                        if output.all():
-                            logging_output[plk + "_em_correct"][plk_id] += 1
-                            logging_output[plk + "_partial_correct"][plk_id] += 1
-                        else:
-                            logging_output[plk + "_partial_correct"][plk_id] += (output.sum() / output.numel()).item()
+                    output = (output == gt)
+                    if output.all():
+                        logging_output[plk + "_em_correct"][plk_id] += 1
 
                     if not self.training and self.report_auc:
                         _y_true = gt.cpu().numpy()
                         _y_class = classes.cpu().numpy()
-                        if is_multi_class:
-                            _y_score = torch.softmax(logit, 0).cpu().numpy()
-                        else:
-                            _y_score = prob.cpu().numpy()
+                        _y_score = prob.cpu().numpy()
                         
                         logging_output[plk + "_y_true"][plk_id].append(_y_true)
                         logging_output[plk + "_y_score"][plk_id].append(_y_score)
@@ -384,12 +350,6 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
         em_total = sum(log.get("em_count", 0) for log in logging_outputs)
         metrics.log_scalar("_em_total", em_total)
 
-        partial_correct = sum(log.get("partial_correct", 0) for log in logging_outputs)
-        metrics.log_scalar("_partial_correct", partial_correct)
-
-        partial_total = sum(log.get("em_count", 0) for log in logging_outputs)
-        metrics.log_scalar("_partial_total", partial_total)
-
         tp = sum(log.get("tp", 0) for log in logging_outputs)
         metrics.log_scalar("_tp", tp)
         fp = sum(log.get("fp", 0) for log in logging_outputs)
@@ -413,15 +373,6 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
                     meters["_em_correct"].sum / meters["_em_total"].sum, 5
                 )
                 if meters["_em_total"].sum > 0
-                else float("nan")
-            )
-
-            metrics.log_derived(
-                "partial_accuracy",
-                lambda meters: safe_round(
-                    meters["_partial_correct"].sum / meters["_partial_total"].sum, 5
-                )
-                if meters["_partial_total"].sum > 0
                 else float("nan")
             )
 
@@ -471,23 +422,13 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
                     log_key = log_key.split("em_count")[0]
                     em_counts = [log[log_key + "em_count"] for log in logging_outputs]
                     em_corrects = [log[log_key + "em_correct"] for log in logging_outputs]
-                    partial_counts = [log[log_key + "partial_count"] for log in logging_outputs]
-                    partial_corrects = [log[log_key + "partial_correct"] for log in logging_outputs]
                     aggregated_em_counts = Counter()
                     aggregated_em_corrects = Counter()
-                    aggregated_partial_counts = Counter()
-                    aggregated_partial_corrects = Counter()
-                    for em_count, em_correct, partial_count, partial_correct in zip(
-                        em_counts, em_corrects, partial_counts, partial_corrects
-                    ):
+                    for em_count, em_correct in zip(em_counts, em_corrects):
                         aggregated_em_counts.update(Counter(em_count))
                         aggregated_em_corrects.update(Counter(em_correct))
-                        aggregated_partial_counts.update(Counter(partial_count))
-                        aggregated_partial_corrects.update(Counter(partial_correct))
                     aggregated_em_counts = dict(aggregated_em_counts)
                     aggregated_em_corrects = dict(aggregated_em_corrects)
-                    aggregated_partial_counts = dict(aggregated_partial_counts)
-                    aggregated_partial_corrects = dict(aggregated_partial_corrects)
 
                     for log_id in aggregated_em_counts.keys():
                         key = log_key + str(log_id)
@@ -514,29 +455,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
                                 if meters[key2].sum > 0
                                 else float("nan")
                             )
-                        
-                        metrics.log_scalar(
-                            "_" + key + "_partial_total",
-                            aggregated_partial_counts[log_id]
-                        )
-                        metrics.log_scalar(
-                            "_" + key + "_partial_correct",
-                            aggregated_partial_corrects[log_id]
-                        )
 
-                        if aggregated_partial_counts[log_id] > 0:
-                            key1 = "_" + key + "_partial_correct"
-                            key2 = "_" + key + "_partial_total"
-                            metrics.log_derived(
-                                key + "_partial_accuracy",
-                                lambda meters, key1=key1, key2=key2: safe_round(
-                                    (
-                                        meters[key1].sum / meters[key2].sum
-                                    ), 5
-                                )
-                                if meters[key2].sum > 0
-                                else float("nan")
-                            )
                 # for precision / recall
                 # elif log_key.endswith("tp"):
                 #     log_key = log_key.split("tp")[0]

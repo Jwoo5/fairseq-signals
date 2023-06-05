@@ -31,6 +31,7 @@ dataset:
 
 distributed_training:
   distributed_world_size: 1
+  find_unused_parameters: true
 
 criterion:
   _name: binary_cross_entropy_with_logits
@@ -42,7 +43,7 @@ optimization:
   # max_epoch: 25
   max_update: 50000
   lr: [0.00005]
-  update_freq: [8]
+  update_freq: [4]
 
 optimizer:
   _name: adam

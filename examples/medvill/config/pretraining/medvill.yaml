@@ -27,7 +27,7 @@ dataset:
   disable_validation: true
 
 distributed_training:
-  distributed_world_size: 8
+  distributed_world_size: 4
 
 criterion:
   _name: medvill
@@ -35,7 +35,7 @@ criterion:
 optimization:
   max_epoch: 800
   lr: [0.00005]
-  update_freq: [2]
+  update_freq: [4]
 
 optimizer:
   _name: adam

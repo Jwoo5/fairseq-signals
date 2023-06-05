@@ -69,13 +69,11 @@ def main(args):
                 if args.ext == 'mat':
                     data = scipy.io.loadmat(file_path)
                     ecg_length = data['feats'].shape[-1]
-                    text_length = data['text'].shape[-1]
 
                     print(
                         "{}".format(os.path.relpath(file_path, root_path)), file=dest, end='\t'
                     )
-                    print(ecg_length, file=dest, end='\t')
-                    print(text_length, file=dest)
+                    print(ecg_length, file=dest)
                 else:
                     raise AssertionError(args.ext)
 

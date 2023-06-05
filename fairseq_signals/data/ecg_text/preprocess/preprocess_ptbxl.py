@@ -6,17 +6,11 @@ import numpy as np
 import wfdb
 import scipy.io
 
-from transformers import BertTokenizer
-
 def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         'root', metavar='DIR', default='.',
         help='root directory containing ptbxl files to pre-process'
-    )
-    parser.add_argument(
-        '--meta-dir', metavar='DIR', default='.',
-        help='directory containing metadata for ptbxl (ptbxl_database_translated.csv)'
     )
     parser.add_argument(
         '--dest', type=str, metavar='DIR', default='.',
@@ -30,7 +24,6 @@ def get_parser():
         '--exclude', type=str, default=None,
         help='path to .tsv file consisting of (index, ecg_id) to be excluded'
     )
-    parser.add_argument("--seed", default=42, type=int, metavar="N", help="random seed")
 
     return parser
 
@@ -59,7 +52,7 @@ def main(args):
     exclude = None
     if args.exclude is not None:
         exclude = []
-        with open(args.exclude, 'r') as f:
+        with open(args.exclude, "r") as f:
             for line in f.readlines():
                 items = line.strip().split('\t')
                 exclude.append(items[1])
@@ -68,9 +61,6 @@ def main(args):
     reports = csv['report_en'].to_numpy()
     scp_codes = csv['scp_codes']
 
-    tokenizer = BertTokenizer.from_pretrained('bert-base-uncased')
-
-    np.random.seed(args.seed)
     n = 0
     for fname, report, scp_code in zip(fnames, reports, scp_codes):
         ecg_id = str(int(os.path.basename(fname).split('_')[0]))
@@ -80,7 +70,6 @@ def main(args):
 
         basename = os.path.basename(fname)
         record = wfdb.rdsamp(os.path.join(dir_path, fname))
-        report = tokenizer.encode(report.lower(), add_special_tokens=False)
         sample_rate = record[1]['fs']
         record = record[0].T
 
