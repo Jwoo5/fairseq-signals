@@ -2,7 +2,7 @@
 
 This is not an official implementation, but a modified version of [Multi-Modal Masked Autoencoders for Medical Vision-and-Language Pre-Training](https://arxiv.org/abs/2209.07098) to apply to ECG domain, instead of chest X-ray.
 
-Before training the model, plese follow [These instructions](/home/jwoh/ecg/fairseq-signals/README.md) to install fairseq-signals and prepare required datasets.
+Before training the model, plese follow [these instructions](../../README.md) to install fairseq-signals and prepare required datasets.
 
 # Pre-training a new model
 ```shell script
@@ -13,7 +13,7 @@ $ fairseq-hydra-train \
     --config-name w2v-cmsc_bert
 ```
 Note that this model requires a pre-trained ECG encoder, provided by `model.pretrained_model_path`.
-To pre-train ECG encoder, follow other instructions such as [Wav2Vec 2.0](/home/jwoh/ecg/fairseq-signals/examples/wav2vec2/README.md), [W2V+CMSC+RLM](/home/jwoh/ecg/fairseq-signals/examples/w2v_cmsc/README.md), or any other SSL implementations.
+To pre-train ECG encoder, follow other instructions such as [Wav2Vec 2.0](../../examples/wav2vec2/README.md), [W2V+CMSC+RLM](../../examples/w2v_cmsc/README.md), or any other SSL implementations.
 
 # Fine-tuning a pre-trained model
 ## Fine-tune on the ECG Question Answering task
