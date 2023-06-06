@@ -80,6 +80,22 @@ def main(args):
             with open(os.path.join(dir_path, subdir, subset + ".json"), "r") as data_f:
                 data = json.load(data_f)
 
+            # look over single-verify samples to collect attribute ids aligned with upperbound experiments
+            attribute_ids = []
+            for sample_data in tqdm(data, total=len(data)):
+                if sample_data["question_type"] == "single-verify":
+                    if "myocardial infarction in " in sample_data["attribute"][0]:
+                        sample_data["attribute"][0] = "myocardial infarction"
+                    elif "subendocardial injury in " in sample_data["attribute"][0]:
+                        sample_data["attribute"][0] = "subendocardial injury"
+                    elif "ischemic in " in sample_data["attribute"][0]:
+                        sample_data["attribute"][0] = "ischemic"
+
+                    if sample_data["attribute"][0] not in attribute_ids:
+                        attribute_ids.append(sample_data["attribute"][0])
+            attribute_ids.sort()
+            attribute_id_map = {k: i for i, k in enumerate(attribute_ids)}
+
             for i, sample_data in enumerate(tqdm(data, total=len(data), postfix=subset)):
                 sample = {}
                 sample["ecg_path"] = []
@@ -108,6 +124,11 @@ def main(args):
                 sample["question_type1"] = qtype1
                 sample["question_type2"] = qtype2
                 sample["question_type3"] = qtype3
+
+                if sample_data["question_type"] == "single-verify":
+                    sample["attribute_id"] = attribute_id_map[sample_data["attribute"][0]]
+                else:
+                    sample["attribute_id"] = -1
 
                 fname = str(i) + ".mat"
                 scipy.io.savemat(os.path.join(dest_path, subset, fname), sample)
