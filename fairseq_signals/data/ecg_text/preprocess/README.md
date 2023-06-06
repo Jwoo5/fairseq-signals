@@ -48,7 +48,7 @@ The expected results are:
 ```
 
 ## Run experiments
-Please follow the instruction on the [root directory](../../../../) to install `fairseq-signals` before running experiments.
+Please follow the instructions in the [root directory](../../../../) to install `fairseq-signals` before running experiments.
 
 ### Pre-training
 For multi-modal pre-training of ECGs and reports, please refer to detailed README for each model implementation.
@@ -74,8 +74,7 @@ Before pre-processing the data, the file structure should be like this:
 ```
 Then, run:
 ```shell script
-$ python preprocess_ecgqa.py \
-    /path/to/ecgqa \
+$ python preprocess_ecgqa.py /path/to/ecgqa \
     --ptbxl-data-dir /path/to/ptbxl \
     --dest /path/to/output \
     --apply_paraphrase
@@ -120,7 +119,7 @@ It will output .mat files to `/path/to/output/$split` directory for each split, 
 ```
 
 ## Run QA experiments
-Please follow the instruction on the [root directory](../../../../) to install `fairseq-signals` before running experiments.
+Please follow the instructions in the [root directory](../../../../) to install `fairseq-signals` before running experiments.
 
 Run:
 ```shell script
@@ -137,3 +136,58 @@ If you want to fine-tune a pre-trained model on QA task, please refer to detaile
 * [Multi-modal Understanding and Generation for Medical Images and Text via Vision-Language Pre-Training](../../../../examples/medvill/README.md)
 
 ## Pre-process for Upperbound experiments
+For detailed description of upperbound experiments, refer to original paper.  
+To convert QA samples into ECG classification format, run:
+```shell script
+$ python preprocess_ecgqa_for_classification.py /path/to/ecgqa \
+    --ptbxl-data-dir /path/to/ptbxl \
+    --dest /path/to/output \
+```
+
+Similar to other preprocessing scripts, it will output .mat files to `/path/to/output/$split` directory for each split, and prepare manifest files to `/path/to/output/$split.tsv`.
+```
+/path/to/output
+├─ test.tsv
+├─ train.tsv
+├─ valid.tsv
+├─ test
+│   ├─ 1_0_1_2_3_4_5.mat
+│   ├─ ...
+│   └─ 21837_entire.mat
+├─ train
+│   ├─ 3_0_4_10_11.mat
+│   ├─ ...
+│   └─ 21835_entire.mat
+└─ valid
+    ├─ 2_0_1_2_4_5_6_7_8_10_11.mat
+    ├─ ...
+    └─ 21816_entire.mat
+```
+
+## Run upperbound experiments
+For W2V+CMSC+RLM:
+```shell script
+$ fairseq-hydra-train task.data=/path/to/output \
+    model.num_labels=83 \
+    model.model_path=/path/to/checkpoint.pt \
+    --config-dir /fairseq-signals/examples/w2v_cmsc/config/finetuning/ecg_transformer/grounding_classification \
+    --config-name base_total
+```
+Note that you need to pass the path to the pretrained model checkpoint through `model.model_path`.  
+To pre-train the model, refer to [here](../../../../examples/w2v_cmsc/README.md).
+
+For Resnet + Attention model:
+```shell script
+$ fairseq-hydra-train task.data=/path/to/output \
+    model.num_labels=83 \
+    --config-dir /fairseq-signals/examples/scratch/ecg_classification/resnet \
+    --config-name nejedly2021_total
+```
+
+For SE-WRN model:
+```shell script
+$ fairseq-hydra-train task.data=/path/to/output \
+    model.num_labels=83 \
+    --config-dir /fairseq-signals/examples/scratch/ecg_classification/resnet \
+    --config-name se_wrn_total
+```
