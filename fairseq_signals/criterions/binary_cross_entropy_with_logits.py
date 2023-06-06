@@ -227,6 +227,8 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
             for plk in per_log_keys:
                 plk_ids = [log_id.item() for log_id in sample[plk]]
                 for i, plk_id in enumerate(plk_ids):
+                    if plk_id == -1:
+                        continue
                     classes = sample["valid_classes"][i]
                     logit = logits[i][classes]
                     prob = probs[i][classes]
