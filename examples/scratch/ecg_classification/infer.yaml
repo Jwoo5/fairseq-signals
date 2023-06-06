@@ -1,7 +1,6 @@
 common:
   all_gather_list_size: 2048000
-  wandb_entity: ecg-pretraining
-  wandb_project: grounding-classification
+  # wandb_project: grounding-classification
 
 common_eval:
   path: ???
@@ -12,7 +11,7 @@ dataset:
   num_workers: 6
   max_tokens: null
   batch_size: 128
-  valid_subset: "test_derived_per_lead_grounding,test_independent_per_lead_grounding"
+  valid_subset: "test"
   fixed_validation_seed: 1
 
 task:
@@ -21,8 +20,8 @@ task:
   data: ???
   path_dataset: true
   load_specific_lead: true
+  normalize: false
   enable_padding: true
   enable_padding_leads: true
-  normalize: false
 
 model: null

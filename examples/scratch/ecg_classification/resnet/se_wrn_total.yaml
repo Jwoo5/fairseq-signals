@@ -3,8 +3,7 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  wandb_entity: ecg-pretraining
-  wandb_project: grounding-classification
+  # wandb_project: grounding-classification
 
 checkpoint:
   save_dir: checkpoints
@@ -32,8 +31,8 @@ dataset:
   num_workers: 6
   max_tokens: null 
   batch_size: 128
-  train_subset: "train_derived_grounding"
-  valid_subset: "valid_derived_grounding,test_derived_grounding"
+  train_subset: "train"
+  valid_subset: "valid,test"
   validate_interval: 2
 
 distributed_training:
@@ -59,10 +58,6 @@ lr_scheduler:
   _name: tri_stage
   phase_ratio: [0.1, 0.4, 0.5]
   final_lr_scale: 0.05
-
-# lr_scheduler:
-#   _name: fixed
-#   warmup_updates: 0
 
 model:
   _name: se_wrn_classifier

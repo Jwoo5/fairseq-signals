@@ -34,7 +34,7 @@ distributed_training:
 criterion:
   _name: binary_cross_entropy_with_logits
   report_auc: true
-  per_log_keys: [question_type1, question_type2, question_type3]
+  per_log_keys: [question_type1, question_type2, question_type3, attribute_id]
 
 optimization:
   max_update: 50000
