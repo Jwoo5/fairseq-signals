@@ -1,5 +1,6 @@
 import os
 import re
+import glob
 import argparse
 import json
 import collections
@@ -79,8 +80,10 @@ def main(args):
         if not os.path.exists(os.path.join(dest_path, subset)):
             os.makedirs(os.path.join(dest_path, subset))
 
-        with open(os.path.join(dir_path, "template", subset + ".json"), "r") as data_f:
-            data = json.load(data_f)
+        data = []
+        for fname in sorted(glob.glob(os.path.join(dir_path, "template", subset, "*.json"))):
+            with open(fname, "r") as data_f:
+                data.extend(json.load(data_f))
         
         grounding_samples = []
         for i, sample_data in enumerate(tqdm(data, total=len(data), postfix=subset)):
