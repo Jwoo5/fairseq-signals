@@ -176,11 +176,11 @@ def determine_question_type(qtype1, qtype2, attr_type):
         question_type3 = base
     elif attr_type == "noise":
         question_type3 = base + 1
-    elif attr_type == "heart_axis":
-        question_type3 = base + 2
     elif attr_type == "stage_of_infarction":
-        question_type3 = base + 3
+        question_type3 = base + 2
     elif attr_type == "extra_systole":
+        question_type3 = base + 3
+    elif attr_type == "heart_axis":
         question_type3 = base + 4
     elif attr_type == "numeric_feature":
         question_type3 = base + 5
