@@ -127,7 +127,7 @@ def main(args):
                 sample["question_type2"] = qtype2
                 sample["question_type3"] = qtype3
 
-                if sample_data["question_type"] == "single-verify":
+                if sample_data["question_type"] == "single-verify" and sample_data["answer"][0] != "not sure":
                     sample["attribute_id"] = attribute_id_map[sample_data["attribute"][0]]
                 else:
                     sample["attribute_id"] = -1
