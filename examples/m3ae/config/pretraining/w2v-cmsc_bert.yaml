@@ -29,7 +29,7 @@ dataset:
   disable_validation: true
 
 distributed_training:
-  distributed_world_size: 1
+  distributed_world_size: 4
 
 criterion:
   _name: m3ae

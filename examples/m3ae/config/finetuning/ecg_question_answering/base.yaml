@@ -23,12 +23,12 @@ task:
 dataset:
   num_workers: 6
   max_tokens: null
-  batch_size: 8
+  batch_size: 16
   valid_subset: "valid,test"
   validate_interval: 1
 
 distributed_training:
-  distributed_world_size: 1
+  distributed_world_size: 4
   find_unused_parameters: true
 
 criterion:

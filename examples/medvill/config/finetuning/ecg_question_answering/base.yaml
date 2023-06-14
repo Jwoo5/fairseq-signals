@@ -28,7 +28,7 @@ dataset:
   validate_interval: 1
 
 distributed_training:
-  distributed_world_size: 1
+  distributed_world_size: 4
 
 criterion:
   _name: binary_cross_entropy_with_logits
