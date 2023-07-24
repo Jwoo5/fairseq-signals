@@ -1,42 +1,38 @@
 # PhysioNet2021
-You can download PhysioNet2021 datasets at the Data Access section from [here](https://moody-challenge.physionet.org/2021/) or directly using your terminal:
+You can download PhysioNet2021 datasets at the Data Access section from [here](https://physionet.org/content/challenge-2021/1.0.3/#files) or directly using your terminal:
 ```shell script
-$ wget -O WFDB_CPSC2018.tar.gz \
-https://pipelineapi.org:9555/api/download/physionettraining/WFDB_CPSC2018.tar.gz/
-wget -O WFDB_CPSC2018_2.tar.gz \
-https://pipelineapi.org:9555/api/download/physionettraining/WFDB_CPSC2018_2.tar.gz/
-wget -O WFDB_StPetersburg.tar.gz \
-https://pipelineapi.org:9555/api/download/physionettraining//WFDB_StPetersburg.tar.gz/
-wget -O WFDB_PTB.tar.gz \
-https://pipelineapi.org:9555/api/download/physionettraining/WFDB_PTB.tar.gz/
-wget -O WFDB_PTBXL.tar.gz \
-https://pipelineapi.org:9555/api/download/physionettraining/WFDB_PTBXL.tar.gz/
-wget -O WFDB_Ga.tar.gz \
-https://pipelineapi.org:9555/api/download/physionettraining/WFDB_Ga.tar.gz/
-wget -O WFDB_ChapmanShaoxing.tar.gz \
-https://pipelineapi.org:9555/api/download/physionettraining/WFDB_ChapmanShaoxing.tar.gz/
-wget -O WFDB_Ningbo.tar.gz \
-https://pipelineapi.org:9555/api/download/physionettraining/WFDB_Ningbo.tar.gz/
+$ wget -r -N -c -np https://physionet.org/files/challenge-2021/1.0.3/training/
 ```
-We recommend you to download those datasets excluding **StPetersburg** and **PTB** for better reproducing since they contain too long ECG records or have differrent sampling rates with others.
 
 ## Pre-process
-Before pre-processing the data, the file structure should be like this:
+Before pre-processing the data, the file structure should be organized like this:
 ```
-path/to/WFDB
-├─ WFDB_ChapmanShaoxing
-│  ├─ *.hea
-│  └─ *.mat
-├─ WFDB_CPSC2018
-│  ├─ *.hea
-│  └─ *.mat
-├─ WFDB_CPSC2018_2
-│  ├─ *.hea
-│  └─ *.mat
+path/to/.../1.0.3/training
+├─ chapman_shaoxing
+│  ├─ g1
+│  │  ├─ *.hea
+│  │  └─ *.mat
+│  ├─ ...
+│  └─ g11
+│     ├─ *.hea
+│     └─ *.mat
+├─ cpsc_2018
+│  ├─ g1
+│  │  ├─ *.hea
+│  │  └─ *.mat
+│  ├─ ...
+│  └─ g7
+│     ├─ *.hea
+│     └─ *.mat
 ├─ ...
-└─ WFDB_PTBXL
-   ├─ *.hea
-   └─ *.mat
+└─ ptb-xl
+   ├─ g1
+   │  ├─ *.hea
+   │  └─ *.mat
+   ├─ ...
+   └─ g22
+      ├─ *.hea
+      └─ *.mat
 ```
 Then, run:
 ```shell script
@@ -47,7 +43,8 @@ $ python preprocess_physionet2021.py \
 ```
 $N is the number of workers for multi-processing.
 
-It will output .mat files to `/path/to/output` directory after encoding labels (age, diagnosis, patient id), and repeatedly cropping 5 seconds for each ECG record.
+It will output .mat files to `/path/to/output` directory after encoding labels (age, diagnosis, patient id), and repeatedly cropping 5 seconds for each ECG record.  
+Note that this script does not process `ptb` and `st_petersburg_incart` by default since these two contain too long ECG records or have different sampling rates with others.
 
 # PTB-XL
 You can download PTB-XL dataset from [here](https://physionet.org/content/ptb-xl/1.0.3/) or directly using your terminal:

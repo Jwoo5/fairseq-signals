@@ -25,10 +25,10 @@ def get_parser():
                        help="directory containing metadata for labeling (weights.csv)")
     parser.add_argument(
         "--subset",
-        default="WFDB_CPSC2018, WFDB_CPSC2018_2, WFDB_Ga, WFDB_PTBXL, WFDB_ChapmanShaoxing, WFDB_Ningbo",
+        default="cpsc_2018, cpsc_2018_extra, georgia, ptb-xl, chapman_shaoxing, ningbo",
         type=str,
         help="comma separated list of sub-directories of data subsets to be preprocessed, "
-        "each of which is labeled seperately (e.g. WFDB_CPSC2018, WFDB_CPSC2018_2, ...)"
+        "each of which is labeled seperately (e.g. cpsc_2018, cpsc_2018_extra, ...)"
     )
     parser.add_argument(
         "--leads",
@@ -70,8 +70,8 @@ def main(args):
     except FileNotFoundError:
         raise FileNotFoundError(
             "cannot find the metadata file for labeling (weights.csv). "
-            "Please ensure that files are located in --meta-dir "
-            "or download from https://github.com/physionetchallenges/evaluation-2021."
+            "Please ensure that the file is located in --meta-dir. "
+            "You can download it from https://github.com/physionetchallenges/evaluation-2021. "
             f"--meta-dir: {meta_path}"
         )
 
@@ -79,13 +79,16 @@ def main(args):
     leads_to_load = [int(lead) for lead in leads]
     subset = args.subset.replace(' ','').split(',')
 
+    if len(glob.glob(os.path.join(args.root, "**/**/*." + args.ext))) == 0:
+        args.root = os.path.join(args.root, "training")
+
     pid_table = dict()
-    for i, fname in enumerate(glob.iglob(os.path.join(args.root, "**/*."+args.ext))):
+    for i, fname in enumerate(glob.iglob(os.path.join(args.root, "**/**/*." + args.ext))):
         pid_table[os.path.basename(fname)[:-4]] = i
 
     for s in subset:
-        if not os.path.exists(os.path.join(args.dest, s.lstrip("WFDB_"))):
-            os.makedirs(os.path.join(args.dest, s.lstrip("WFDB_")))
+        if not os.path.exists(os.path.join(args.dest, s)):
+            os.makedirs(os.path.join(args.dest, s))
 
         dir_path = os.path.realpath(os.path.join(args.root, s))
         search_path = os.path.join(dir_path, "**/*." + args.ext)
@@ -100,7 +103,7 @@ def main(args):
             args,
             pid_table,
             classes,
-            os.path.join(args.dest, s.lstrip("WFDB_")),
+            os.path.join(args.dest, s),
             leads_to_load
         )
         pool = Pool(processes = args.workers)

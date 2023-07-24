@@ -38,7 +38,7 @@ pip install --editable ./
 ### Prepare ECG dataset
 We provide pre-processing codes for various ECG datasets.
 
-* [PhysioNet2021](https://moody-challenge.physionet.org/2021/)
+* [PhysioNet2021](https://physionet.org/content/challenge-2021/1.0.3/#files)
 * [PTB-XL](https://physionet.org/content/ptb-xl/1.0.3/)
 
 ### Pre-process
