@@ -227,10 +227,7 @@ class ECGTransformerModel(TransformerModel):
 
         arg_overrides = {
             "feature_grad_mult": cfg.feature_grad_mult,
-            "all_gather": False,
         }
-        if cfg.all_gather:
-            logging.warn("model.all_gather overrided to be False when finetuning!")
 
         model = super().from_pretrained(model_path, cfg, arg_overrides)
 

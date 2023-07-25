@@ -229,9 +229,13 @@ class TransformerModel(PretrainingModel):
             "dropout_input": cfg.dropout_input,
             "attention_dropout": cfg.attention_dropout,
             "encoder_layerdrop": cfg.encoder_layerdrop,
+            "all_gather": False,
         }
         if arg_appended is not None:
             arg_overrides.update(arg_appended)
+
+        if cfg.all_gather:
+            logging.warn("model.all_gather overrided to be False when finetuning!")
 
         state = checkpoint_utils.load_checkpoint_to_cpu(model_path, arg_overrides)
         args = state.get("cfg", None)
