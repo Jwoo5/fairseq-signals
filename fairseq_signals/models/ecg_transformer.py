@@ -19,10 +19,12 @@ from fairseq_signals.models.transformer import (
 from fairseq_signals.tasks import Task
 from fairseq_signals.modules import (
     GradMultiply,
+    GatherLayer,
     LayerNorm,
     ConvFeatureExtraction,
     ConvPositionalEncoding,
 )
+from fairseq_signals.distributed import utils as dist_utils
 
 logger = logging.getLogger(__name__)
 
@@ -123,6 +125,14 @@ class ECGTransformerModel(TransformerModel):
         x, padding_mask = self.get_embeddings(source, padding_mask)
         x = self.get_output(x, padding_mask)
 
+        if self.cfg.all_gather and dist_utils.get_data_parallel_world_size() > 1:
+            # we should apply padding mask here if all_gather is true since we cannot assure whether
+            # or not all the batches across different gpus have padding mask
+            if padding_mask is not None and padding_mask.any():
+                x[padding_mask] = 0
+                padding_mask = None
+            x = torch.cat(GatherLayer.apply(x), dim=0)
+
         return {"x": x, "padding_mask": padding_mask}
 
     def get_embeddings(self, source, padding_mask):
@@ -172,7 +182,6 @@ class ECGTransformerModel(TransformerModel):
         x_conv = self.conv_pos(x, channel_first=False)
         x = x + x_conv
 
-
         return x, padding_mask
 
     def get_output(self, x, padding_mask=None):
@@ -218,7 +227,10 @@ class ECGTransformerModel(TransformerModel):
 
         arg_overrides = {
             "feature_grad_mult": cfg.feature_grad_mult,
+            "all_gather": False,
         }
+        if cfg.all_gather:
+            logging.warn("model.all_gather overrided to be False when finetuning!")
 
         model = super().from_pretrained(model_path, cfg, arg_overrides)
 
@@ -232,7 +244,7 @@ class ECGTransformerFinetuningConfig(TransformerFinetuningConfig, ECGTransformer
 class ECGTransformerFinetuningModel(TransformerFinetuningModel):
     def __init__(self, cfg: ECGTransformerFinetuningConfig, encoder: ECGTransformerModel):
         super().__init__(cfg, encoder)
-    
+
     def set_num_updates(self, num_updates):
         """Set the number of parameters updates."""
         super().set_num_updates(num_updates)

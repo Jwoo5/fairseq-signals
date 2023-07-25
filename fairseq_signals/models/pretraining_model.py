@@ -14,9 +14,14 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class PretrainingConfig(Dataclass):
+    all_gather: bool = field(
+        default=False, metadata={"help": "whether or not to apply all gather across different gpus"}
+    )
+
     normalize: bool = II("task.normalize")
     filter: bool = II("task.filter")
     data: str = II("task.data")
+
     # this holds the loaded pre-trained model args
     args: Any = None
 

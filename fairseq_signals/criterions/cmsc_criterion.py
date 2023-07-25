@@ -28,12 +28,15 @@ class CMSCCriterionConfig(Dataclass):
         default=1e-8, metadata={"help": "small value for numerical stability when normalizing"}
     )
 
+    all_gather: bool = II("model.all_gather")
+
 @register_criterion("cmsc", dataclass = CMSCCriterionConfig)
 class CMSCCriterion(BaseCriterion):
     def __init__(self, cfg: CMSCCriterionConfig, task: Task):
         super().__init__(task)
         self.temp = cfg.temp
         self.eps = cfg.eps
+        self.all_gather = cfg.all_gather
 
     def forward(self, model, sample, reduce = True):
         """Compute the loss for the given sample
@@ -54,6 +57,15 @@ class CMSCCriterion(BaseCriterion):
 
         patient_id = sample['patient_id']
         segment = sample['segment']
+
+        if self.all_gather and dist_utils.get_data_parallel_world_size() > 1:
+            group = dist_utils.get_data_parallel_group()
+            patient_id = torch.cat(
+                dist_utils.batch_all_gather(patient_id, group=group)
+            )
+            segment = torch.cat(
+                dist_utils.batch_all_gather(segment, group=group)
+            )
 
         losses = []
         loss = 0

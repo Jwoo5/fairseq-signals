@@ -1,4 +1,5 @@
 from dataclasses import dataclass, field
+from omegaconf import II
 
 import math
 import torch
@@ -25,6 +26,7 @@ class ThreeKGCriterionConfig(Dataclass):
         default=1e-8, metadata={"help": "small value for numerical stability when normalizing"}
     )
 
+    all_gather: bool = II("model.all_gather")
 
 @register_criterion("3kg", dataclass=ThreeKGCriterionConfig)
 class ThreeKGCriterion(BaseCriterion):
@@ -32,6 +34,7 @@ class ThreeKGCriterion(BaseCriterion):
         super().__init__(task)
         self.temp = cfg.temp
         self.eps = cfg.eps
+        self.all_gather = cfg.all_gather
 
     def forward(self, model, sample, reduce=True):
         """Compute the loss for the given sample
@@ -54,7 +57,7 @@ class ThreeKGCriterion(BaseCriterion):
         pids = sample['patient_id']
 
         # for all-gather tensor across distributed devices
-        if dist_utils.get_data_parallel_world_size() > 1:
+        if self.all_gather and dist_utils.get_data_parallel_world_size() > 1:
             group = dist_utils.get_data_parallel_group()
             pids = torch.cat(
                 dist_utils.batch_all_gather(
