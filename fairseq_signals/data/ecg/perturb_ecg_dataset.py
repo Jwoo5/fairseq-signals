@@ -135,8 +135,14 @@ class ThreeKGECGDataset(PerturbECGDataset):
 
         if self.angle:
             angles = np.random.uniform(-self.angle, self.angle, size=6)
-            R1 = R.from_euler('zyx', angles[:3], degrees=True).as_dcm()
-            R2 = R.from_euler('zyx', angles[3:], degrees=True).as_dcm()
+            R1 = R.from_euler('zyx', angles[:3], degrees=True)
+            R2 = R.from_euler('zyx', angles[3:], degrees=True)
+            if hasattr(R1, "as_dcm"):
+                R1 = R1.as_dcm()
+                R2 = R2.as_dcm()
+            else:
+                R1 = R1.as_matrix()
+                R2 = R2.as_matrix()
         else:
             R1 = np.diag((1,1,1))
             R2 = np.diag((1,1,1))
