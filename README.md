@@ -115,7 +115,7 @@ We provide detailed READMEs for each model implementation:
 * [Multi-modal Understanding and Generation for Medical Images and Text via Vision-Language Pre-Training](examples/medvill/README.md)
 * [Lead-agnostic Self-supervised Learning for Local and Global Representations of Electrocardiogram](examples/w2v_cmsc/README.md)*
 * [3KG: Contrastive Learning of 12-Lead Electrocardiograms using Physiologically-Inspired Augmentations](examples/3kg/README.md)
-* [CLOCS: Contrastive Learning of Cardiac Signals Across Space, Time, and Patients](examples/clocs/README.md)
+* [CLOCS: Contrastive Learning of Cardiac Signals Across Space, Time, and Patients](examples/cmsc/README.md)
 * [wav2vec 2.0: A Framework for Self-supervised Learning of Speech Representations](examples/wav2vec2/README.md)
 * [A Simple Framework for Contrastive Learning of Visual Representations](examples/simclr/README.md)
 
