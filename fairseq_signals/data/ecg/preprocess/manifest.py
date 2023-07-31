@@ -22,16 +22,16 @@ def get_parser():
     )
     parser.add_argument(
         "--subset",
-        default="CPSC2018, CPSC2018_2, Ga, PTBXL, ChapmanShaoxing, Ningbo",
+        default="cpsc_2018, cpsc_2018_extra, georgia, ptb-xl, chapman_shaoxing, ningbo",
         type=str,
-        help="comma seperated list of data subsets to manifest for pre-training (e.g. CPSC2018, CPSC2018_2, ...), "
+        help="comma seperated list of data subsets to manifest for pre-training (e.g. cpsc_2018, cpsc_2018_extra, ...), "
              "each of which should be a name of the sub-directory"
     )
     parser.add_argument(
         "--combine_subsets",
-        default="CPSC2018, Ga",
+        default="cpsc_2018, georgia",
         type=str,
-        help="comma seperated list of data subsets for fine-tuning (e.g. CPSC2018, CPSC2018_2, ...), "
+        help="comma seperated list of data subsets for fine-tuning (e.g. cpsc_2018, cpsc_2018_extra, ...), "
              "each of which should be a name of the sub-directory"
     )
 
