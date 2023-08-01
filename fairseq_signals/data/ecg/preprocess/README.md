@@ -86,14 +86,14 @@ $ python manifest.py \
 The expected results are like:
 ```
 /path/to/manifest
-├─ total
+├─ pretrain
 │  └─ train.tsv
-└─ cinc
+└─ finetune
    ├─ train.tsv
    ├─ valid.tsv
    └─ test.tsv
 ```
-Note that `total/train.tsv` is used for pre-training, and `cinc/*.tsv` is used for fine-tuning with cardiac arrhythmia classification task.
+Note that `pretrain/train.tsv` is used for pre-training, and `finetune/*.tsv` is used for fine-tuning such as cardiac arrhythmia classification task.
 
 For patient identification task, run:
 ```shell script
@@ -103,7 +103,7 @@ $ python manifest_identification.py \
    --valid-percent $valid
 ```
 The expected results are like:
-```shell script
+```
 /path/to/manifest
 └─ identify
    ├─ train.tsv
@@ -114,7 +114,7 @@ $valid should be set to percentage of training data to use for validation.
 
 
 If you want to combine many datasets to compose train, valid, and test splits, we recommend you to manifest them separately and combine them manually. For example, if you want to train a patient identification model using **PhysioNet2021** and test with **PTB-XL**, prepare data manifest for **PhysioNet2021** with `$valid=0` and **PTB-XL** with `$valid=1.0` seperately and place them to the same manifest directory like this:
-```shell script
+```
 path/to/manifest/identify
 ├─ train.tsv
 ├─ valid_gallery.tsv
