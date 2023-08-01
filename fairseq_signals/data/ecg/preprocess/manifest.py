@@ -2,14 +2,15 @@ import argparse
 import glob
 import os
 import random
+import warnings
 
 import scipy.io
 
 """
     Usage: python path/to/manifest.py \
             /path/to/signals \
-            --subset $subsets \
-            --combine_subsets $combine_subsets \
+            --pretrain_subset $pretrain_subsets \
+            --finetune_subset $finetune_subsets \
             --dest /path/to/manifest \
             --ext $ext \
             --valid-percent $valid
@@ -21,18 +22,20 @@ def get_parser():
         "root", metavar="DIR", help="root directory containing mat files to index"
     )
     parser.add_argument(
-        "--subset",
+        "--pretrain_subset",
         default="cpsc_2018, cpsc_2018_extra, georgia, ptb-xl, chapman_shaoxing, ningbo",
         type=str,
         help="comma seperated list of data subsets to manifest for pre-training (e.g. cpsc_2018, cpsc_2018_extra, ...), "
-             "each of which should be a name of the sub-directory"
+             "each of which should be corresponded with the name of the sub-directory"
     )
     parser.add_argument(
-        "--combine_subsets",
+        "--finetune_subset",
         default="cpsc_2018, georgia",
         type=str,
         help="comma seperated list of data subsets for fine-tuning (e.g. cpsc_2018, cpsc_2018_extra, ...), "
-             "each of which should be a name of the sub-directory"
+             "each of which should be corresopnded with the name of the sub-directory. Note that "
+             "the training set of these datasets will be also used for pre-training, but the "
+             "validation and test sets will not be included in the pre-training dataset."
     )
 
     parser.add_argument(
@@ -40,7 +43,8 @@ def get_parser():
         default=0.1,
         type=float,
         metavar="D",
-        help="percentage of data to use as validation and test set (between 0 and 0.5)",
+        help="percentage of data to use as validation and test set for fine-tuning (between 0 and "
+             "0.5)",
     )
     parser.add_argument(
         "--dest", default=".", type=str, metavar="DIR", help="output directory"
@@ -63,21 +67,21 @@ def main(args):
     assert args.valid_percent >= 0 and args.valid_percent <= 0.5
 
     root_path = os.path.realpath(args.root)
-    subset = args.subset.replace(' ', '').split(',')
-    combine_subsets = args.combine_subsets.replace(' ', '').split(',')
+    pretrain_subset = [x.strip() for x in args.pretrain_subset.split(",")]
+    finetune_subset = [x.strip() for x in args.combine_subsets.split(",")]
     rand = random.Random(args.seed)
 
-    if not os.path.exists(os.path.join(args.dest, "total")):
-        os.makedirs(os.path.join(args.dest, "total"))
-    if not os.path.exists(os.path.join(args.dest, "cinc")):
-        os.makedirs(os.path.join(args.dest, "cinc"))
+    if not os.path.exists(os.path.join(args.dest, "pretrain")):
+        os.makedirs(os.path.join(args.dest, "pretrain"))
+    if not os.path.exists(os.path.join(args.dest, "finetune")):
+        os.makedirs(os.path.join(args.dest, "finetune"))
 
-    with open(os.path.join(args.dest, "total/train.tsv"), "w") as total_f, open(
-        os.path.join(args.dest, "cinc/train.tsv"), "w") as train_f, open(
-        os.path.join(args.dest, "cinc/valid.tsv"), "w") as valid_f, open(
-        os.path.join(args.dest, "cinc/test.tsv"), "w"
+    with open(os.path.join(args.dest, "pretrain/train.tsv"), "w") as pretrain_f, open(
+        os.path.join(args.dest, "finetune/train.tsv"), "w") as train_f, open(
+        os.path.join(args.dest, "finetune/valid.tsv"), "w") as valid_f, open(
+        os.path.join(args.dest, "finetune/test.tsv"), "w"
     ) as test_f:
-        print(root_path, file=total_f)
+        print(root_path, file=pretrain_f)
         print(root_path, file=train_f)
         print(root_path, file=valid_f)
         print(root_path, file=test_f)
@@ -89,35 +93,63 @@ def main(args):
                 if args.path_must_contain and args.path_must_contain not in file_path:
                     continue
 
-                if args.ext == 'mat':
+                if args.ext == "mat":
                     data = scipy.io.loadmat(file_path)
-                    length = data['feats'].shape[-1]
+                    if "feats" not in length:
+                        raise AssertionError(
+                            "each data file should contain ECG signals as a value of the key "
+                            "'feats' for support efficient batching in the training step."
+                        )
+                    length = data["feats"].shape[-1]
 
                     print(
                         "{}".format(os.path.relpath(file_path, root_path)), file=dest, end='\t'
                     )
                     print(length, file=dest)
+                else:
+                    raise AssertionError(f"extension for {args.ext} is not allowed.")
 
-        for s in subset:
+        already_processed = []
+
+        for s in finetune_subset:
             search_path = os.path.join(args.root, s, "**/*." + args.ext)
-            fnames = list(glob.iglob(search_path, recursive=True))
-            if s not in combine_subsets:
-                write(fnames, total_f)
-            else:
-                rand.shuffle(fnames)
+            fnames = glob.glob(search_path, recursive=True)
+            if len(fnames) == 0:
+                warnings.warn(
+                    f"No files found in {os.path.join(args.root, s)} directory. Please make sure"
+                    f"{os.path.join(args.root, s)} contains {args.ext} files to be processed."
+                )
 
-                valid_len = int(len(fnames) * args.valid_percent)
-                test_len = int(len(fnames) * args.valid_percent)
-                train_len = len(fnames) - (valid_len + test_len)
+            rand.shuffle(fnames)
 
-                train = fnames[:train_len]
-                valid = fnames[train_len:train_len + valid_len]
-                test = fnames[train_len + valid_len:]
+            valid_len = int(len(fnames) * args.valid_percent)
+            test_len = int(len(fnames) * args.valid_percent)
+            train_len = len(fnames) - (valid_len + test_len)
 
-                write(train, total_f)
-                write(train, train_f)
-                write(valid, valid_f)
-                write(test, test_f)
+            train = fnames[:train_len]
+            valid = fnames[train_len:train_len + valid_len]
+            test = fnames[train_len + valid_len:]
+
+            if s in pretrain_subset:
+                already_processed.append(s)
+                write(train, pretrain_f)
+            
+            write(train, train_f)
+            write(valid, valid_f)
+            write(test, test_f)
+
+        for s in pretrain_subset:
+            if s in already_processed:
+                continue
+
+            search_path = os.path.join(args.root, s, "**/*." + args.ext)
+            fnames = glob.glob(search_path, recursive=True)
+            if len(fnames) == 0:
+                warnings.warn(
+                    f"No files found in {os.path.join(args.root, s)} directory. Please make sure"
+                    f"{os.path.join(args.root, s)} contains {args.ext} files to be processed."
+                )
+            write(fnames, pretrain_f)
 
 if __name__ == "__main__":
     parser = get_parser()
