@@ -115,11 +115,25 @@ def preprocess(args, pid_table, classes, dest_path, leads_to_load, fnames):
     for fname in fnames:
         fname = fname[:-(len(args.ext)+1)]
 
-        y = set(linecache.getline(fname + '.hea', 16).replace(',',' ').split()[1:])
+        if not os.path.exists(fname + ".hea"):
+            continue
+
+        y = set(linecache.getline(fname + ".hea", 16).replace(',',' ').split()[1:])
         label = np.zeros(len(classes), dtype=bool)
         for i, x in enumerate(classes):
             if x & y:
                 label[i] = 1
+
+        age = linecache.getline(fname + ".hea", 14).split()
+        assert len(age) == 3, fname
+        try:
+            age = int(age[-1])
+        except ValueError:
+            age = 0
+        
+        sex = linecache.getline(fname + ".hea", 15).split()
+        assert len(sex) == 3, fname
+        sex = 0 if sex[-1] == "Male" else 1
 
         try:
             age = int(linecache.getline(fname + '.hea', 14).split()[1])
