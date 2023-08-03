@@ -39,7 +39,15 @@ def get_parser():
     )
 
     parser.add_argument(
-        "--valid-percent",
+        "--pretrain-valid-percent",
+        default=0.0,
+        type=float,
+        metavar="D",
+        help="percentage of data to use as validation and test set for pre-training (between 0 and "
+             "0.5)",
+    )
+    parser.add_argument(
+        "--finetune-valid-percent",
         default=0.1,
         type=float,
         metavar="D",
@@ -64,12 +72,26 @@ def get_parser():
 
 
 def main(args):
-    assert args.valid_percent >= 0 and args.valid_percent <= 0.5
+    assert args.pretrain_valid_percent >= 0 and args.pretrain_valid_percent <= 0.5
+    assert args.finetune_valid_percent >= 0 and args.finetune_valid_percent <= 0.5
 
     root_path = os.path.realpath(args.root)
     pretrain_subset = [x.strip() for x in args.pretrain_subset.split(",")]
     finetune_subset = [x.strip() for x in args.combine_subsets.split(",")]
     rand = random.Random(args.seed)
+
+    def random_split(fnames, valid_percent):
+        rand.shuffle(fnames)
+
+        valid_len = int(len(fnames) * valid_percent)
+        test_len = int(len(fnames) * valid_percent)
+        train_len = len(fnames) - (valid_len + test_len)
+
+        train = fnames[:train_len]
+        valid = fnames[train_len:train_len + valid_len]
+        test = fnames[train_len + valid_len:]
+        
+        return train, valid, test
 
     if not os.path.exists(os.path.join(args.dest, "pretrain")):
         os.makedirs(os.path.join(args.dest, "pretrain"))
@@ -77,6 +99,8 @@ def main(args):
         os.makedirs(os.path.join(args.dest, "finetune"))
 
     with open(os.path.join(args.dest, "pretrain/train.tsv"), "w") as pretrain_f, open(
+        os.path.join(args.dest, "pretrain/valid.tsv"), "w") as pre_valid_f, open(
+        os.path.join(args.dest, "pretrain/test.tsv"), "w") as pre_test_f, open(
         os.path.join(args.dest, "finetune/train.tsv"), "w") as train_f, open(
         os.path.join(args.dest, "finetune/valid.tsv"), "w") as valid_f, open(
         os.path.join(args.dest, "finetune/test.tsv"), "w"
@@ -120,19 +144,15 @@ def main(args):
                     f"{os.path.join(args.root, s)} contains {args.ext} files to be processed."
                 )
 
-            rand.shuffle(fnames)
-
-            valid_len = int(len(fnames) * args.valid_percent)
-            test_len = int(len(fnames) * args.valid_percent)
-            train_len = len(fnames) - (valid_len + test_len)
-
-            train = fnames[:train_len]
-            valid = fnames[train_len:train_len + valid_len]
-            test = fnames[train_len + valid_len:]
+            train, valid, test = random_split(fnames, args.finetune_valid_percent)
 
             if s in pretrain_subset:
                 already_processed.append(s)
-                write(train, pretrain_f)
+                # need to re-split for pre-training dataset
+                pretrain, pre_valid, pre_test = random_split(fnames, args.pretrain_valid_percent)
+                write(pretrain, pretrain_f)
+                write(pre_valid, pre_valid_f)
+                write(pre_test, pre_test_f)
             
             write(train, train_f)
             write(valid, valid_f)
@@ -149,7 +169,12 @@ def main(args):
                     f"No files found in {os.path.join(args.root, s)} directory. Please make sure"
                     f"{os.path.join(args.root, s)} contains {args.ext} files to be processed."
                 )
-            write(fnames, pretrain_f)
+            
+            train, valid, test = random_split(fnames, args.pretrain_valid_percent)
+
+            write(train, pretrain_f)
+            write(valid, pre_valid_f)
+            write(test, pre_test_f)
 
 if __name__ == "__main__":
     parser = get_parser()
