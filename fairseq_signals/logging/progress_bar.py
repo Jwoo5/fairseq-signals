@@ -58,6 +58,8 @@ def progress_bar(
         bar = SimpleProgressBar(iterator, epoch, prefix, log_interval)
     elif log_format == "tqdm":
         bar = TqdmProgressBar(iterator, epoch, prefix)
+    elif log_format == "csv":
+        bar = CsvProgressBar(iterator, epoch, prefix, log_interval)
     else:
         raise ValueError("Unknown log format: {}".format(log_format))
 
@@ -298,10 +300,106 @@ class TqdmProgressBar(BaseProgressBar):
             logger.info("{} | {}".format(self.prefix, postfix))
 
 try:
+    import csv
+except ImportError:
+    csv = None
+
+class CsvProgressBar(BaseProgressBar):
+    """Log to csv."""
+
+    def __init__(self, iterable, epoch=None, prefix=None, log_interval=1000):
+        super().__init__(iterable, epoch, prefix)
+        self.log_interval = log_interval
+        self.i = None
+        self.size = None
+
+    def __iter__(self):
+        self.size = len(self.iterable)
+        for i, obj in enumerate(self.iterable, start=self.n):
+            self.i = i
+            yield obj
+
+    def log(self, stats, tag=None, step=None):
+        """Log intermediate stats according to csv."""
+        self._log_to_csv(stats, tag, step)
+        self._print_log(stats, tag, step)
+
+    def print(self, stats, tag=None, step=None):
+        """Log end-of-epoch stats."""
+        self._log_to_csv(stats, tag, step)
+        self._print_log(stats, tag, step)
+
+    def _print_log(self, stats, tag=None, step=None):
+        """Print intermediate stats."""
+        step = step or self.i or 0
+        
+        if step > 0 and self.log_interval is not None and step % self.log_interval == 0:
+            stats = self._format_stats(stats)
+            postfix = self._str_commas(stats)
+            with rename_logger(logger, tag):
+                logger.info(
+                    "{}:  {:5d} / {:d} {}".format(
+                        self.prefix, self.i + 1, self.size, postfix
+                    )
+                )
+
+    def _log_to_csv(self, stats, tag=None, step=None):
+        if csv is None:
+            return
+        csv_logs = {}
+
+        if step is None:
+            csv_logs["step"] = stats["num_updates"] if "num_updates" in stats else None
+        else:
+            csv_logs["step"] = step
+
+        for key in stats.keys() - {"num_updates"}:
+            if isinstance(stats[key], AverageMeter):
+                csv_logs[key] = stats[key].val
+            elif isinstance(stats[key], Number):
+                csv_logs[key] = stats[key]
+
+        fname = "log.csv" if tag is None else tag + ".csv"
+        if not os.path.exists(fname):
+            cols = ["step"]
+            for key in csv_logs.keys() - {"step"}:
+                cols.append(key)
+            with open(fname, "w") as f:
+                wr = csv.writer(f)
+                wr.writerow(cols)
+        
+        with open(fname, "r") as f:
+            rd = csv.reader(f)
+            headers = next(iter(rd))
+
+        appended_lth = 0
+        for key in csv_logs.keys():
+            if key not in headers:
+                headers.append(key)
+                appended_lth += 1
+        
+        if appended_lth > 0:
+            lines = [headers]
+            with open(fname, "r") as f:
+                rd = csv.reader(f)
+                # drop headers
+                next(iter(rd))
+                for line in rd:
+                    for _ in range(appended_lth):
+                        line.append("")
+                    lines.append(line)
+            with open(fname, "w") as f:
+                wr = csv.writer(f)
+                wr.writerows(lines)
+
+        with open(fname, "a") as f:
+            wr = csv.DictWriter(f, fieldnames=headers)
+            wr.writerow(csv_logs)
+
+try:
     import wandb
 except ImportError:
     wandb = None
-
 
 class WandBProgressBarWrapper(BaseProgressBar):
     """Log to Weights & Biases."""
