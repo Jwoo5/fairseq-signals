@@ -391,7 +391,7 @@ class Trainer(object):
             self.lr_step(epoch)
 
             if (
-                itr_state["itertaions_in_epoch"] == 0
+                itr_state["iterations_in_epoch"] == 0
             ):
                 # reset meters at start of epoch
                 reset_meters = True
