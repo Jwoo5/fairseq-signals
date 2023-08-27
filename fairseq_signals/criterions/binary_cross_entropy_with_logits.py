@@ -58,7 +58,12 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
     def __init__(self, cfg: BinaryCrossEntropyWithLogitsCriterionConfig, task: Task):
         super().__init__(cfg, task)
         self.auc_average = cfg.auc_average
-        self.pos_weight = cfg.pos_weight
+
+        if cfg.pos_weight is None:
+            self.pos_weight = None
+        else:
+            self.pos_weight = torch.tensor(cfg.pos_weight)
+
         self.report_cinc_score = cfg.report_cinc_score
         if self.report_cinc_score:
             assert cfg.weights_file
@@ -83,8 +88,8 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
 
         reduction = "none" if not reduce else "sum"
 
-        if self.pos_weight:
-            self.pos_weight = torch.tensor(self.pos_weight).to(logits.device)
+        if self.pos_weight is not None:
+            self.pos_weight = self.pos_weight.to(logits.device)
 
         loss = F.binary_cross_entropy_with_logits(
             input=logits,
