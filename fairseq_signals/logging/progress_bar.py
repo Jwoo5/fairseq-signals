@@ -21,6 +21,7 @@ import torch
 
 from .meters import AverageMeter, StopwatchMeter, TimeMeter
 
+from fairseq_signals.distributed import utils as dist_utils
 from fairseq_signals.utils import pdb
 
 
@@ -346,6 +347,9 @@ class CsvProgressBar(BaseProgressBar):
     def _log_to_csv(self, stats, tag=None, step=None):
         if csv is None:
             return
+        if dist_utils.get_data_parallel_world_size() > 1 and dist_utils.get_data_parallel_rank() > 0:
+            return
+
         csv_logs = {}
 
         if step is None:
