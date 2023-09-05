@@ -121,7 +121,7 @@ def main(cfg: DictConfig, override_args=None):
         logger.info("begin validation on {} subset".format(subset))
 
         # Initialize data iterator
-        itr = task.get_batch_iterator(
+        batch_iterator = task.get_batch_iterator(
             dataset=dataset,
             max_tokens=cfg.dataset.max_tokens,
             max_signals=cfg.dataset.batch_size,
@@ -132,7 +132,11 @@ def main(cfg: DictConfig, override_args=None):
             shard_id=data_parallel_rank,
             num_workers=cfg.dataset.num_workers,
             data_buffer_size=cfg.dataset.data_buffer_size
-        ).next_epoch_itr(shuffle=False)
+        )
+        itr = batch_iterator.next_epoch_itr(shuffle=False)
+        _dummy_batch = batch_iterator.first_batch
+        is_dummy_batch = False
+
         progress = progress_bar.progress_bar(
             itr,
             log_format=cfg.common.log_format,
@@ -160,11 +164,17 @@ def main(cfg: DictConfig, override_args=None):
         log_outputs = []
         for i, sample in enumerate(progress):
             with torch.no_grad():
+                if sample is None or len(sample) == 0:
+                    is_dummy_batch = True
+                    sample = _dummy_batch
+
                 sample = utils.move_to_cuda(sample) if use_cuda else sample
                 sample = _fp_convert_sample(sample)
+
                 _loss, _sample_size, log_output = task.valid_step(sample, model, criterion, subset)
-                
-                log_outputs.append(log_output)
+                if not is_dummy_batch:
+                    log_outputs.append(log_output)
+                is_dummy_batch = False
 
         if data_parallel_world_size > 1:
             log_outputs = distributed_utils.all_gather_list(
