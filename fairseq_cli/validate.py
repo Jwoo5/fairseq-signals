@@ -17,6 +17,7 @@ from fairseq_signals import distributed_utils, tasks
 from fairseq_signals.utils import checkpoint_utils, options, utils
 from fairseq_signals.dataclass.utils import convert_namespace_to_omegaconf, overwrite_args_by_name
 from fairseq_signals.logging import metrics, progress_bar
+from fairseq_signals.utils.store import initialize_stores
 from fairseq_signals.utils.utils import reset_logging
 from omegaconf import DictConfig, OmegaConf
 
@@ -120,6 +121,19 @@ def main(cfg: DictConfig, override_args=None):
             raise Exception("Cannot find dataset: " + subset)
         logger.info("begin validation on {} subset".format(subset))
 
+        # Initialize stores
+        if True: # cfg.common_eval.save_outputs or cfg.common_eval.save_targets:
+            outputs_shape = (len(dataset), cfg.model.num_labels)
+            targets_shape = (len(dataset), cfg.model.num_labels)
+            initialize_stores(
+                cfg,
+                criterion,
+                subset,
+                outputs_shape,
+                targets_shape,
+                data_parallel_rank=data_parallel_rank,
+            )
+
         # Initialize data iterator
         batch_iterator = task.get_batch_iterator(
             dataset=dataset,
@@ -175,6 +189,9 @@ def main(cfg: DictConfig, override_args=None):
                 if not is_dummy_batch:
                     log_outputs.append(log_output)
                 is_dummy_batch = False
+
+        # Close any initialized stores
+        criterion.close_stores()
 
         if data_parallel_world_size > 1:
             log_outputs = distributed_utils.all_gather_list(

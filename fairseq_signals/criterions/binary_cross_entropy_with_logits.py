@@ -91,6 +91,8 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
         if self.pos_weight is not None:
             self.pos_weight = self.pos_weight.to(logits.device)
 
+        self.store(logits, target)
+
         loss = F.binary_cross_entropy_with_logits(
             input=logits,
             target=target,
