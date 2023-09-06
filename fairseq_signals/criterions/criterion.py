@@ -16,7 +16,29 @@ class BaseCriterion(_Loss):
     def __init__(self, task):
         super().__init__()
         self.task = task
-    
+        self.output_store = None
+        self.target_store = None
+
+    def set_output_store(self, output_store: Any):
+        self.output_store = output_store
+
+    def set_target_store(self, target_store: Any):
+        self.target_store = target_store
+
+    def store(self, output: Any, target: Any):
+        if self.output_store is not None:
+            self.output_store(output)
+
+        if self.target_store is not None:
+            self.target_store(target)
+
+    def close_stores(self):
+        if self.output_store is not None:
+            self.output_store.close()
+
+        if self.target_store is not None:
+            self.target_store.close()
+
     @classmethod
     def add_args(cls, parser):
         """Add criterion-specific arguments to the parser."""
