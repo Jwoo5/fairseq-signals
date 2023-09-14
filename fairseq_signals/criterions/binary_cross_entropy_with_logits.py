@@ -74,7 +74,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
 
         self.per_log_keys = cfg.per_log_keys
 
-    def forward(self, model, sample, reduce = True):
+    def forward(self, model, sample, reduce=True, save_outputs=False):
         """Compute the loss for the given sample.
         
         Returns a tuple with three elements.
@@ -85,13 +85,14 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
         net_output = model(**sample["net_input"])
         logits = model.get_logits(net_output).float()
         target = model.get_targets(sample, net_output)
+        if save_outputs:
+            self.store(logits, target)
 
         reduction = "none" if not reduce else "sum"
 
         if self.pos_weight is not None:
             self.pos_weight = self.pos_weight.to(logits.device)
 
-        self.store(logits, target)
 
         loss = F.binary_cross_entropy_with_logits(
             input=logits,

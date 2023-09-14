@@ -6,6 +6,9 @@
 import inspect
 from typing import Any, Dict, List
 
+import torch
+
+import fairseq_signals.distributed.utils as dist_utils
 from fairseq_signals import metrics
 from fairseq_signals.utils import utils
 from fairseq_signals.dataclass import Dataclass
@@ -26,6 +29,11 @@ class BaseCriterion(_Loss):
         self.target_store = target_store
 
     def store(self, output: Any, target: Any):
+        if dist_utils.get_data_parallel_world_size() > 1:
+            group = dist_utils.get_data_parallel_group()
+            output = torch.cat(dist_utils.batch_all_gather(output, group=group))
+            target = torch.cat(dist_utils.batch_all_gather(target, group=group))
+
         if self.output_store is not None:
             self.output_store(output)
 

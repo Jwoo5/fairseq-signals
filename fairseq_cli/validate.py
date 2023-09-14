@@ -121,19 +121,6 @@ def main(cfg: DictConfig, override_args=None):
             raise Exception("Cannot find dataset: " + subset)
         logger.info("begin validation on {} subset".format(subset))
 
-        # Initialize stores
-        if True: # cfg.common_eval.save_outputs or cfg.common_eval.save_targets:
-            outputs_shape = (len(dataset), cfg.model.num_labels)
-            targets_shape = (len(dataset), cfg.model.num_labels)
-            initialize_stores(
-                cfg,
-                criterion,
-                subset,
-                outputs_shape,
-                targets_shape,
-                data_parallel_rank=data_parallel_rank,
-            )
-
         # Initialize data iterator
         batch_iterator = task.get_batch_iterator(
             dataset=dataset,
@@ -150,6 +137,25 @@ def main(cfg: DictConfig, override_args=None):
         itr = batch_iterator.next_epoch_itr(shuffle=False)
         _dummy_batch = batch_iterator.first_batch
         is_dummy_batch = False
+
+        # Initialize stores
+        if cfg.common_eval.save_outputs:
+            # infer the shape of the outputs
+            with torch.no_grad():
+                dummy = utils.move_to_cuda(_dummy_batch) if use_cuda else _dummy_batch
+                dummy = _fp_convert_sample(dummy)
+                
+                model.eval()
+                net_output = model(**dummy["net_input"])
+                logits_shape = (len(dataset),) + tuple(model.get_logits(net_output).shape[1:])
+                targets_shape = (len(dataset),) + tuple(model.get_targets(dummy, net_output).shape[1:])
+            initialize_stores(
+                dtype="float16" if cfg.common.fp16 else "float32",
+                criterion=criterion,
+                subset=subset,
+                logits_shape=logits_shape,
+                targets_shape=targets_shape,
+            )
 
         progress = progress_bar.progress_bar(
             itr,
@@ -185,7 +191,13 @@ def main(cfg: DictConfig, override_args=None):
                 sample = utils.move_to_cuda(sample) if use_cuda else sample
                 sample = _fp_convert_sample(sample)
 
-                _loss, _sample_size, log_output = task.valid_step(sample, model, criterion, subset)
+                _loss, _sample_size, log_output = task.valid_step(
+                    sample,
+                    model,
+                    criterion,
+                    subset,
+                    save_outputs=cfg.common_eval.save_outputs
+                )
                 if not is_dummy_batch:
                     log_outputs.append(log_output)
                 is_dummy_batch = False
