@@ -4,7 +4,6 @@ common:
   log_format: json
   log_interval: 10
   all_gather_list_size: 2048000
-  # wandb_project: grounding-classification
 
 checkpoint:
   save_dir: checkpoints
