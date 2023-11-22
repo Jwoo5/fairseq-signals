@@ -299,10 +299,7 @@ class RawECGDataset(BaseDataset):
         input = {"source": collated_sources}
         out = {"id": torch.LongTensor([s["id"] for s in samples])}
         if self.label:
-            if samples[0]["label"].dim() > 0:
-                out["label"] = torch.cat([s["label"] for s in samples])
-            else:
-                out["label"] = torch.stack([s["label"] for s in samples])
+            out["label"] = torch.stack([s["label"] for s in samples])
 
         if originals:
             out["original"] = collated_originals
@@ -458,7 +455,7 @@ class FileECGDataset(RawECGDataset):
             res["original"] = feats
 
         if self.label:
-            if self.label_file is not None:
+            if self.label_array is not None:
                 res["label"] = torch.from_numpy(self.label_array[ecg["idx"].squeeze()])
             else:
                 res["label"] = torch.from_numpy(ecg['label'].squeeze())
@@ -515,10 +512,7 @@ class PathECGDataset(FileECGDataset):
         if "target_idx" in samples[0]:
             out["target_idx"] = [s["target_idx"] for s in samples]
         if self.label:
-            if samples[0]["label"].dim() > 0:
-                out["label"] = torch.cat([s["label"] for s in samples])
-            else:
-                out["label"] = torch.stack([s["label"] for s in samples])
+            out["label"] = torch.stack([s["label"] for s in samples])
         if "attribute_id" in samples[0]:
             out["attribute_id"] = [s["attribute_id"] for s in samples]
 
@@ -553,7 +547,7 @@ class PathECGDataset(FileECGDataset):
         res["source"] = feats
 
         if self.label:
-            if self.label_file is not None:
+            if self.label_array is not None:
                 res["label"] = torch.from_numpy(self.label_array[data["idx"].squeeze()])
             else:
                 res["label"] = torch.from_numpy(data["label"].squeeze())
