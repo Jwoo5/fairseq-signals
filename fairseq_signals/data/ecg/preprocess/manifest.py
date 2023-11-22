@@ -13,7 +13,8 @@ import scipy.io
             --finetune_subset $finetune_subsets \
             --dest /path/to/manifest \
             --ext $ext \
-            --valid-percent $valid
+            --pretrain-valid-percent $valid-pretrain
+            --finetune-valid-percent $valid-finetune
 """
 
 def get_parser():
@@ -77,7 +78,7 @@ def main(args):
 
     root_path = os.path.realpath(args.root)
     pretrain_subset = [x.strip() for x in args.pretrain_subset.split(",")]
-    finetune_subset = [x.strip() for x in args.combine_subsets.split(",")]
+    finetune_subset = [x.strip() for x in args.finetune_subset.split(",")]
     rand = random.Random(args.seed)
 
     def random_split(fnames, valid_percent):
@@ -119,7 +120,7 @@ def main(args):
 
                 if args.ext == "mat":
                     data = scipy.io.loadmat(file_path)
-                    if "feats" not in length:
+                    if "feats" not in data:
                         raise AssertionError(
                             "each data file should contain ECG signals as a value of the key "
                             "'feats' for support efficient batching in the training step."
@@ -140,7 +141,7 @@ def main(args):
             fnames = glob.glob(search_path, recursive=True)
             if len(fnames) == 0:
                 warnings.warn(
-                    f"No files found in {os.path.join(args.root, s)} directory. Please make sure"
+                    f"No files found in {os.path.join(args.root, s)} directory. Please make sure "
                     f"{os.path.join(args.root, s)} contains {args.ext} files to be processed."
                 )
 
