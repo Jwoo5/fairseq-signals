@@ -196,7 +196,7 @@ def load_checkpoint(cfg: CheckpointConfig, trainer, **passthrough_args):
     if cfg.restore_file != "checkpoint_last.pt" and cfg.finetune_from_model:
         raise ValueError(
             "--finetune-from-model and --restore-file (non-default value) "
-            "can not be specified togetherL: " + str(cfg)
+            "can not be specified together: " + str(cfg)
         )
     
     extra_state = trainer.load_checkpoint(

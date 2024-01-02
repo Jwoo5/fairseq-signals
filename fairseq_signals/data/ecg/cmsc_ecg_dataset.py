@@ -168,8 +168,6 @@ class CMSCECGDataset(RawECGDataset):
             if self.label:
                 out["label"] = torch.from_numpy(ecg["label"])
             out["patient_id"] = ecg["patient_id"][0,0]
-            out["age"] = ecg["age"][0,0]
-            out["sex"] = ecg["sex"][0,0]
             out["segment"] = i % 2
 
             res.append(out)

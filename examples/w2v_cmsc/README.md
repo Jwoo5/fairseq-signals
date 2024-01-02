@@ -5,9 +5,9 @@ This is the official pytorch code implementation of [Lead-agnostic Self-supervis
 Before training the model, please follow [these instructions](https://github.com/Jwoo5/fairseq-signals/blob/master/README.md) to install fairseq-signals and prepare required datasets.
 
 # Prepare training data manifest
-Before training, you should prepare training data manifest required for training CLOCS model.
+Before training, you should prepare training data manifest required for training CMSC model.
 ```shell script
-$ python /path/to/fairseq_signals/data/ecg/preprocess/convert_to_clocs_manifest.py \
+$ python /path/to/fairseq_signals/data/ecg/preprocess/convert_to_cmsc_manifest.py \
     /path/to/pretrain/train.tsv \
     --dest /path/to/manifest
 ```
@@ -28,7 +28,7 @@ This configuration was used for the `W2V+CMSC+RLM` model pre-trained on the `Phy
 ```shell script
 $ fairseq-hydra-train \
     task.data=/path/to/manifest/cmsc \
-    --config-dir examples/w2v_clocs/config/pretraining \
+    --config-dir examples/w2v_cmsc/config/pretraining \
     --config-name w2v_cmsc_rlm
 ```
 
@@ -39,7 +39,7 @@ $ fairseq-hydra-train \
 $ fairseq-hydra-train \
     task.data=/path/to/manifest/finetune \
     model.model_path=/path/to/checkpoint.pt \
-    --config-dir examples/w2v_clocs/config/finetuning \
+    --config-dir examples/w2v_cmsc/config/finetuning \
     --config-name diagnosis
 ```
 If you want to use CinC score as an evaluation metric, add command line parameters (before `--config-dir`)
@@ -53,7 +53,7 @@ $ fairseq-hydra-train \
     task.data=/path/to/manifest/identify \
     model.model_path=/path/to/checkpoint.pt \
     model.num_labels=$N \
-    --config-dir examples/w2v_clocs/config/finetuning \
+    --config-dir examples/w2v_cmsc/config/finetuning \
     --config-name identification
 ```
 `$N` should be set to the number of unique patients in the training dataset. You can manually open `/path/to/manifest/identify/train.tsv` file and check the last line of that file. For example, if the last line is like `*.mat 2500 69977`, then `$N` should be set to `69978`.
