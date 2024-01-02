@@ -310,16 +310,10 @@ class Trainer(object):
 
             if load_on_all_ranks or self.data_parallel_rank == 0:
                 state = checkpoint_utils.load_checkpoint_to_cpu(
-                    filename, load_on_all_ranks = load_on_all_ranks
+                    filename, load_on_all_ranks=load_on_all_ranks
                 )
                 last_optim_state = state.get("last_optimizer_state", None)
 
-                if (
-                    not load_on_all_ranks
-                    and "last_optimizer_state" in state
-                    and is_distributed
-                ):
-                    state["last_optimizer_state"] = "SHARDED"
             else:
                 last_optim_state = None
                 state = None
@@ -327,9 +321,9 @@ class Trainer(object):
             if is_distributed and not load_on_all_ranks:
                 state = distributed_utils.broadcast_object(
                     state,
-                    src_rank = 0,
-                    group = self.data_parallel_process_group,
-                    dist_device = self.device
+                    src_rank=0,
+                    group=self.data_parallel_process_group,
+                    dist_device=self.device
                 )
                 if self.data_parallel_rank > 0:
                     last_optim_state = state.get("last_optimizer_state", None)
@@ -337,13 +331,13 @@ class Trainer(object):
             # load model parameters
             try:
                 self.model.load_state_dict(
-                    state["model"], strict = True, model_cfg = self.cfg.model
+                    state["model"], strict=True, model_cfg = self.cfg.model
                 )
                 # save memory for later steps
                 del state["model"]
                 if utils.has_parameters(self.get_criterion()):
                     self.get_criterion().load_state_dict(
-                        state["criterion"], strict = True
+                        state["criterion"], strict=True
                     )
                     del state["criterion"]
             
