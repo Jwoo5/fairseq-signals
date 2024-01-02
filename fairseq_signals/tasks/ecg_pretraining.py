@@ -56,16 +56,16 @@ class ECGPretrainingConfig(Dataclass):
     leads_to_load: Optional[str] = field(
         default=None,
         metadata={
-            "help": "string describing list of lead indicators or lead indices to be loaded"
-            "note that the sequence of leads is [I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]"
-            "if not set, load all the available leads of samples"
+            "help": "string describing list of lead indicators or lead indices to be loaded. "
+                "note that the sequence of leads is [I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6]. "
+                "if not set, load all the available leads of samples"
         }
     )
     leads_bucket: Optional[str] = field(
         default=None,
         metadata={
-            "help": "string describing list of lead indicators or lead indices to be bucketized"
-            "This set of leads should be a subset of --leads_to_load"
+            "help": "string describing list of lead indicators or lead indices to be bucketized. "
+                "This set of leads should be a subset of --leads_to_load"
         }
     )
     bucket_selection: str = field(
@@ -123,14 +123,14 @@ class ECGPretrainingConfig(Dataclass):
         default=None,
         metadata={
             "help": "mode for perturbation before samples being forwarded. "
-            "the perturbation is applied in the order of the list"
+                "the perturbation is applied in the order of the list"
         }
     )
     p: List[float] = field(
         default_factory=lambda: [1.0],
         metadata={
-            "help": "list of probability of applying each augmentation"
-            "if given one element, the probability is applied across all the augmentation"
+            "help": "list of probability of applying each augmentation. "
+                "if given one element, the probability is applied across all the augmentation"
         }
     )
     max_amplitude: float = field(
@@ -169,8 +169,8 @@ class ECGPretrainingConfig(Dataclass):
         default="random",
         metadata={
             "help": "how to choose leads to be masked. random is masking every "
-            "lead with the probability of --mask_leads_prob. conditional is masking "
-            "specific number of leads according to --mask_leads_condition"
+                "lead with the probability of --mask_leads_prob. conditional is masking "
+                "specific number of leads according to --mask_leads_condition"
         }
     )
     mask_leads_prob: float = field(
@@ -183,7 +183,7 @@ class ECGPretrainingConfig(Dataclass):
         default=(4, 5),
         metadata={
             "help": "specific number of leads to be masked. "
-            "tuple of 2 values (# out of the first 6 leads, # out of the last 6 leads)"
+                "tuple of 2 values (# out of the first 6 leads, # out of the last 6 leads)"
         }
     )
 

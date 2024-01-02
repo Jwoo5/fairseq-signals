@@ -1,0 +1,74 @@
+
+common:
+  fp16: false
+  log_format: json
+  log_interval: 10
+  all_gather_list_size: 2048000
+  # wandb_entity: ecg-pretraining
+  # wandb_project: ecg-identification
+
+checkpoint:
+  save_dir: checkpoints
+  # best_checkpoint_metric: accuracy
+  # maximize_best_checkpoint_metric: true
+  save_interval: 1
+  keep_last_epochs: 1
+  save_interval_updates: 0
+  no_epoch_checkpoints: false
+  # patience: 20
+
+task:
+  _name: ecg_identification
+  data: ???
+  normalize: false
+  enable_padding: true
+  enable_padding_leads: true
+  leads_to_load: null
+    # I, II, III, aVR, aVL, aVF, V1, V2, V3, V4, V5, V6
+
+
+dataset:
+  num_workers: 6
+  max_tokens: null 
+  batch_size: 128
+  valid_subset: "valid"
+  disable_validation: false
+
+distributed_training:
+  distributed_world_size: 1
+
+criterion:
+  _name: arcface
+  scale: 192
+  margin: 1.0
+
+optimization:
+  max_epoch: 100
+  max_update: 320000
+  lr: [0.00003]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-08
+
+lr_scheduler:
+  _name: tri_stage
+  phase_ratio: [0.1, 0.2, 0.7]
+  final_lr_scale: 0.01
+
+model:
+  _name: arcface
+  num_labels: ???
+  no_pretrained_weights: true
+
+  dropout: 0.0
+  attention_dropout: 0.0
+  activation_dropout: 0.1
+  # encoder_layerdrop: 0.1
+  encoder_embed_dim: 512
+  encoder_attention_heads: 8
+
+  feature_grad_mult: 0.0
+  freeze_finetune_updates: 0
+  in_d: 12
