@@ -7,7 +7,7 @@ PERTURBATION_CHOICES = ChoiceEnum(
     [
         "3kg",
         "random_leads_masking",
-        "powerilne_noise",
+        "powerline_noise",
         "emg_noise",
         "baseline_shift",
         "baseline_wander",
