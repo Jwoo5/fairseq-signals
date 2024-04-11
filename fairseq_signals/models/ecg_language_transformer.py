@@ -269,7 +269,7 @@ class ECGLanguageTransformerModel(TransformerModel):
                 ecg_padding_mask,
                 mask_indices=None
             )
-
+        
         if ecg_features_2 is not None:
             ecg_features_2 = self.dropout_input(ecg_features_2)
             if self.cfg.apply_mask and self.training:
@@ -306,13 +306,13 @@ class ECGLanguageTransformerModel(TransformerModel):
             )
 
         ecg_features_conv = self.conv_pos(ecg_features, channel_first=False)
-        ecg_features += ecg_features_conv
+        ecg_features = ecg_features + ecg_features_conv
         ecg_features_type_embedding = (
             self.token_type_embedding(
                 ecg_features.new_zeros(ecg_features.shape[:-1], dtype=int)
             )
         )
-        ecg_features += ecg_features_type_embedding
+        ecg_features = ecg_features + ecg_features_type_embedding
 
         text_features = self.language_embedding(text)
         text_features = self.layer_norm(text_features)
@@ -324,13 +324,13 @@ class ECGLanguageTransformerModel(TransformerModel):
                 device=text_features.device
             ).repeat((text_features.size(0), 1))
         )
-        text_features += text_features_pos
+        text_features = text_features + text_features_pos
         text_features_type_embedding = (
             self.token_type_embedding(
                 text_features.new_ones(text_features.shape[:-1], dtype=int)
             )
         )
-        text_features += text_features_type_embedding
+        text_features = text_features + text_features_type_embedding
 
         x = torch.cat([ecg_features, text_features], dim=1)
         if ecg_padding_mask is not None or text_padding_mask is not None:
