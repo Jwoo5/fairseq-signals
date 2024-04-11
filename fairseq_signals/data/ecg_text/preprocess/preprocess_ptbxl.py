@@ -1,5 +1,6 @@
 import os
 import argparse
+import warnings
 
 import pandas as pd
 import numpy as np
@@ -30,7 +31,6 @@ def get_parser():
 def main(args):
     dir_path = os.path.realpath(args.root)
     dest_path = os.path.realpath(args.dest)
-    meta_path = os.path.realpath(args.meta_dir)
 
     if args.rebase:
         import shutil
@@ -39,15 +39,17 @@ def main(args):
     if not os.path.exists(dest_path):
         os.makedirs(dest_path)
 
-    try:
-        csv = pd.read_csv(os.path.join(meta_path, 'ptbxl_database_translated.csv'))
-    except FileNotFoundError:
-        raise FileNotFoundError(
-            "cannot find the metadata file (ptbxl_database_translated.csv) "
-            "please ensure that this file is located in --meta-dir "
-            "or download from ..."
-            f"--meta-dir: {meta_path}"
+    if not os.path.exists(os.path.join(dir_path, "ptbxl_database_translated.csv")):
+        warnings.warn(
+            "Cannot find ptbxl_database_translated.csv which is an English-translated version of "
+            "the original database file. We instead use ptbxl_database.csv where some reports "
+            "are written in Deutsch, which may affect the training. "
+            "Please download https://github.com/Jwoo5/fairseq-signals/blob/master/fairseq_signals/data/ecg_text/preprocess/ptbxl_database_translated.csv "
+            "and ensure that this file is located in the root directory for the better performance."
         )
+        database = pd.read_csv(os.path.join(dir_path, "ptbxl_database.csv"))
+    else:
+        database = pd.read_csv(os.path.join(dir_path, "ptbxl_database_translated.csv"))
 
     exclude = None
     if args.exclude is not None:
@@ -56,10 +58,11 @@ def main(args):
             for line in f.readlines():
                 items = line.strip().split('\t')
                 exclude.append(items[1])
+        exclude = set(exclude)
 
-    fnames = csv['filename_hr'].to_numpy()
-    reports = csv['report_en'].to_numpy()
-    scp_codes = csv['scp_codes']
+    fnames = database['filename_hr'].to_numpy()
+    reports = database['report'].to_numpy()
+    scp_codes = database['scp_codes']
 
     n = 0
     for fname, report, scp_code in zip(fnames, reports, scp_codes):
