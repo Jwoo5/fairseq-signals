@@ -19,7 +19,7 @@ We will keep implementing new methods in this repo. If you have any recommendati
 
 # Requirements and Installation
 * [PyTorch](https://pytorch.org) version >= 1.5.0
-* Python version >= 3.6
+* Python version >= 3.6, and <= 3.9
 * For training new models, you'll also need an NVIDIA GPU and [NCCL](https://github.com/NVIDIA/nccl)
 * **To install fairseq-signals** from source and develop locally:
 
@@ -79,24 +79,44 @@ Please fine more details about pre-processing and data manifest from [here](fair
 ### Prepare ECG dataset
 We provide pre-processing codes for the following datasets.
 * [PTB-XL](https://physionet.org/content/ptb-xl/1.0.3/)
+* [MIMIC-IV-ECG](https://physionet.org/content/mimic-iv-ecg/1.0/)
 * [ECG-QA](https://github.com/Jwoo5/ecg-qa)
 
 ### Pre-process
-For multi-modal pre-training of ECGs with reports from the PTB-XL dataset:
+For multi-modal pre-training of ECGs with reports using the **PTB-XL** dataset:
 ```shell script
 $ python fairseq_signals/data/ecg_text/preprocess/preprocess_ptbxl.py \
    /path/to/ptbxl \
    --dest /path/to/output \
-   --meda-dir fairseq_signals/data/ecg_text/preprocess
 ```
-For ECG Question Answering task:
+For multi-modal pre-training of ECGs with reports using the **MIMIC-IV-ECG** dataset:
 ```shell script
-$ python fairseq_signals/data/ecg_text/preprocess/preprocess_ecgqa.py \
-    /path/to/ecgqa \
-    --ptbxl-data-dir /path/to/ptbxl \
-    --dest /path/to/output \
-    --apply_paraphrase
+$ python fairseq_signals/data/ecg_text/preprocess/preprocess_mimic_iv_ecg.py \
+   /path/to/mimic-iv-ecg \
+   --dest /path/to/output \
 ```
+
+For ECG Question Answering task with the ECG-QA dataset:
+* Map `ecg_id` to the corresponding ECG file path (you can find these scripts in the [ECG-QA repository](https://github.com/Jwoo5/ecg-qa))
+    * For PTB-XL-based ECG-QA:
+        ```shell script
+        $ python mapping_ptbxl_samples.py ecgqa/ptbxl \
+            --ptbxl-data-dir $ptbxl_dir \
+            --dest $dest_dir
+        ```
+    * For MIMIC-IV-ECG-based ECG-QA:
+        ```shell script
+        $ python mapping_mimic_iv_ecg_samples.py ecgqa/mimic-iv-ecg \
+            --mimic-iv-ecg-data-dir $mimic_iv_ecg_dir \
+            --dest $dest_dir
+        ```
+* Preprocess ECG-QA and prepare manifests
+    ```shell script
+    $ fairseq_signals/data/ecg_text/preprocess/preprocess_ecgqa.py /path/to/ecgqa \
+        --dest /path/to/output \
+        --apply_paraphrase
+    ```
+
 You don't need to run additional scripts to prepare manifest files for ECG-QA dataset since it automatically generates manifest files during the pre-processing process.
 
 ### Prepare data manifest
@@ -107,7 +127,7 @@ $ python fairseq_signals/data/ecg_text/preprocess/manifest.py \
     --dest /path/to/manifest \
     --valid-percent $valid
 ```
-Please fine more details about pre-processing and data manifest from [here](fairseq_signals/data/ecg_text/preprocess/README.md)
+Please find more details about pre-processing and data manifest [here](fairseq_signals/data/ecg_text/preprocess/README.md).
 
 ## Examples
 We provide detailed READMEs for each model implementation:
