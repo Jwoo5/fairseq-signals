@@ -1,0 +1,75 @@
+
+common:
+  fp16: false
+  log_format: json
+  log_interval: 10
+  all_gather_list_size: 2048000
+
+checkpoint:
+  save_dir: checkpoints
+  best_checkpoint_metric: accuracy
+  maximize_best_checkpoint_metric: true
+  save_interval: 1
+  keep_last_epochs: 1
+  save_interval_updates: 0
+  no_epoch_checkpoints: false
+  # patience: 20
+
+task:
+  _name: ecg_classification
+  data: ???
+  path_dataset: true
+  load_specific_lead: true
+  enable_padding: true
+  enable_padding_leads: true
+  normalize: false
+
+dataset:
+  num_workers: 6
+  max_tokens: null 
+  batch_size: 64
+  train_subset: "train"
+  valid_subset: "valid,test"
+  validate_interval: 2
+
+distributed_training:
+  distributed_world_size: 1
+
+criterion:
+  _name: binary_cross_entropy_with_logits
+  report_auc: true
+
+optimization:
+  max_update: 100000
+  lr: [0.00005]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-08
+  weight_decay: 1e-4
+
+lr_scheduler:
+  _name: tri_stage
+  phase_ratio: [0.1, 0.4, 0.5]
+  final_lr_scale: 0.05
+
+model:
+  _name: ecg_transformer_classifier
+  num_labels: ???
+  model_path: null
+  no_pretrained_weights: true
+
+  dropout: 0.0
+  attention_dropout: 0.0
+  activation_dropout: 0.1
+  # encoder_layerdrop: 0.1
+
+  feature_grad_mult: 0.1
+  freeze_finetune_updates: 0
+
+  encoder_layers: 12
+  encoder_embed_dim: 768
+  in_d: 12
+
+  apply_mask: false

@@ -22,6 +22,14 @@ class ECGClassificationConfig(ECGPretrainingConfig):
             "note that this dataset is also used for multi head classification"
         }
     )
+    label_file: Optional[str] = field(
+        default=None,
+        metadata={
+            "help": "a separate .npy file path for loading labels for the input data. "
+                "if set, it assumes that each input data has an additional field 'idx' which "
+                "indicates the corresponding index within the numpy array for the labels."
+        }
+    )
     load_specific_lead: bool = field(
         default=False,
         metadata={
@@ -41,6 +49,7 @@ class ECGDiagnosisTask(ECGPretrainingTask):
         super().__init__(cfg)
 
         self.path_dataset = cfg.path_dataset
+        self.label_file = cfg.label_file
         self.load_specific_lead = cfg.load_specific_lead
     
     @classmethod
@@ -68,6 +77,7 @@ class ECGDiagnosisTask(ECGPretrainingTask):
                 pad_leads=task_cfg.enable_padding_leads,
                 leads_to_load=task_cfg.leads_to_load,
                 label=True,
+                label_file=self.cfg.label_file,
                 filter=task_cfg.filter,
                 normalize=task_cfg.normalize,
                 mean_path=task_cfg.get("mean_path", self.cfg.mean_path),
@@ -90,6 +100,7 @@ class ECGDiagnosisTask(ECGPretrainingTask):
                 pad_leads=task_cfg.enable_padding_leads,
                 leads_to_load=task_cfg.leads_to_load,
                 label=True,
+                label_file=self.cfg.label_file,
                 filter=task_cfg.filter,
                 normalize=task_cfg.normalize,
                 mean_path=task_cfg.get("mean_path", self.cfg.mean_path),

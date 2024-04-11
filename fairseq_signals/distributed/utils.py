@@ -206,7 +206,7 @@ def all_reduce(tensor, group, op="sum"):
     return tensor
 
 def broadcast(tensor, src, group):
-    dist.broadcast(tensor, src = src, group = group)
+    dist.broadcast(tensor, src=src, group=group)
 
 def all_to_all(tensor, group):
     """Perform an all-to-all operation on a 1D Tensor."""
@@ -415,15 +415,14 @@ def broadcast_tensors(
     for i, meta in enumerate(metadata):
         if is_src_rank:
             tensor = tensors[i]
-            broadcast(tensors[i].to(dist_device), src = src_rank, group = group)
+            broadcast(tensors[i].to(dist_device), src=src_rank, group=group)
         else:
             tensor = torch.zeros(
-                [meta["size"].numel()], dtype = meta["dtype"], device = dist.device
+                [meta["size"].numel()], dtype=meta["dtype"], device=dist_device
             )
-            broadcast(tensor, src = src_rank, group = group)
+            broadcast(tensor, src=src_rank, group=group)
         tensor = tensor.view(meta["size"]).to(meta["device"])
-        out_tensors.append(tensor)
-    
+        out_tensors.append(tensor)    
     return out_tensors
 
 def broadcast_object(
@@ -437,11 +436,12 @@ def broadcast_object(
         dist_device = torch.device("cuda")
     
     if get_rank(group) == src_rank:
-        # split thje tensors from the non-tensors so we can broadcast them
+        # split the tensors from the non-tensors so we can broadcast them
         # directly, avoiding unnecessary serialization/deserialization
         tensors = []
         obj = _split_tensors_from_obj(obj, tensors)
         obj = _broadcast_object_slow(obj, src_rank, group, dist_device)
+        tensors = broadcast_tensors(tensors, src_rank, group, dist_device)
     else:
         obj = _broadcast_object_slow(None, src_rank, group, dist_device)
         tensors = broadcast_tensors(None, src_rank, group, dist_device)
@@ -450,25 +450,26 @@ def broadcast_object(
 def _broadcast_object_slow(
     obj: Any, src_rank: int, group: object, dist_device: torch.device,
 ) -> Any:
+    rank = get_rank(group)
     if get_rank(group) == src_rank:
         # Emit data
         buffer = io.BytesIO()
         torch.save(obj, buffer)
         buffer = torch.ByteTensor(buffer.getbuffer()).to(dist_device)
         length = torch.LongTensor([len(buffer)]).to(dist_device)
-        broadcast(length, src = src_rank, group = group)
-        broadcast(buffer, src = src_rank, group = group)
+        broadcast(length, src=src_rank, group=group)
+        broadcast(buffer, src=src_rank, group=group)
     else:
         # Fetch from the source
-        length = torch.LongTensor[0].to(dist_device())
-        broadcast(length, src = src_rank, group = group)
+        length = torch.LongTensor([0]).to(dist_device)
+        broadcast(length, src=src_rank, group=group)
         buffer = torch.ByteTensor(int(length.item())).to(dist_device)
-        broadcast(buffer, src = src_rank, group = group)
+        broadcast(buffer, src=src_rank, group=group)
         buffer = io.BytesIO(buffer.cpu().numpy())
-        obj = torch.load(buffer, map_location = "cpu")
+        obj = torch.load(buffer, map_location="cpu")
     return obj
 
-@dataclass(frozen = True)
+@dataclass(frozen=True)
 class _TensorPlaceholder:
     index: int
 

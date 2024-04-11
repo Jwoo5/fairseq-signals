@@ -3,17 +3,20 @@
 Before training the model, please follow [these instructions](https://github.com/Jwoo5/fairseq-signals/blob/master/README.md) to install fairseq-signals and prepare required datasets.
 
 # Prepare training data manifest
-Before training, you should prepare training data manifest required for training CLOCS model.
+Before training, you should prepare training data manifest required for training CMSC model.
 ```shell script
 $ python /path/to/fairseq_signals/data/ecg/preprocess/convert_to_cmsc_manifest.py \
-    /path/to/pretrain/train.tsv \
-    --dest /path/to/manifest
+    /path/to/manifest \
+    --dest /path/to/converted/manifest
+
 ```
 The expected results are like:
 ```
-/path/to/manifest
+/path/to/converted/manifest
 └─ cmsc
-    └─ train.tsv
+    ├─ train.tsv
+    ├─ valid.tsv
+    └─ test.tsv
 ```
 
 # Pre-training a new ECG Transformer model
