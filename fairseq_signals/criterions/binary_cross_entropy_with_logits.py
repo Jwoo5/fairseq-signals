@@ -144,6 +144,13 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
                     y_score = []
                     y_class = []
                     
+                    corr = 0
+                    count = 0
+                    em_count = 0
+                    em_corr = 0
+                    tp = 0
+                    fp = 0
+                    fn = 0
                     for logit, prob, output, gt, classes in zip(
                         logits, probs, outputs, target, sample["valid_classes"]
                     ):
