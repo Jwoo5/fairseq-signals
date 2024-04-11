@@ -9,6 +9,7 @@ from typing import List, Dict
 import pandas as pd
 import wfdb
 import scipy.io
+import numpy as np
 
 from tqdm import tqdm
 
@@ -17,10 +18,6 @@ def get_parser():
     parser.add_argument(
         "root", metavar="DIR", default=".",
         help='root directory containing ptbxl files to pre-process'
-    )
-    parser.add_argument(
-        '--ptbxl-data-dir', metavar="DIR", required=True,
-        help='directory containing ptbxl data (records500/**/*.mat)'
     )
     parser.add_argument(
         "--dest", type=str, metavar="DIR", default=".",
@@ -52,6 +49,7 @@ def main(args):
         "limb leads": (0, 1, 2, 3, 4, 5),
         "chest leads": (6, 7, 8, 9, 10, 11),
         "inferior leads": (1, 2, 5,),
+        "inferoseptal leads": (1, 2, 5, 6, 7),
         "inferolateral leads": (0, 1, 2, 4, 5, 10, 11,),
         "inferoposterior leads": (1, 2, 5, 6, 7, 8,),
         "inferoposterolateral leads": (0, 1, 2, 4, 5, 6, 7, 8, 10, 11,),
@@ -60,6 +58,12 @@ def main(args):
         "anterolateral leads": (0, 4, 8, 9, 10, 11,),
         "lateral leads": (0, 4, 10, 11,),
         "posterior leads": (6, 7, 8,),
+        "septal leads": (6, 7,),
+        "posterior leads": (9, 10, 11),
+        "frontal leads": (0, 1, 2, 3, 4, 5),
+        "horizontal leads": (6, 7, 8, 9, 10, 11),
+        "diffuse leads": (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11),
+        "frontal and horizontal leads": (0, 1, 2, 3, 4, 5, 6, 7, 8, 9, 10, 11)
     }
     lead_names = [
         'lead I', 'lead II', 'lead III', 'lead aVR', 'lead aVL', 'lead aVF',
@@ -92,6 +96,7 @@ def main(args):
                 continue
             
             ecg_id = sample_data["ecg_id"][0]
+            ecg_path = sample_data["ecg_path"][0]
             # lead
             attr = sample_data["attribute"]
             assert attr is not None
@@ -123,17 +128,34 @@ def main(args):
                     
                     assert len(grounding_attr) == 1
                     # in case of verifying existence of an attribute in a "specific lead"
+                    # (e.g.,) "Does this ECG show symptoms of ... in lead I?"
                     if (
-                        lead:= re.search(
-                            r"((?<=in )lead ((III)|(II)|(I)|(aVR)|(aVL)|(aVF)|(V1)|(V2)|(V3)|(V4)|(V5)|(V6)))"
-                            + r"|((?<=in )((limb leads)|(chest leads)))",
+                        lead := re.search(
+                            r"((?<= in )lead ((III)|(II)|(I)|(aVR)|(aVL)|(aVF)|(V1)|(V2)|(V3)|(V4)|(V5)|(V6)))"
+                            + r"|((?<= in )((limb leads)|(chest leads)))",
                             question
                         )
                     ) is not None:
                         lead = lead.group()
                         grounding_obj = [lead]
+                    # in case of verifying existence of an attribute associated with "a group of leads"
+                    # (e.g.,) "Does this ECG show symptoms of ST-T changes in anterior leads?"
+                    elif (
+                        lead := re.search(
+                            r"(?<=" + grounding_attr[0].replace("(", "\(").replace(")", "\)").replace("-", "\-") + r" in )"
+                            r"((anterior leads)|(inferior leads)|(frontal and horizontal leads)"
+                            r"|(septal leads)|(lateral leads)|(posterior leads)|(frontal leads)"
+                            r"|(horizontal leads)|(diffuse leads))",
+                            question
+                        )
+                    ) is not None:
+                        lead = lead.group()
+                        if lead in ["frontal and horizontal leads", "diffuse leads"]:
+                            lead = "entire"
+                        grounding_obj = [lead]
                     # in case of verifying existence of an attribute from the "entire" ecg,
-                    # but possibility of having lead positions. e.g., LMI (MI in lateral leads)
+                    # but possibility of having lead positions for attributes that inherently
+                    # have lead positions in themselves (e.g.,) MI in anterior leads
                     else:
                         if " the normal range of " not in question:
                             grounding_obj = [parse_lead_position(attr[0])]
@@ -143,7 +165,7 @@ def main(args):
                 # we do not convert choose / query questions in test split
                 if subset == "test":
                     continue
-                
+
                 if "excluding uncertain symptoms" in question:
                     grounding_attr = list(set(answer) - {"none"})
                     grounding_ans = ["yes"] * len(grounding_attr)
@@ -157,41 +179,47 @@ def main(args):
                         grounding_ans = ["yes" if x[:5] == answer[0][:5] else "no" for x in grounding_attr]
                     else:
                         grounding_ans = ["yes" if x in answer else "no" for x in grounding_attr]
-                
+
                 # in case of choosing an attribute in a "specific lead"
+                # (e.g.,) "Which noises does this ECG show in lead ..., A or B?"
                 # note that we are asssuming there is no question of choosing a specific "lead"
                 if (
-                    lead:= re.search(
-                        r"((?<=in )lead ((III)|(II)|(I)|(aVR)|(aVL)|(aVF)|(V1)|(V2)|(V3)|(V4)|(V5)|(V6)))"
-                        + r"|((?<=in )((limb leads)|(chest leads)))",
+                    lead := re.search(
+                        r"((?<= in )lead ((III)|(II)|(I)|(aVR)|(aVL)|(aVF)|(V1)|(V2)|(V3)|(V4)|(V5)|(V6)))"
+                        + r"|((?<= in )((limb leads)|(chest leads)))",
                         question
                     )
                 ) is not None:
                     lead = lead.group()
                     grounding_obj = [lead] * len(grounding_attr)
-                # in case of choosing an attribute from the "entire" ecg,
-                # but possbility of having lead positions. e.g., LMI (MI in lateral leads)
                 else:
                     grounding_obj = []
-                    for attribute in grounding_attr:
+                    for j, attribute in enumerate(grounding_attr):
+                        # in case of choosing an attribute from the "entire" ecg,
+                        # but possibility of having lead positions for attributes that inherently
+                        # have lead positions in themselves (e.g.,) MI in anterior leads
                         grounding_obj.append(parse_lead_position(attribute))
             elif question_type2 == "query":
                 # we do not convert choose / query questions in test split
                 if subset == "test":
                     continue
                 
-                # in case of querying attributes in a specific lead
+                # in case of querying attributes in a "specific lead"
+                # (e.g.,) "What form-related symptoms does this ECG show in ${lead}?"
                 if (
-                    lead:= re.search(
-                        r"((?<=in )lead ((III)|(II)|(I)|(aVR)|(aVL)|(aVF)|(V1)|(V2)|(V3)|(V4)|(V5)|(V6)))"
-                        + r"|((?<=in )((limb leads)|(chest leads)))",
+                    lead := re.search(
+                        r"((?<= in )lead ((III)|(II)|(I)|(aVR)|(aVL)|(aVF)|(V1)|(V2)|(V3)|(V4)|(V5)|(V6)))"
+                        + r"|((?<= in )((limb leads)|(chest leads)))",
                         question
                     )
                 ) is not None:
+                    lead = lead.group()
                     grounding_ans = ["yes" if x in answer else "no" for x in attr]
                     grounding_attr = attr.copy()
-                    grounding_obj = [lead.group()] * len(attr)
+                    grounding_obj = [lead] * len(attr)
+                
                 # in case of querying leads of a specific attribute
+                # (e.g.,) "What leads are showing symptoms of ${scp_codes_form_with_leads} in this ECG?"
                 elif "What leads" in question:
                     if attr[0] in [
                         "voltage criteria (qrs) for left ventricular hypertrophy", # VCLVH
@@ -210,7 +238,6 @@ def main(args):
                         grounding_ans = ["yes" if x in answer else "no" for x in lead_names]
                         grounding_obj = lead_names.copy()
                     grounding_attr = attr.copy() * len(grounding_ans)
-                # in case of querying attributes from the entire ecg
                 else:
                     if "excluding uncertain symptoms" in question:
                         grounding_attr = list(set(answer) - {"none"})
@@ -243,11 +270,15 @@ def main(args):
                 
                     grounding_obj = []
                     for attribute in grounding_attr:
+                        # in case of querying attributes from the "entire" ecg
+                        # but possibility of having lead positions for attributes that inherently
+                        # have lead positions in themselves (e.g.,) MI in anterior leads
                         grounding_obj.append(parse_lead_position(attribute))
             else:
                 raise ValueError(question_type2)
 
             for i in range(len(grounding_attr)):
+                # for ptb-xl version
                 if "myocardial infarction in" in grounding_attr[i]:
                     grounding_attr[i] = re.sub(
                         r"myocardial infarction in.* leads", "myocardial infarction", grounding_attr[i]
@@ -260,10 +291,20 @@ def main(args):
                     grounding_attr[i] = re.sub(
                         r"ischemic in.* leads", "ischemic", grounding_attr[i]
                     )
-            
+                # for mimic-iv-ecg version
+                elif "Myocardial infarction in " in grounding_attr[i]:
+                    grounding_attr[i] = re.sub(
+                        r"Myocardial infarction in.* leads", "myocardial infarction", grounding_attr[i]
+                    )
+                elif "ischemic ST-T changes in " in grounding_attr[i]:
+                    grounding_attr[i] = re.sub(
+                        r"ischemic ST-T changes in.* leads", "ischemic ST-T changes", grounding_attr[i]
+                    )
+
             label = [1 if x == "yes" else 0 for x in grounding_ans]
             grounding_samples.append({
                 "ecg_id": [ecg_id] * len(grounding_ans),
+                "ecg_path": [ecg_path] * len(grounding_ans),
                 "attr": grounding_attr.copy(),
                 "obj": grounding_obj.copy(),
                 "labels": label.copy()
@@ -271,16 +312,15 @@ def main(args):
         
         # linearize grounding samples
         grounding_tuples = linearize_grounding_dict(grounding_samples)
-        for ecg_id, attr, obj, label in tqdm(grounding_tuples, total=len(grounding_tuples)):
+        for ecg_id, ecg_path, attr, obj, label in tqdm(grounding_tuples, total=len(grounding_tuples)):
             grounding_sample = get_grounding_sample(
                 ecg_id=ecg_id,
+                ecg_path=ecg_path,
                 attr=attr,
                 obj=obj,
                 label=label,
-                ptbxl_data_dir=args.ptbxl_data_dir
             )
             grounding_data[subset].append(grounding_sample)
-        
         duplicates = [
             item for item, count in collections.Counter(
                 [(x["ecg_id"], x["obj"], x["attribute"]) for x in grounding_data[subset]]
@@ -296,7 +336,8 @@ def main(args):
         # then the answer would be "yes" for the above one, but "no" for the below one, which
         # makes duplicates.
         # we choose "no" for this case when it occurred.
-        allowed_duplicates = [item for item in duplicates if item[2] == "myocardial infarction"]
+        # (added for MIMIC-IV-ECG version) applied to "ischemic ST-T changes" due to the same reason.
+        allowed_duplicates = [item for item in duplicates if item[2] in ["myocardial infarction", "Myocardial infarction", "ischemic ST-T changes"]]
         for item in grounding_data[subset].copy():
             if (item["ecg_id"], item["obj"], item["attribute"]) in allowed_duplicates:
                 if item["label"] == 1:
@@ -308,10 +349,23 @@ def main(args):
         if len(tuples_) == len(set(tuples_)):
             print("Pass")
         else:
+            dicts = {}
+            for t in tuples_:
+                if t not in dicts:
+                    dicts[t] = 0
+                dicts[t] += 1
+            dups = [k for k, v in dicts.items() if v > 1]
+            print(len(dups))
+
+            k = [x for x in grounding_data[subset] if x["ecg_id"] == dups[0][0] and x["obj"] == dups[0][1] and x["attribute"] == dups[0][2]]
             breakpoint()
 
     grounding_classes = list(set(x["attribute"] for x in grounding_data["test"]))
     grounding_classes.sort()
+
+    pd.DataFrame({"class":grounding_classes}).reset_index().to_csv(
+        os.path.join(dest_path, "grounding_class.csv"), index=False
+    )
 
     for subset in grounding_data:
         grounding_data[subset] = [
@@ -353,6 +407,13 @@ def main(args):
                 ecg, _ = wfdb.rdsamp(ecg_path)
                 size = len(ecg)
 
+                #XXX
+                if np.isnan(ecg).any():
+                    print()
+                    print("nan detected")
+                    print()
+                    breakpoint()
+
                 output = {
                     "ecg_path": ecg_path,
                     "lead": lead,
@@ -374,7 +435,7 @@ def parse_lead_position(str):
     matched_lead_position = re.search(r"(?<=in ).* leads", str)
     if matched_lead_position is not None:
         matched_lead_position = matched_lead_position.group()
-        if "frontal" in matched_lead_position:
+        if "frontal and horizontal" in matched_lead_position:
             return "entire"
         else:
             return matched_lead_position
@@ -382,16 +443,16 @@ def parse_lead_position(str):
 
 def linearize_grounding_dict(ls: List[Dict[str, list]]):
     key = list(ls[0].keys())
-    assert key == ["ecg_id", "attr", "obj", "labels"]
+    assert key == ["ecg_id", "ecg_path", "attr", "obj", "labels"]
 
     for x in ls:
         if list(x.keys()) != key:
             raise ValueError("dictionarys in the list should have the same key one another")
 
     unique_tuples = [
-        (ecg_id, attr, obj, label)
-        for x in ls for ecg_id, attr, obj, label in zip(
-            x["ecg_id"], x["attr"], x["obj"], x["labels"]
+        (ecg_id, ecg_path, attr, obj, label)
+        for x in ls for ecg_id, ecg_path, attr, obj, label in zip(
+            x["ecg_id"], x["ecg_path"], x["attr"], x["obj"], x["labels"]
         )
     ]
     unique_tuples = list(set(unique_tuples))
@@ -400,13 +461,11 @@ def linearize_grounding_dict(ls: List[Dict[str, list]]):
 
 def get_grounding_sample(
     ecg_id,
+    ecg_path,
     attr,
     obj,
     label,
-    ptbxl_data_dir,
 ):
-    ecg_path = get_ptbxl_data_path(ecg_id, ptbxl_data_dir)
-
     return {
         "ecg_id": ecg_id,
         "ecg_path": ecg_path,
@@ -414,14 +473,6 @@ def get_grounding_sample(
         "attribute": attr,
         "label": label
     }
-
-def get_ptbxl_data_path(ecg_id, ptbxl_data_dir):
-    return os.path.join(
-        ptbxl_data_dir,
-        "records500",
-        f"{int(ecg_id / 1000) * 1000 :05d}",
-        f"{ecg_id:05d}_hr"
-    )
 
 if __name__ == "__main__":
     parser = get_parser()

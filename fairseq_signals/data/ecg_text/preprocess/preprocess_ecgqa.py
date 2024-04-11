@@ -19,10 +19,6 @@ def get_parser():
         help='root directory containing ptbxl files to pre-process'
     )
     parser.add_argument(
-        '--ptbxl-data-dir', metavar="DIR", required=True,
-        help='directory containing ptbxl data (records500/**/*.mat)'
-    )
-    parser.add_argument(
         "--dest", type=str, metavar="DIR", default=".",
         help='output directory'
     )
@@ -42,7 +38,6 @@ def main(args):
 
     dir_path = os.path.realpath(args.root)
     dest_path = os.path.realpath(args.dest)
-    ptbxl_dir = os.path.realpath(args.ptbxl_data_dir)
 
     subdir = "paraphrased" if args.apply_paraphrase else "template"
 
@@ -86,27 +81,27 @@ def main(args):
             attribute_ids = []
             for sample_data in tqdm(data, total=len(data)):
                 if sample_data["question_type"] == "single-verify":
+                    # for ptb-xl
                     if "myocardial infarction in " in sample_data["attribute"][0]:
                         sample_data["attribute"][0] = "myocardial infarction"
                     elif "subendocardial injury in " in sample_data["attribute"][0]:
                         sample_data["attribute"][0] = "subendocardial injury"
                     elif "ischemic in " in sample_data["attribute"][0]:
                         sample_data["attribute"][0] = "ischemic"
+                    # for mimic-iv-ecg
+                    elif "Myocardial infarction in " in sample_data["attribute"][0]:
+                        sample_data["attribute"][0] = "Myocardial infarction"
+                    elif "ischemic ST-T changes in " in sample_data["attribute"][0]:
+                        sample_data["attribute"][0] = "ischemic ST-T changes"
 
                     if sample_data["attribute"][0] not in attribute_ids:
                         attribute_ids.append(sample_data["attribute"][0])
             attribute_ids.sort()
             attribute_id_map = {k: i for i, k in enumerate(attribute_ids)}
 
-            for i, sample_data in enumerate(tqdm(data, total=len(data), postfix=subset)):
+            for i, sample_data in enumerate(tqdm(data, total=len(data), desc=subset)):
                 sample = {}
-                sample["ecg_path"] = []
-                if isinstance(sample_data["ecg_id"], int):
-                    sample_data["ecg_id"] = [sample_data["ecg_id"]]
-                for ecg_id in sample_data["ecg_id"]:
-                    ecg_path = get_ptbxl_data_path(ecg_id, ptbxl_dir)
-                    sample["ecg_path"].append(ecg_path)
-
+                sample["ecg_path"] = sample_data["ecg_path"]
                 sample["question"] = sample_data["question"]
                 sample["answer"] = encode_answer(sample_data["answer"], classes)
 
@@ -137,6 +132,11 @@ def main(args):
                 print(fname, file=f, end="\t")
                 for ecg_path in sample["ecg_path"]:
                     ecg, _ = wfdb.rdsamp(ecg_path)
+                    if np.isnan(ecg).any():
+                        print()
+                        print("nan detected")
+                        print()
+                        breakpoint()
                     print(len(ecg), file=f, end="\t")
                 text_sz = len(tokenizer.encode(sample_data["question"]))
                 print(text_sz, file=f)
@@ -188,14 +188,6 @@ def determine_question_type(qtype1, qtype2, attr_type):
         raise ValueError(attr_type)
     
     return question_type1, question_type2, question_type3
-
-def get_ptbxl_data_path(ecg_id, ptbxl_data_dir):
-    return os.path.join(
-        ptbxl_data_dir,
-        "records500",
-        f"{int(ecg_id / 1000) * 1000 :05d}",
-        f"{ecg_id:05d}_hr"
-    )
 
 if __name__ == "__main__":
     parser = get_parser()
