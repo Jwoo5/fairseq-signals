@@ -1,11 +1,11 @@
 import os
 import argparse
-import warnings
 
 import pandas as pd
 import numpy as np
 import wfdb
 import scipy.io
+from tqdm import tqdm
 
 def get_parser():
     parser = argparse.ArgumentParser()
@@ -34,46 +34,47 @@ def main(args):
 
     if args.rebase:
         import shutil
-        shutil.rmtree(dest_path)
+        if os.path.exists(dest_path):
+            shutil.rmtree(dest_path)
 
     if not os.path.exists(dest_path):
         os.makedirs(dest_path)
 
-    if not os.path.exists(os.path.join(dir_path, "ptbxl_database_translated.csv")):
-        warnings.warn(
-            "Cannot find ptbxl_database_translated.csv which is an English-translated version of "
-            "the original database file. We instead use ptbxl_database.csv where some reports "
-            "are written in Deutsch, which may affect the training. "
-            "Please download https://github.com/Jwoo5/fairseq-signals/blob/master/fairseq_signals/data/ecg_text/preprocess/ptbxl_database_translated.csv "
-            "and ensure that this file is located in the root directory for the better performance."
-        )
-        database = pd.read_csv(os.path.join(dir_path, "ptbxl_database.csv"))
-    else:
-        database = pd.read_csv(os.path.join(dir_path, "ptbxl_database_translated.csv"))
+    database = pd.read_csv(os.path.join(dir_path, "machine_measurements.csv"))
+    record_list = pd.read_csv(os.path.join(dir_path, "record_list.csv")).set_index("study_id")
 
     exclude = None
     if args.exclude is not None:
         exclude = []
         with open(args.exclude, "r") as f:
             for line in f.readlines():
-                items = line.strip().split('\t')
+                items = line.strip().split("\t")
                 exclude.append(items[1])
         exclude = set(exclude)
-
-    fnames = database['filename_hr'].to_numpy()
-    reports = database['report'].to_numpy()
-    scp_codes = database['scp_codes']
-
+    
+    study_ids = database["study_id"].to_numpy()
+    reports = []
+    n_reports = 18
+    for i, row in tqdm(database.iterrows(), total=len(database)):
+        report_txt = ""
+        for j in range(n_reports):
+            report = row[f"report_{j}"]
+            if type(report) == str:
+                report_txt += report + " "
+        report_txt = report_txt[:-1]
+        reports.append(report_txt)
+    
     n = 0
-    for fname, report, scp_code in zip(fnames, reports, scp_codes):
-        ecg_id = str(int(os.path.basename(fname).split('_')[0]))
-        if exclude is not None and ecg_id in exclude:
+    for study_id, report in tqdm(zip(study_ids, reports), total=len(reports)):
+        fname = record_list.loc[study_id]["path"]
+
+        if exclude is not None and study_id in exclude:
             n += 1
             continue
 
         basename = os.path.basename(fname)
         record = wfdb.rdsamp(os.path.join(dir_path, fname))
-        sample_rate = record[1]['fs']
+        sample_rate = record[1]["fs"]
         record = record[0].T
 
         if np.isnan(record).any():
@@ -84,8 +85,7 @@ def main(args):
         data['curr_sample_rate'] = sample_rate
         data['feats'] = record
         data['text'] = report
-        data['diagnoses'] = list(eval(scp_code).keys())
-        scipy.io.savemat(os.path.join(dest_path, basename + '.mat'), data)
+        scipy.io.savemat(os.path.join(dest_path, basename + ".mat"), data)
 
     # print('excluded: ' + str(n))
 
