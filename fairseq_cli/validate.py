@@ -155,6 +155,7 @@ def main(cfg: DictConfig, override_args=None):
                 subset=subset,
                 logits_shape=logits_shape,
                 targets_shape=targets_shape,
+                directory=cfg.common_eval.results_path,
             )
 
         progress = progress_bar.progress_bar(
