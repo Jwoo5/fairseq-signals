@@ -277,7 +277,8 @@ class ECGPretrainingTask(Task):
                 bucket_selection=self.cfg.bucket_selection,
                 training=True if 'train' in split else False,
                 **self._get_mask_precompute_kwargs(task_cfg),
-                **self._get_perturbation_kwargs()
+                **self._get_perturbation_kwargs(),
+                **kwargs,
             )
         elif task_cfg.criterion_name == '3kg':
             if task_cfg.leads_to_load is not None:
@@ -301,6 +302,7 @@ class ECGPretrainingTask(Task):
                 num_buckets=self.cfg.num_batch_buckets,
                 training=True if 'train' in split else False,
                 **inferred_3kg_config,
+                **kwargs,
             )
         elif task_cfg.criterion_name == 'simclr':
             self.datasets[split] = PerturbECGDataset(
@@ -322,7 +324,8 @@ class ECGPretrainingTask(Task):
                 bucket_selection=self.cfg.bucket_selection,
                 training=True if 'train' in split else False,
                 **self._get_mask_precompute_kwargs(task_cfg),
-                **self._get_perturbation_kwargs()
+                **self._get_perturbation_kwargs(),
+                **kwargs,
             )
         else:
             self.datasets[split] = FileECGDataset(
@@ -344,7 +347,8 @@ class ECGPretrainingTask(Task):
                 bucket_selection=self.cfg.bucket_selection,
                 training=True if 'train' in split else False,
                 **self._get_mask_precompute_kwargs(task_cfg),
-                **self._get_perturbation_kwargs()
+                **self._get_perturbation_kwargs(),
+                **kwargs,
             )
 
     def max_positions(self):
