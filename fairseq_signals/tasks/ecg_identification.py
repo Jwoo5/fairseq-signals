@@ -111,6 +111,7 @@ class ECGIdentificationTask(ECGPretrainingTask):
                 bucket_selection=self.cfg.bucket_selection,
                 training=True if 'train' in s else False,
                 **self._get_mask_precompute_kwargs(task_cfg),
+                **kwargs,
             )
 
     def get_gallery_iterator(

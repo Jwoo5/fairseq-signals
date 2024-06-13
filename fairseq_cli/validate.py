@@ -115,7 +115,7 @@ def main(cfg: DictConfig, override_args=None):
     for subset in cfg.dataset.valid_subset.split(","):
         subset = subset.strip()
         try:
-            task.load_dataset(subset, combine=False, epoch=1, task_cfg=cfg.task)
+            task.load_dataset(subset, combine=False, epoch=1, task_cfg=cfg.task, shuffle=False)
             dataset = task.dataset(subset)
         except KeyError:
             raise Exception("Cannot find dataset: " + subset)
@@ -155,6 +155,7 @@ def main(cfg: DictConfig, override_args=None):
                 subset=subset,
                 logits_shape=logits_shape,
                 targets_shape=targets_shape,
+                directory=cfg.common_eval.results_path,
             )
 
         progress = progress_bar.progress_bar(

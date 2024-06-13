@@ -44,7 +44,11 @@ class Adam(Optimizer):
     def __init__(self, cfg: AdamConfig, params):
         super().__init__(cfg)
         self._optimizer = Adam(params, **self.optimizer_config)
-    
+
+    @property
+    def supports_memory_efficient_fp16(self):
+        return self._optimizer.supports_memory_efficient_fp16
+
     @property
     def optimizer_config(self):
         """
