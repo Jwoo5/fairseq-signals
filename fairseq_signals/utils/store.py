@@ -374,21 +374,30 @@ def initialize_stores(
     subset,
     logits_shape,
     targets_shape,
+    directory=None,
 ):
     # Handle stores
     if (
         dist_utils.get_data_parallel_world_size() == 1
         or dist_utils.get_data_parallel_rank() == 0
     ):
+        logits_path = f'logits_{subset}.npy'
+        if directory is not None:
+            logits_path = os.path.join(directory, logits_path)
+
         criterion.set_output_store(MemmapBatchWriter(
-            f"logits_{subset}.npy",
+            logits_path,
             logits_shape,
             dtype=dtype,
             transform=lambda batch: batch.detach().cpu().numpy(),
         ))
 
+        targets_path = f'targets_{subset}.npy'
+        if directory is not None:
+            targets_path = os.path.join(directory, targets_path)
+
         criterion.set_target_store(MemmapBatchWriter(
-            f"targets_{subset}.npy",
+            targets_path,
             targets_shape,
             dtype=dtype,
             transform=lambda batch: batch.detach().cpu().numpy(),
