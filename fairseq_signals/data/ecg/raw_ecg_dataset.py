@@ -512,7 +512,7 @@ class PathECGDataset(FileECGDataset):
         if "target_idx" in samples[0]:
             out["target_idx"] = [s["target_idx"] for s in samples]
         if self.label:
-            out["label"] = torch.stack([s["label"] for s in samples])
+            out["label"] = [[s["label"] for s in samples]]
         if "attribute_id" in samples[0]:
             out["attribute_id"] = [s["attribute_id"] for s in samples]
 
