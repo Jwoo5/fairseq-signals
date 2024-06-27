@@ -222,7 +222,7 @@ class Wav2Vec2WithCMSCCriterion(BaseCriterion):
         self.eps = cfg.eps
         self.cmsc_weights = cfg.cmsc_weights
     
-    def forward(self, model, sample, reduce=True):
+    def forward(self, model, sample, reduce=True, save_outputs=False):
         """Compute the loss for the given sample
         
         Returns a tuple with three elements:
@@ -234,6 +234,9 @@ class Wav2Vec2WithCMSCCriterion(BaseCriterion):
         logits = model.get_logits(net_output).float()
         features = model.get_features(net_output, aggregate=True).float()
         w2v_target = model.get_targets(sample, net_output)
+
+        if save_outputs:
+            self.store(logits, w2v_target.float())
 
         weights = None
         if hasattr(model, "get_target_weights") and not self.infonce:
