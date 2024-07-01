@@ -219,7 +219,10 @@ class ThreeKGECGDataset(PerturbECGDataset):
 
         sources = self.postprocess(feats, curr_sample_rate)
 
-        patient_id = ecg["patient_id"][0,0]
+        if "idx" in ecg:
+            patient_id = int(ecg["idx"][0])
+        else:
+            patient_id = ecg["patient_id"][0,0]
 
         return [
             {
