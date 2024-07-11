@@ -17,7 +17,7 @@ def get_parser():
         help="Directory to save the processed data.",
     )
     parser.add_argument(
-        "--physionet_root",
+        "--raw_root",
         type=str,
         required=True,
         help="Path to the PhysioNet 2021 directory.",
@@ -28,12 +28,12 @@ def get_parser():
 def main(args):
     os.makedirs(args.processed_root, exist_ok=True)
 
-    if os.path.normpath(args.physionet_root).split(os.sep)[-1] != 'training':
-        args.physionet_root = os.path.join(args.physionet_root, 'training')
+    if os.path.normpath(args.raw_root).split(os.sep)[-1] != 'training':
+        args.raw_root = os.path.join(args.raw_root, 'training')
 
     # Collect files
     files = remove_ext(pd.Series(
-        glob.iglob(os.path.join(args.physionet_root, "**/**/*.mat")),
+        glob.iglob(os.path.join(args.raw_root, "**/**/*.mat")),
         name='path',
     ))
 

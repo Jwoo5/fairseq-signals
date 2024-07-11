@@ -134,7 +134,6 @@ def extract_wfdb(row, leads_to_load):
     fields["avail_leads"] = str(avail_leads)
     fields.update(extract_feat_info(feats, leads_to_load))
 
-    # Keep the existing data
     return pd.Series(fields)
 
 def lead_std_divide(feats, constant_lead_strategy='zero'):
@@ -355,12 +354,26 @@ def get_pipeline_parser():
     return parser
 
 def pipeline(
-    args,
-    records,
-    source,
+    args: argparse.Namespace,
+    records: pd.DataFrame,
+    source: str,
     extract_func: Callable = extract_wfdb,
     postprocess_extraction: Optional[Dict[str, Callable]] = None,
 ):
+    """
+    Parameters
+    ----------
+    args : argparse.Namespace
+        Arguments parsed from `get_pipeline_parser`.
+    records : pandas.DataFrame
+        Records data. Must have 'path', 'source', and 'dataset' columns.
+    source : str
+        Name of the data source being processed.
+    extract_func : callable
+        Function to extract ECG sample metadata and save a corresponding .mat file.
+    postprocess_extraction : dict of callable, optional
+        Optional functions to post-process the output(s) of extract_func.
+    """
     check_cols(records, ["path", "source", "dataset"], raise_err_on_missing=True)
     check_cols(
         records,
@@ -476,10 +489,6 @@ def pipeline(
         meta = extracted['meta']
 
         for key, data in extracted.items():
-            print('\n')
-            print(data)
-            print(data.columns.tolist())
-            print('\n')
             data['save_file'] = data.index.map(meta['save_file'].to_dict())
             data['idx'] = data.index.map(meta['idx'].to_dict())
             data.to_csv(os.path.join(args.processed_root, f'{key}{args.results_suffix}.csv'), index=False)

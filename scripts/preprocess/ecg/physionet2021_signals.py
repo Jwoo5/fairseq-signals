@@ -68,7 +68,8 @@ def main(args):
 
     records = pd.read_csv(os.path.join(args.processed_root, "records.csv"))
     records["path"] = args.raw_root.rstrip('/') + '/' + records["path"]
-    records["save_file"] = filenames_from_paths(records["path"], replacement_ext=".mat")
+    records["save_file"] = (SOURCE + "_") + \
+        filenames_from_paths(records["path"], replacement_ext=".mat")
     records["source"] = SOURCE
 
     pipeline(

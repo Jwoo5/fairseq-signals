@@ -16,7 +16,7 @@ def get_parser():
         help="Path to save the processed data root directory.",
     )
     parser.add_argument(
-        "--mimic_iv_ecg_root",
+        "--raw_root",
         type=str,
         required=True,
         help="Path to the MIMIC-IV-ECG root directory.",
@@ -105,7 +105,7 @@ def main(args):
     os.makedirs(args.processed_root, exist_ok=True)
     
     record_list_csv = os.path.join(
-        args.mimic_iv_ecg_root,
+        args.raw_root,
         "mimic-iv-ecg-diagnostic-electrocardiogram-matched-subset-1.0/record_list.csv",
     )
     records = pd.read_csv(record_list_csv)
@@ -135,12 +135,12 @@ def main(args):
 
     # Incorporate machine diagnoses/reports
     machine_diagnoses = pd.read_csv(
-        os.path.join(args.mimic_iv_ecg_root, "mimic_iv_ecg_machine_diagnoses.csv")
+        os.path.join(args.raw_root, "mimic_iv_ecg_machine_diagnoses.csv")
     )
     records['machine_diagnosis'] = machine_diagnoses['0']
 
     machine_report = pd.read_csv(
-        os.path.join(args.mimic_iv_ecg_root, "mimic_iv_ecg_machine_report.csv")
+        os.path.join(args.raw_root, "mimic_iv_ecg_machine_report.csv")
     )
     records['machine_report'] = machine_report['0']
     results['records'] = records
