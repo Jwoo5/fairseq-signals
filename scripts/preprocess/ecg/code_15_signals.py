@@ -13,11 +13,11 @@ import pandas as pd
 
 import h5py
 
-from fairseq_signals.data.ecg.preprocess.preprocess import (
+from preprocess import (
     get_pipeline_parser,
     pipeline,
 )
-from fairseq_signals.data.ecg.preprocess.preprocess import (
+from preprocess import (
     extract_feat_info,
     reorder_leads,
 )

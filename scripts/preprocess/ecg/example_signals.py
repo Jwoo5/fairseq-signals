@@ -6,7 +6,7 @@ import os
 import numpy as np
 import pandas as pd
 
-from fairseq_signals.data.ecg.preprocess.preprocess import (
+from preprocess import (
     get_pipeline_parser,
     pipeline,
 )

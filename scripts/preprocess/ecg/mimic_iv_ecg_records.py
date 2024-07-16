@@ -5,7 +5,7 @@ import argparse
 
 import pandas as pd
 
-from fairseq_signals.data.ecg.preprocess.preprocess import FEMALE_VALUE, MALE_VALUE
+from preprocess import FEMALE_VALUE, MALE_VALUE
 
 def get_parser():
     parser = argparse.ArgumentParser()

@@ -4,7 +4,7 @@ import os
 
 import pandas as pd
 
-from fairseq_signals.data.ecg.preprocess.preprocess import (
+from preprocess import (
     get_pipeline_parser,
     pipeline,
     postprocess_wfdb,

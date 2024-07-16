@@ -19,9 +19,9 @@ import numpy as np
 import pandas as pd
 from pandas.api.types import is_string_dtype
 
-from fairseq_signals.data.ecg.preprocess.preprocess import get_pipeline_parser, pipeline
-from fairseq_signals.data.ecg.preprocess.preprocess import FEMALE_VALUE, MALE_VALUE
-from fairseq_signals.data.ecg.preprocess.preprocess import (
+from preprocess import get_pipeline_parser, pipeline
+from preprocess import FEMALE_VALUE, MALE_VALUE
+from preprocess import (
     LEAD_ORDER,
     extract_feat_info,
     reorder_leads,
