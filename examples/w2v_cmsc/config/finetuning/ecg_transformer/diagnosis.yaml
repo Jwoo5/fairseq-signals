@@ -57,7 +57,7 @@ lr_scheduler:
 
 model:
   _name: ecg_transformer_classifier
-  model_path: ???
+  model_path: null
   num_labels: 26
   no_pretrained_weights: false
 
