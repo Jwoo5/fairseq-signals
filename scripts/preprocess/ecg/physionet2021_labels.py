@@ -37,7 +37,8 @@ def get_parser():
         "--labels_path",
         type=str,
         default=None,
-        help="Path to save resultant labels file. Defaults to '{processed_root}/labels.csv'.",
+        help="Path to save resultant labels file. Defaults to "
+            "'{processed_root}/labels/labels.csv'.",
     )
     parser.add_argument(
         "--uncombined",
@@ -102,7 +103,7 @@ def main(args):
     )
 
     if args.labels_path is None:
-        labels_path = os.path.join(args.processed_root, 'labels.csv')
+        labels_path = os.path.join(args.processed_root, 'labels', 'labels.csv')
     else:
         labels_path = args.labels_path
 
