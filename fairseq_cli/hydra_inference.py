@@ -3,7 +3,7 @@ import os
 
 from fairseq_signals.dataclass.initialize import add_defaults, hydra_init
 from fairseq_signals.dataclass.utils import omegaconf_no_object_check
-from fairseq_cli.validate import main as pre_main
+from fairseq_cli.inference import main as pre_main
 from fairseq_signals import distributed_utils
 from fairseq_signals.dataclass.configs import Config
 from fairseq_signals.utils.utils import reset_logging
@@ -13,7 +13,7 @@ from hydra.core.hydra_config import HydraConfig
 import torch
 from omegaconf import OmegaConf, open_dict
 
-logger = logging.getLogger("fairseq_cli.hydra_validate")
+logger = logging.getLogger("fairseq_cli.hydra_inference")
 
 @hydra.main(config_path=os.path.join("..", "fairseq_signals", "config"), config_name="config")
 def hydra_main(cfg: Config, **kwargs) -> None:
