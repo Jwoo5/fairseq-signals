@@ -367,38 +367,89 @@ class MemmapBatchWriter(MemmapReader):
 
         return self._is_closed
 
-
-def initialize_stores(
+def initialize_store(
     dtype,
-    criterion,
-    subset,
-    logits_shape,
-    targets_shape,
-    directory=None,
+    save_file,
+    shape,
+    save_directory=None,
 ):
     # Handle stores
     if (
         dist_utils.get_data_parallel_world_size() == 1
         or dist_utils.get_data_parallel_rank() == 0
     ):
-        logits_path = f'logits_{subset}.npy'
-        if directory is not None:
-            logits_path = os.path.join(directory, logits_path)
+        if save_directory is not None:
+            save_path = os.path.join(save_directory, save_file)
 
-        criterion.set_output_store(MemmapBatchWriter(
-            logits_path,
-            logits_shape,
+        store = MemmapBatchWriter(
+            save_path,
+            shape,
             dtype=dtype,
             transform=lambda batch: batch.detach().cpu().numpy(),
-        ))
+        )
 
-        targets_path = f'targets_{subset}.npy'
-        if directory is not None:
-            targets_path = os.path.join(directory, targets_path)
+        return store
 
-        criterion.set_target_store(MemmapBatchWriter(
+    return None
+
+def initialize_stores(
+    dtype,
+    store_id,
+    outputs_shape,
+    targets_shape,
+    save_directory=None,
+):
+    # Handle stores
+    if (
+        dist_utils.get_data_parallel_world_size() == 1
+        or dist_utils.get_data_parallel_rank() == 0
+    ):
+        outputs_path = f'outputs_{store_id}.npy'
+        output_store = initialize_store(
+            dtype,
+            outputs_path,
+            outputs_shape,
+            save_directory=save_directory,
+        )
+        targets_path = f'targets_{store_id}.npy'
+        target_store = initialize_store(
+            dtype,
             targets_path,
             targets_shape,
-            dtype=dtype,
-            transform=lambda batch: batch.detach().cpu().numpy(),
-        ))
+            save_directory=save_directory,
+        )
+
+        return output_store, target_store
+
+    return None
+
+def initialize_stores_to_criterion(
+    dtype,
+    criterion,
+    store_id,
+    outputs_shape,
+    targets_shape,
+    save_directory=None,
+):
+    stores = initialize_stores(
+        dtype,
+        store_id,
+        outputs_shape,
+        targets_shape,
+        save_directory=save_directory,
+    )
+
+    if stores is not None:
+        output_store, target_store = stores
+        criterion.set_output_store(output_store)
+        criterion.set_target_store(target_store)
+
+def store(
+    store: MemmapBatchWriter,
+    values: Any,
+):
+    if dist_utils.get_data_parallel_world_size() > 1:
+        group = dist_utils.get_data_parallel_group()
+        values = torch.cat(dist_utils.batch_all_gather(values, group=group))
+
+    store(values)

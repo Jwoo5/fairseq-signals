@@ -46,6 +46,14 @@ def get_validation_parser(default_task="ecg_pretraining"):
     gen_parser_from_dataclass(group, CommonEvalConfig())
     return parser
 
+def get_inference_parser(default_task="ecg_pretraining"):
+    parser = get_parser("Inference", default_task)
+    add_dataset_args(parser, train=True)
+    add_distributed_training_args(parser, default_world_size=1)
+    add_model_args(parser)
+    gen_parser_from_dataclass(group, CommonEvalConfig())
+    return parser
+
 def parse_args_and_arch(
     parser: argparse.ArgumentParser,
     input_args: List[str] = None,

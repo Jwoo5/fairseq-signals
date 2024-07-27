@@ -7,22 +7,18 @@
 import logging
 import os
 import sys
-from argparse import Namespace
 from itertools import chain
 import pprint
-import omegaconf
+
+from omegaconf import DictConfig
 
 import torch
-from fairseq_signals import distributed_utils, tasks
-from fairseq_signals.utils import checkpoint_utils, options, utils
-from fairseq_signals.dataclass.utils import convert_namespace_to_omegaconf, overwrite_args_by_name
-from fairseq_signals.logging import metrics, progress_bar
-from fairseq_signals.utils.store import initialize_stores
-from fairseq_signals.utils.utils import reset_logging
-from omegaconf import DictConfig, OmegaConf
 
-from pytz import timezone
-from datetime import datetime
+from fairseq_signals import distributed_utils
+from fairseq_signals.utils import checkpoint_utils, options, utils
+from fairseq_signals.dataclass.utils import convert_namespace_to_omegaconf
+from fairseq_signals.logging import metrics, progress_bar
+from fairseq_signals.utils.store import initialize_stores_to_criterion
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -149,13 +145,14 @@ def main(cfg: DictConfig, override_args=None):
                 net_output = model(**dummy["net_input"])
                 logits_shape = (len(dataset),) + tuple(model.get_logits(net_output).shape[1:])
                 targets_shape = (len(dataset),) + tuple(model.get_targets(dummy, net_output).shape[1:])
-            initialize_stores(
+
+            initialize_stores_to_criterion(
                 dtype="float16" if cfg.common.fp16 else "float32",
                 criterion=criterion,
                 subset=subset,
                 logits_shape=logits_shape,
                 targets_shape=targets_shape,
-                directory=cfg.common_eval.results_path,
+                save_directory=cfg.common_eval.results_path,
             )
 
         progress = progress_bar.progress_bar(

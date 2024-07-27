@@ -220,7 +220,9 @@ def do_setup(package_data):
                 # "fairseq-score = fairseq_cli.score:cli_main",
                 "fairseq-train = fairseq_cli.train:cli_main",
                 "fairseq-validate = fairseq_cli.validate:cli_main",
-                "fairseq-hydra-validate = fairseq_cli.hydra_validate:cli_main"
+                "fairseq-hydra-validate = fairseq_cli.hydra_validate:cli_main",
+                "fairseq-inference = fairseq_cli.inference:cli_main",
+                "fairseq-hydra-inference = fairseq_cli.hydra_inference:cli_main"
             ],
         },
         cmdclass=cmdclass,

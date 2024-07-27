@@ -61,7 +61,7 @@ class ECGDiagnosisTask(ECGPretrainingTask):
         """
         return cls(cfg)
     
-    def load_dataset(self, split: str, task_cfg: Dataclass=None, **kwargs):
+    def load_dataset(self, split: str, task_cfg: Dataclass=None, label=True, **kwargs):
         data_path = self.cfg.data
         task_cfg = task_cfg or self.cfg
 
@@ -76,7 +76,7 @@ class ECGDiagnosisTask(ECGPretrainingTask):
                 pad=task_cfg.enable_padding,
                 pad_leads=task_cfg.enable_padding_leads,
                 leads_to_load=task_cfg.leads_to_load,
-                label=True,
+                label=label,
                 label_file=self.cfg.label_file,
                 filter=task_cfg.filter,
                 normalize=task_cfg.normalize,
@@ -100,7 +100,7 @@ class ECGDiagnosisTask(ECGPretrainingTask):
                 pad=task_cfg.enable_padding,
                 pad_leads=task_cfg.enable_padding_leads,
                 leads_to_load=task_cfg.leads_to_load,
-                label=True,
+                label=label,
                 label_file=self.cfg.label_file,
                 filter=task_cfg.filter,
                 normalize=task_cfg.normalize,
