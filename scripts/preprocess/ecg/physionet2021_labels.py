@@ -103,6 +103,7 @@ def main(args):
     )
 
     if args.labels_path is None:
+        os.makedirs(os.path.join(args.processed_root, 'labels'), exist_ok=True)
         labels_path = os.path.join(args.processed_root, 'labels', 'labels.csv')
     else:
         labels_path = args.labels_path
