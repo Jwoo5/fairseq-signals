@@ -18,32 +18,32 @@ def get_parser():
         '--labels',
         type=str,
         required=True,
-        help="Path to a non-subsetted labels file which contains an 'idx' column.",
+        help="Path to a non-subsetted labels CSV containing an 'idx' column.",
     )
     parser.add_argument(
         '--meta_splits',
         type=str,
         required=True,
-        help="Path to meta splits file which containing 'idx' and 'split' columns. ",
+        help="Path to meta splits CSV containing 'idx' and 'split' columns. ",
     )
     parser.add_argument(
         '--segmented_splits',
         type=str,
         required=False,
-        help="Path to segmented splits file containing 'idx' and 'split' columns. ",
+        help="Path to segmented splits CSV containing 'idx' and 'split' columns. ",
     )
     parser.add_argument(
         '--labeled_meta_splits_save_file',
         required=False,
         type=str,
-        help='Path to save the meta splits data, as filtered to those '
+        help='Path to save the meta splits CSV, as filtered to those '
             'samples having labels. Useful for creating task-specific manifests.',
     )
     parser.add_argument(
         '--labeled_segmented_splits_save_file',
         required=False,
         type=str,
-        help='Path to save the segmented splits data, as filtered to those '
+        help='Path to save the segmented splits CSV, as filtered to those '
             'samples having labels. Useful for creating task-specific manifests.',
     )
 
@@ -74,8 +74,9 @@ def main(args):
     label_missing = meta_splits[label_names].isna().any(axis=1)
     if label_missing.any():
         print(
-            'Filling unlabelled samples in y.npy with zeros. Ensure that these samples do not '
-            'appear in the manifest by specifying and using the labeled save files.'
+            f'Missing {label_missing.sum()} labels. Filling unlabelled samples in '
+            'y.npy with zeros. Ensure that these samples do not appear in the '
+            'manifest by specifying and using the labeled save files.'
         )
 
     meta_splits = meta_splits[~label_missing].copy()
@@ -104,15 +105,16 @@ def main(args):
     # Save the label array
     np.save(os.path.join(args.output_dir, 'y.npy'), y)
 
-    # Save pos_weight as a string (easy to load into terminal)
-    pos_weight_str = '[' + ','.join(
-        (label_def['pos_weight_train']).round(decimals=6).values.astype('str')
-    ) + ']'
-    with open(os.path.join(args.output_dir, 'pos_weight.txt'), 'w') as f:
-        f.write(pos_weight_str)
-
     with open(os.path.join(args.output_dir, 'prepare_clf_labels_args.yaml'), 'w') as file:
         yaml.dump(args, file)
+
+    if 'pos_weight_train' in label_def:
+        # Save pos_weight as a string (easy to load into terminal)
+        pos_weight_str = '[' + ','.join(
+            (label_def['pos_weight_train']).round(decimals=6).values.astype('str')
+        ) + ']'
+        with open(os.path.join(args.output_dir, 'pos_weight.txt'), 'w') as f:
+            f.write(pos_weight_str)
 
     if args.labeled_meta_splits_save_file is not None:
         meta_splits.drop(label_names, axis=1, inplace=True)
