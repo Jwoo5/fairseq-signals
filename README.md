@@ -29,7 +29,7 @@ cd fairseq-signals
 pip install --editable ./
 ```
 
-* **To preprocess ECG datasets**: `pip install scipy wfdb`
+* **To preprocess ECG datasets**: `pip install pandas scipy wfdb`
 * **To build cython components**: `python setup.py build_ext --inplace`
 * **For large datasets** install [PyArrow](https://arrow.apache.org/docs/python/install.html#using-pip): `pip install pyarrow`
 
