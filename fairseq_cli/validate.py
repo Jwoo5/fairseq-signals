@@ -149,8 +149,8 @@ def main(cfg: DictConfig, override_args=None):
             initialize_stores_to_criterion(
                 dtype="float16" if cfg.common.fp16 else "float32",
                 criterion=criterion,
-                subset=subset,
-                logits_shape=logits_shape,
+                store_id=subset,
+                outputs_shape=logits_shape,
                 targets_shape=targets_shape,
                 save_directory=cfg.common_eval.results_path,
             )
