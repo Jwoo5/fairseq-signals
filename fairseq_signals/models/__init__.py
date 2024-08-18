@@ -5,6 +5,7 @@
 
 import argparse
 import importlib
+from typing import Union, Dict
 import os
 
 from contextlib import ExitStack
@@ -31,8 +32,10 @@ __all__ = [
     "DistributedModel"
 ]
 
-def build_model(cfg: Dataclass, task, from_checkpoint=False):
+def build_model(cfg: Union[Dataclass, Dict], task, from_checkpoint=False):
     model = None
+    if isinstance(cfg, Dict):
+        cfg = OmegaConf.create(cfg)
     model_type = getattr(cfg, "_name", None) or getattr(cfg, "arch", None)
 
     if not model_type and len(cfg) == 1:
@@ -83,9 +86,9 @@ def build_model(cfg: Dataclass, task, from_checkpoint=False):
 
     return model.build_model(cfg, task)
 
-def register_model(name, dataclass = None):
+def register_model(name, dataclass=None):
     """
-    New model types can be added to fairseq_ecg with the :func:`register_model`
+    New model types can be added to fairseq_signals with the :func:`register_model`
     function decorator.
 
     For example::
@@ -123,7 +126,7 @@ def register_model(name, dataclass = None):
             cs = ConfigStore.instance()
             node = dataclass()
             node._name = name
-            cs.store(name = name, group = "model", node = node, provider = "fairseq")
+            cs.store(name=name, group="model", node=node, provider="fairseq-signals")
         
             @register_model_architecture(name, name)
             def noop(_):
