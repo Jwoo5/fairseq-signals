@@ -33,15 +33,17 @@ class ArcFaceModel(ECGTransformerFinetuningModel):
         )
         self.kernel.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
 
-    def get_logits(self, net_output, normalize=False):
+    def get_logits(self, net_output, normalize=False, **kwargs):
         logits = net_output["out"]
-        
+
         if normalize:
             logits = utils.log_softmax(logits.float(), dim=-1)
-        
+
+        logits = self.get_cosine_similarity(logits)
+
         return logits
 
-    def get_targets(self, sample, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         return sample["label"].long()
     
     def forward(self, **kwargs):

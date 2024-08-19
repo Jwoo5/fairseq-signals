@@ -18,45 +18,45 @@ class MSECriterionConfig(Dataclass):
 class MSECriterion(BaseCriterion):
     def __init__(self, task):
         super().__init__(task)
-    
-    def forward(self, model, sample, reduce=True):
-        """Compute the loss for the given sample
-        
-        Returns a tuple with three elements:
-        1) the loss
-        2) the sample_size, which is used as the denominator for the gradient
-        3) logging outputs to display while training
+
+    def compute_loss(
+        self, logits, target, sample=None, net_output=None, model=None, reduce=True
+    ):
         """
-        net_output = model(**sample["net_input"])
-        logits = model.get_logits(net_output)
-        target = model.get_targets(sample, net_output)
-
-        losses = []
-
+        Compute the loss given the logits and targets from the model
+        """
         reduction = "none" if not reduce else "sum"
 
-        loss = F.mse_loss(
-            logits, target, reduction=reduction
-        )
+        loss = F.mse_loss(logits, target, reduction=reduction)
 
+        return loss, [loss.detach().item()]
+
+    def get_sample_size(self, sample, target):
+        """
+        Get the sample size, which is used as the denominator for the gradient
+        """
         if 'sample_size' in sample:
             sample_size = sample['sample_size']
         else:
             sample_size = target.numel()
-        losses.append(loss.detach().clone())
+        return sample_size
 
-        logging_output = {
-            "loss": loss.item() if reduce else loss.detach(),
-            "ntokens": sample_size,
-            "nsignals": sample["id"].numel(),
-            "sample_size": sample_size
-        }
-
-        return loss, sample_size, logging_output
+    def get_logging_output(
+        self, logging_output, logits=None, target=None, sample=None, net_output=None
+    ):
+        """
+        Get the logging output to display while training
+        """
+        return logging_output
     
     @staticmethod
-    def reduce_metrics(logging_outputs) -> None:
+    def reduce_metrics(logging_outputs, prefix: str = None) -> None:
         """Aggregate logging outputs from data parallel training."""
+        if prefix is None:
+            prefix = ""
+        elif prefix is not None and not prefix.endswith("_"):
+            prefix = prefix + "_"
+
         loss_sum = utils.item(sum(log.get("loss", 0) for log in logging_outputs))
         nsignals = utils.item(
             sum(log.get("nsignals", 0) for log in logging_outputs)
@@ -66,9 +66,9 @@ class MSECriterion(BaseCriterion):
         )
 
         metrics.log_scalar(
-            "loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
+            f"{prefix}loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
         )
-        metrics.log_scalar("nsignals", nsignals)
+        metrics.log_scalar(f"{prefix}nsignals", nsignals)
 
     def logging_outputs_can_be_summed(self) -> bool:
         """

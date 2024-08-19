@@ -21,52 +21,54 @@ class MedViLLCriterionConfig(Dataclass):
 class MedViLLCriterion(BaseCriterion):
     def __init__(sefl, cfg: MedViLLCriterionConfig, task: Task):
         super().__init__(task)
-    
-    def forward(self, model, sample, reduce=True):
-        """Compute the loss for the given sample
-        
-        Returns a tuple with three elements:
-        1) the loss
-        2) the sample size, which is used as the denominator for the gradient
-        3) logging outputs to display while training
+
+    def compute_loss(
+        self, logits, target, sample=None, net_output=None, model=None, reduce=True
+    ):
         """
-        net_output = model(**sample["net_input"])
-        logits = model.get_logits(net_output)
+        Compute the loss given the logits and targets from the model
+        """
+        reduction = "none" if not reduce else "sum"
+
         align_logits = logits["align_x"]
         mlm_logits = logits["mlm_x"]
 
-        target = model.get_targets(sample, net_output)
         align_target = target["align_y"]
         mlm_target = target["mlm_y"]
 
         losses = []
 
-        reduction = "none" if not reduce else "sum"
-
         loss = F.cross_entropy(mlm_logits, mlm_target, reduction=reduction)
-
-        sample_size = mlm_target.numel()
-        losses.append(loss.detach().clone())
+        losses.append(loss.detach().item())
 
         align_loss = F.binary_cross_entropy(
             align_logits,
             align_target,
             reduction=reduction
-        ) * sample_size / align_target.numel()
+        ) * mlm_target.numel() / align_target.numel()
         loss += align_loss
-        losses.append(align_loss)
+        losses.append(align_loss.detach().item())
 
-        logging_output = {
-            "loss": loss.item() if reduce else loss.detach(),
-            "ntokens": sample_size,
-            "nsignals": sample["id"].numel(),
-            "sample_size": sample_size
-        }
+        return loss, losses
+    
+    def get_sample_size(self, sample, target):
+        """
+        Get the sample size, which is used as the denominator for the gradient
+        """
+        mlm_target = target["mlm_y"]
+        sample_size = mlm_target.numel()
+        return sample_size
 
-        if len(losses) > 1:
-            for i, l in enumerate(losses):
-                logging_output[f"loss_{i}"] = l.item()
-        
+    def get_logging_output(self, logging_output, logits, target, sample=None, net_output=None):
+        """
+        Get the logging output to display while training
+        """
+        align_logits = logits["align_x"]
+        mlm_logits = logits["mlm_x"]
+
+        align_target = target["align_y"]
+        mlm_target = target["mlm_y"]
+
         with torch.no_grad():
             if mlm_logits.numel() == 0:
                 mlm_corr = 0
@@ -88,12 +90,16 @@ class MedViLLCriterion(BaseCriterion):
 
             logging_output["align_correct"] = align_corr
             logging_output["align_count"] = align_count
-        
-        return loss, sample_size, logging_output
+        return logging_output
     
     @staticmethod
-    def reduce_metrics(logging_outputs) -> None:
+    def reduce_metrics(logging_outputs, prefix: str = None) -> None:
         """Aggregate logging outputs from data parallel training."""
+        if prefix is None:
+            prefix = ""
+        elif prefix is not None and not prefix.endswith("_"):
+            prefix = prefix + "_"
+
         loss_sum = utils.item(sum(log.get("loss", 0) for log in logging_outputs))
         ntokens = utils.item(sum(log.get("ntokens", 0) for log in logging_outputs))
         nsignals = utils.item(
@@ -104,40 +110,40 @@ class MedViLLCriterion(BaseCriterion):
         )
 
         metrics.log_scalar(
-            "loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
+            f"{prefix}loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
         )
-        metrics.log_scalar("ntokens", ntokens)
-        metrics.log_scalar("nsignals", nsignals)
+        metrics.log_scalar(f"{prefix}ntokens", ntokens)
+        metrics.log_scalar(f"{prefix}nsignals", nsignals)
 
         correct = sum(log.get("mlm_correct", 0) for log in logging_outputs)
-        metrics.log_scalar("_mlm_correct", correct)
+        metrics.log_scalar(f"_{prefix}mlm_correct", correct)
 
         total = sum(log.get("mlm_count", 0) for log in logging_outputs)
-        metrics.log_scalar("_mlm_total", total)
+        metrics.log_scalar(f"_{prefix}mlm_total", total)
 
         if total > 0:
             metrics.log_derived(
-                "mlm_accuracy",
+                f"{prefix}mlm_accuracy",
                 lambda meters: safe_round(
-                    meters["_mlm_correct"].sum / meters["_mlm_total"].sum, 5
+                    meters[f"_{prefix}mlm_correct"].sum / meters[f"_{prefix}mlm_total"].sum, 5
                 )
-                if meters["_mlm_total"].sum > 0
+                if meters[f"_{prefix}mlm_total"].sum > 0
                 else float("nan")
             )
 
         correct = sum(log.get("align_correct", 0) for log in logging_outputs)
-        metrics.log_scalar("_align_correct", correct)
+        metrics.log_scalar(f"_{prefix}align_correct", correct)
 
         total = sum(log.get("align_count", 0) for log in logging_outputs)
-        metrics.log_scalar("_align_total", total)
+        metrics.log_scalar(f"_{prefix}align_total", total)
 
         if total > 0:
             metrics.log_derived(
-                "align_accuracy",
+                f"{prefix}align_accuracy",
                 lambda meters: safe_round(
-                    meters["_align_correct"].sum / meters["_align_total"].sum, 5
+                    meters[f"_{prefix}align_correct"].sum / meters[f"_{prefix}align_total"].sum, 5
                 )
-                if meters["_align_total"].sum > 0
+                if meters[f"_{prefix}align_total"].sum > 0
                 else float("nan")
             )
 
@@ -155,10 +161,10 @@ class MedViLLCriterion(BaseCriterion):
                 val = sum(log.get(k,0) for log in logging_outputs)
                 if k.startswith("loss"):
                     metrics.log_scalar(
-                        k, val / (sample_size or 1) / math.log(2), sample_size, round=3
+                        prefix + k, val / (sample_size or 1) / math.log(2), sample_size, round=3
                     )
                 else:
-                    metrics.log_scalar(k, val / len(logging_outputs), round=3)
+                    metrics.log_scalar(prefix + k, val / len(logging_outputs), round=3)
 
     def logging_outputs_can_be_summed(self) -> bool:
         """

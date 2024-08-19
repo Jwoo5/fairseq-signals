@@ -16,10 +16,10 @@ from omegaconf import DictConfig
     CRITERION_REGISTRY,
     CRITERION_DATACLASS_REGISTRY
 ) = registry.setup_registry(
-    "--criterion", base_class = BaseCriterion, default = "cross_entropy"
+    "--criterion", base_class=BaseCriterion, default="cross_entropy"
 )
 
-def build_criterion(cfg: DictConfig, task, from_checkpoint=False):
+def build_criterion(cfg: DictConfig, task, from_checkpoint=False) -> BaseCriterion:
     return build_criterion_(cfg, task, from_checkpoint=from_checkpoint)
 
 # automatically import any Python files in the criterions/ directory

@@ -31,7 +31,7 @@ class ResnetLSTMClassificationModel(ResnetLSTMFinetuningModel):
         nn.init.xavier_uniform_(self.proj.weight)
         nn.init.constant_(self.proj.bias, 0.0)
     
-    def get_logits(self, net_output, normalize=False):
+    def get_logits(self, net_output, normalize=False, **kwargs):
         logits = net_output["out"]
 
         if normalize:
@@ -39,7 +39,7 @@ class ResnetLSTMClassificationModel(ResnetLSTMFinetuningModel):
         
         return logits
     
-    def get_targets(self, sample, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         return sample["answer"].float()
     
     def forward(self, ecg, text, text_padding_mask=None, **kwargs):

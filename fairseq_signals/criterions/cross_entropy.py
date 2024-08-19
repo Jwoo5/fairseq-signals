@@ -1,76 +1,69 @@
 import math
-import logging
-
 from dataclasses import dataclass, field
-from typing import List, Optional
-from fairseq_signals.logging.metrics import aggregate
+from typing import Optional, List
 
 import torch
 import torch.nn.functional as F
-from fairseq_signals import metrics
+
+from fairseq_signals import logging, metrics, meters
 from fairseq_signals.utils import utils
 from fairseq_signals.criterions import BaseCriterion, register_criterion
 from fairseq_signals.dataclass import Dataclass
+from fairseq_signals.tasks import Task
 from fairseq_signals.logging.meters import safe_round
 
-logger = logging.getLogger(__name__)
+
 @dataclass
-class ArcFaceCriterionConfig(Dataclass):
-    scale: float = field(
-        default=32,
+class CrossEntropyCriterionConfig(Dataclass):
+    weight: Optional[List[float]] = field(
+        default=None,
         metadata={
-            "help": "scaling factor in marginal cosine similarity"
+            "help": "a manual rescaling weight given to each class. if given, has to be a Tensor "
+                "of a size C and floating point dtype"
         }
     )
-    margin: float = field(
-        default=0.5,
+    focal_loss: bool = field(
+        default=False,
         metadata={
-            "help": "angular margin penalty between two vectors"
+            "help": "whether to apply focal loss"
+        }
+    )
+    gamma: float = field(
+        default=1.0,
+        metadata={
+            "help": "a value for gamma in focal loss"
         }
     )
 
-@register_criterion("arcface", dataclass=ArcFaceCriterionConfig)
-class ArcFaceCriterion(BaseCriterion):
-    def __init__(self, task, scale=32, margin=0.5, log_keys=None):
+@register_criterion("cross_entropy", dataclass = CrossEntropyCriterionConfig)
+class CrossEntropyCriterion(BaseCriterion):
+    def __init__(self, cfg: CrossEntropyCriterionConfig, task: Task):
         super().__init__(task)
-        self.scale = scale
-        self.margin = margin
-        self.log_keys = [] if log_keys is None else log_keys
 
+        self.weight = cfg.weight
+        self.focal_loss = cfg.focal_loss
+        self.gamma = cfg.gamma
+    
     def compute_loss(
         self, logits, target, sample=None, net_output=None, model=None, reduce=True
     ):
         """
-        Compute the loss given the final logits and targets directly fed to the loss function
+        Compute the loss given the logits and targets from the model
         """
-        cos_m = math.cos(self.margin)
-        sin_m = math.sin(self.margin)
-        mm = sin_m * self.margin
-        threshold = math.cos(math.pi - self.margin)
+        logits = logits.reshape(-1, logits.size(-1))
+        targets = targets.reshape(-1)
 
-        cos_theta = logits
-        sin_theta_2 = 1 - torch.pow(cos_theta, 2)
-        sin_theta = torch.sqrt(sin_theta_2)
-
-        cos_theta_m = (cos_theta * cos_m - sin_theta * sin_m)
-
-        cond_v = cos_theta - threshold
-        cond_mask = cond_v <= 0
-        keep_val = (cos_theta - mm)
-
-        cos_theta_m[cond_mask] = keep_val[cond_mask]
-        logits = cos_theta * 1.0
-        idx = torch.arange(0, cos_theta.size(0))
-
-        logits[idx, target] = cos_theta_m[idx, target]
-        logits *= self.scale
-
-        reduction = "none" if not reduce else "sum"
         loss = F.cross_entropy(
             input=logits,
             target=target,
-            reduction=reduction
+            weight=self.weight,
+            reduction="none" if self.focal_loss or not reduce else "sum"
         )
+        if self.focal_loss:
+            y_pred = torch.exp(-loss)
+            loss = (1 - y_pred) ** self.gamma * loss
+            if reduce:
+                loss = loss.sum()
 
         return loss, [loss.detach().item()]
 
@@ -80,6 +73,8 @@ class ArcFaceCriterion(BaseCriterion):
         """
         if "sample_size" in sample:
             sample_size = sample["sample_size"]
+        elif "mask_indices" in sample["net_input"]:
+            sample_size = sample["net_input"]["mask_indices"].sum()
         else:
             sample_size = target.numel()
         return sample_size
@@ -88,21 +83,19 @@ class ArcFaceCriterion(BaseCriterion):
         """
         Get the logging output to display while training
         """
-        with torch.no_grad():
-            if logits.numel() == 0:
-                corr = 0
-                count = 0
-            else:
-                assert logits.dim() > 1, logits.shape
-                
-                output = (logits.data * 1.0).argmax(-1)
-                count = float(output.numel())
-                corr = (output == target).sum().item()
-            
-            logging_output["correct"] = corr
-            logging_output["count"] = count
+        logits = logits.reshape(-1, logits.size(-1)) # (B, ..., C) -> (N, C)
+        target = target.reshape(-1) # (B, ...) -> (N, )
+
+        preds = logits.argmax(dim=-1)
+
+        count = target.numel()
+        corr = (preds == target).sum().item()
+
+        logging_output["correct"] = corr
+        logging_output["count"] = count
+
         return logging_output
-    
+
     @staticmethod
     def reduce_metrics(logging_outputs, prefix: str = None) -> None:
         """Aggregate logging outputs from data parallel training."""
@@ -112,6 +105,7 @@ class ArcFaceCriterion(BaseCriterion):
             prefix = prefix + "_"
 
         loss_sum = utils.item(sum(log.get("loss", 0) for log in logging_outputs))
+
         nsignals = utils.item(
             sum(log.get("nsignals", 0) for log in logging_outputs)
         )
@@ -119,13 +113,14 @@ class ArcFaceCriterion(BaseCriterion):
             sum(log.get("sample_size", 0) for log in logging_outputs)
         )
 
+
         metrics.log_scalar(
             f"{prefix}loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round=3
         )
 
         if nsignals > 0:
             metrics.log_scalar(f"{prefix}nsignals", nsignals)
-
+        
         correct = sum(log.get("correct", 0) for log in logging_outputs)
         metrics.log_scalar(f"_{prefix}correct", correct)
 
@@ -142,29 +137,11 @@ class ArcFaceCriterion(BaseCriterion):
                 else float("nan")
             )
 
-        builtin_keys = {
-            "loss",
-            "ntokens",
-            "nsignals",
-            "sample_size",
-            "correct",
-            "count"
-        }
-
-        for k in logging_outputs[0]:
-            if k not in builtin_keys:
-                val = sum(log.get(k,0) for log in logging_outputs)
-                if k.startswith("loss"):
-                    metrics.log_scalar(
-                        prefix + k, val / (sample_size or 1) / math.log(2), sample_size, round=3
-                    )
-                else:
-                    metrics.log_scalar(prefix + k, val / len(logging_outputs), round=3)
-
-    def logging_outputs_can_be_summed(self) -> bool:
+    @staticmethod
+    def logging_outputs_can_be_summed() -> bool:
         """
         Whether the logging outputs returned by `forward` can be summed
         across workers prior to calling `reduce_metrics`. Setting this
         to True will improves distributed training speed.
         """
-        return False
+        return True

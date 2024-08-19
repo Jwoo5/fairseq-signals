@@ -4,7 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import inspect
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Tuple
 
 import torch
 
@@ -22,6 +22,9 @@ class BaseCriterion(_Loss):
         self.output_store = None
         self.target_store = None
 
+        self.kwargs = {}
+        self.is_target_derived = False
+
     def set_output_store(self, output_store: Any):
         self.output_store = output_store
 
@@ -32,12 +35,15 @@ class BaseCriterion(_Loss):
         if dist_utils.get_data_parallel_world_size() > 1:
             group = dist_utils.get_data_parallel_group()
             output = torch.cat(dist_utils.batch_all_gather(output, group=group))
-            target = torch.cat(dist_utils.batch_all_gather(target, group=group))
+            # some models & criterions do not yield targets
+            if target is not None:
+                target = torch.cat(dist_utils.batch_all_gather(target, group=group))
 
         if self.output_store is not None:
             self.output_store(output)
 
         if self.target_store is not None:
+            # is it okay to store None object?
             self.target_store(target)
 
     def close_stores(self):
@@ -83,8 +89,30 @@ class BaseCriterion(_Loss):
                     "{}.build_criterion".format(cls.__name__)
                 )
         return cls(**init_args)
-    
-    def forward(self, model, sample, reduce = True):
+
+    def compute_loss(
+        self, logits, target, sample=None, net_output=None, model=None, reduce=True
+    ) -> Tuple[torch.Tensor, List[float]]:
+        """
+        Compute the loss given the logits and targets from the model
+        """
+        raise NotImplementedError("Criterion must implement the `compute_loss` method")
+
+    def get_sample_size(self, sample, target) -> int:
+        """
+        Get the sample size, which is used as the denominator for the gradient
+        """
+        raise NotImplementedError("Crietrion must implement the `get_sample_size` mtehod")
+
+    def get_logging_output(
+        self, logging_output, logits, target, sample=None
+    ) -> List[Dict[str, Any]]:
+        """
+        Get the logging output to display while training
+        """
+        raise NotImplementedError("Criterion must implement the `log` method")
+
+    def forward(self, model, sample, reduce=True, save_outputs=False):
         """Compute the loss for the given sample.
 
         Returns a tuple with three elements:
@@ -92,10 +120,41 @@ class BaseCriterion(_Loss):
         2) the sample size, which is used as the denominator for the gradient
         3) logging outputs to display while training
         """
-        raise NotImplementedError
-        
-    @classmethod
-    def reduce_metrics(cls, logging_outputs: List[Dict[str, Any]]) -> None:
+        net_output = model(**sample["net_input"])
+        logits = model.get_logits(net_output, sample=sample, **self.kwargs).float()
+        # some models / criterions don't need to implement get_targets as they derive targets from
+        # logits (e.g., ThreeKGCriterion, etc)
+        if not self.is_target_derived:
+            targets = model.get_targets(sample, net_output, **self.kwargs)
+        else:
+            targets = None
+
+        if save_outputs:
+            self.store(logits, targets)
+
+        # TODO check logits before / after self.compute_loss(...)
+        loss, losses_to_log = self.compute_loss(
+            logits, targets, sample=sample, net_output=net_output, model=model, reduce=reduce
+        )
+        sample_size = self.get_sample_size(sample, targets)
+
+        logging_output = {}
+        if len(losses_to_log) > 1:
+            logging_output["loss"] = loss.item() if reduce else loss.detach()
+            for i, l in enumerate(losses_to_log):
+                logging_output[f"loss_{i}"] = l
+        else:
+            logging_output["loss"] = losses_to_log[0]
+        logging_output["nsignals"] = sample["id"].numel()
+        logging_output["sample_size"] = sample_size
+        logging_output = self.get_logging_output(
+            logging_output, logits, targets, sample, net_output
+        )
+
+        return loss, sample_size, logging_output
+
+    @staticmethod
+    def reduce_metrics(logging_outputs: List[Dict[str, Any]], prefix: str = None) -> None:
         """Aggregate logging outputs from data parallel training."""
         raise NotImplementedError
     

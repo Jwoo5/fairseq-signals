@@ -363,7 +363,7 @@ class M3AEModel(PretrainingModel):
         
         return ret
 
-    def get_logits(self, net_output):
+    def get_logits(self, net_output, **kwargs):
         bsz, tsz, _, _ = net_output["mim_logits"].shape
         res = {
             "mlm_logits": net_output["mlm_logits"].view(-1, self.vocab_size),
@@ -373,7 +373,7 @@ class M3AEModel(PretrainingModel):
         
         return res
 
-    def get_targets(self, sample, net_output, norm_pix_loss=True):
+    def get_targets(self, sample, net_output, norm_pix_loss=True, **kwargs):
         mlm_target = sample["mlm_labels"].view(-1)
 
         mim_target = sample["net_input"]["ecg"]

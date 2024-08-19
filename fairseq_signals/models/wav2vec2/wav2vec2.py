@@ -405,13 +405,13 @@ class Wav2Vec2Model(ECGTransformerModel):
         res = self.forward(source, padding_mask, mask = mask, features_only = True)
         return res
     
-    def get_logits(self, net_output):
+    def get_logits(self, net_output, **kwargs):
         logits = net_output["x"]
         logits = logits.transpose(0,2)
         logits = logits.reshape(-1, logits.size(-1))
         return logits
     
-    def get_targets(self, sample, net_output, expand_steps = True):
+    def get_targets(self, sample, net_output, expand_steps=True, **kwargs):
         x = net_output["x"]
         return x.new_zeros(x.size(1) * x.size(2), dtype = torch.long)
 

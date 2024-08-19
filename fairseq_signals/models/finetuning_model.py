@@ -27,6 +27,9 @@ class FinetuningModel(BaseModel):
         self.cfg = cfg
         self.encoder = encoder
 
+        self.freeze_finetune_updates = cfg.freeze_finetune_updates
+        self.num_updates = 0
+
     def set_num_updates(self, num_updates):
         """Set the number of parameters updates."""
         super().set_num_updates(num_updates)
@@ -41,10 +44,10 @@ class FinetuningModel(BaseModel):
         """Build a new model instance."""
         raise NotImplementedError("Model must implement the build_model method")
     
-    def get_logits(self, net_output, normalize=False, aggregate=False):
+    def get_logits(self, net_output, normalize=False, aggregate=False, **kwargs):
         raise NotImplementedError()
     
-    def get_targets(self, sample, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         raise NotImplementedError()
     
     def forward(self, **kwargs):
