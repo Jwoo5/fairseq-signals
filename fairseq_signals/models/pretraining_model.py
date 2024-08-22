@@ -80,9 +80,9 @@ class PretrainingModel(BaseModel):
         task = tasks.setup_task(args.task, from_checkpoint=True)
         model = task.build_model(args.model)
 
-        if hasattr(model, "remove_pretrainined_modules"):
+        if hasattr(model, "remove_pretraining_modules"):
             model.remove_pretraining_modules()
-        
+
         model.load_state_dict(state["model"], strict=True)
         logger.info(f"Loaded pre-trained model parameters from {model_path}")
 
