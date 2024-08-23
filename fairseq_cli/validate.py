@@ -49,8 +49,13 @@ def main(cfg: DictConfig, override_args=None):
     else:
         overrides = {}
 
-    overrides.update({"task": {"data": cfg.task.data}})
+    if "task" in overrides:
+        overrides["task"]["data"] = cfg.task.data
+    else:
+        overrides["task"] = {"data": cfg.task.data}
     model_overrides = eval(getattr(cfg.common_eval, "model_overrides", "{}"))
+    # force not to load pretrained checkpoint when building a new model instance
+    model_overrides.update({"model_path": None, "no_pretrained_weights": True})
     overrides.update(model_overrides)
 
     # Load model
@@ -143,17 +148,24 @@ def main(cfg: DictConfig, override_args=None):
                 
                 model.eval()
                 net_output = model(**dummy["net_input"])
-                logits_shape = (len(dataset),) + tuple(model.get_logits(net_output).shape[1:])
-                targets_shape = (len(dataset),) + tuple(model.get_targets(dummy, net_output).shape[1:])
-
-            initialize_stores_to_criterion(
-                dtype="float16" if cfg.common.fp16 else "float32",
-                criterion=criterion,
-                store_id=subset,
-                outputs_shape=logits_shape,
-                targets_shape=targets_shape,
-                save_directory=cfg.common_eval.results_path,
-            )
+                dummy_logits = model.get_logits(net_output)
+                dummy_targets = model.get_targets(dummy, net_output)
+            # logits and targets could be multiple for the purpose of composite criterion
+            if not isinstance(dummy_logits, list):
+                dummy_logits = [dummy_logits]
+                dummy_targets = [dummy_targets]
+            underlying_criterions = getattr(criterion, "underlying_criterions", [criterion])
+            for i, (l, t) in enumerate(zip(dummy_logits, dummy_targets)):
+                logits_shape = (len(dataset),) + tuple(l.shape[1:])
+                targets_shape = (len(dataset),) + tuple(t.shape[1:])
+                initialize_stores_to_criterion(
+                    dtype="float16" if cfg.common.fp16 else "float32",
+                    criterion=underlying_criterions[i],
+                    store_id=subset,
+                    outputs_shape=logits_shape,
+                    targets_shape=targets_shape,
+                    save_directory=cfg.common_eval.results_path,
+                )
 
         progress = progress_bar.progress_bar(
             itr,

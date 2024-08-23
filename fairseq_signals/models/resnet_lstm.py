@@ -5,9 +5,6 @@ import logging
 import torch
 import torch.nn as nn
 
-from fairseq_signals import tasks
-from fairseq_signals.utils import checkpoint_utils
-from fairseq_signals.dataclass.utils import convert_namespace_to_omegaconf
 from fairseq_signals.models.resnet import VanillaResnetConfig, VanillaResnetModel
 from fairseq_signals.models.lstm import LanguageLSTMConfig, LanguageLSTMModel
 from fairseq_signals.models.pretraining_model import PretrainingModel
@@ -81,10 +78,19 @@ class ResnetLSTMModel(PretrainingModel):
         ecg,
         text,
         text_padding_mask=None,
+        ecg_2=None,
+        ecg_2_padding_mask=None,
         **kwargs
     ):
         ecg_features = self.resnet(ecg)["x"]
         ecg_features = self.resnet_final_proj(ecg_features)
+        if ecg_2 is not None:
+            ecg_features_2 = self.resnet(ecg_2)["x"]
+            ecg_features_2 = self.resnet_final_proj(ecg_features_2)
+            ecg_features_2[
+                torch.where((ecg_2_padding_mask == 1).all(dim=2).all(dim=1))
+            ] = 0
+            ecg_features = ecg_features + ecg_features_2
 
         if text_padding_mask is not None and not text_padding_mask.any():
             text_padding_mask = None
@@ -97,13 +103,13 @@ class ResnetLSTMModel(PretrainingModel):
 
         return {"x": x}
     
-    def extract_features(self, ecg, text, text_padding_mask):
-        return self.forward(ecg, text, text_padding_mask)
+    def extract_features(self, ecg, text, text_padding_mask, ecg_2, ecg_2_padding_mask):
+        return self.forward(ecg, text, text_padding_mask, ecg_2, ecg_2_padding_mask)
     
-    def get_logits(self, net_output):
+    def get_logits(self, net_output, **kwargs):
         raise NotImplementedError()
     
-    def get_targets(self, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         raise NotImplementedError()
     
     @classmethod
@@ -126,34 +132,7 @@ class ResnetLSTMModel(PretrainingModel):
             "load_bert_embedding": False
         }
         
-        state = checkpoint_utils.load_checkpoint_to_cpu(model_path, arg_overrides)
-        args = state.get("cfg", None)
-        if args is None:
-            args = convert_namespace_to_omegaconf(state["args"])
-        args.criterion = None
-        args.lr_scheduler = None
-        cfg.args = args
-
-        assert cfg.normalize == args.task.normalize, (
-            "Fine-tuning works best when data normalization is the same. "
-            "Please check that --normalize is set or unset for both pre-training and here"
-        )
-        assert cfg.filter == args.task.filter, (
-            "Fine-tuning works best when signal filtering for data is the same. "
-            "Please check that --filter is set or unset for both pre-training and here"
-        )
-
-        args.task.data = cfg.data
-        task = tasks.setup_task(args.task)
-        model = task.build_model(args.model)
-
-        if hasattr(model, "remove_pretraining_modules"):
-            model.remove_pretraining_modules()
-        
-        model.load_state_dict(state["model"], strict=True)
-        logger.info(f"Loaded pre-trained model parameters from {model_path}")
-
-        return model
+        return super().from_pretrained(model_path, cfg, arg_overrides, **kwargs)
 
 @dataclass
 class ResnetLSTMFinetuningConfig(FinetuningConfig, ResnetLSTMConfig):
@@ -177,11 +156,21 @@ class ResnetLSTMFinetuningModel(FinetuningModel):
         
         return cls(cfg, encoder)
 
-    def forward(self, ecg, text, text_padding_mask=None, **kwargs):
+    def forward(
+        self,
+        ecg,
+        text,
+        text_padding_mask=None,
+        ecg_2=None,
+        ecg_2_padding_mask=None,
+        **kwargs
+    ):
         args = {
             "ecg": ecg,
             "text": text,
-            "text_padding_mask": text_padding_mask
+            "text_padding_mask": text_padding_mask,
+            "ecg_2": ecg_2,
+            "ecg_2_padding_mask": ecg_2_padding_mask
         }
 
         ft = self.freeze_finetune_updates <= self.num_updates

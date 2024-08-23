@@ -325,14 +325,14 @@ class MedViLLModel(ECGLanguageTransformerModel):
         )
         return res
     
-    def get_logits(self, net_output):
+    def get_logits(self, net_output, **kwargs):
         res = {
             "align_x": torch.sigmoid(net_output["align_x"].squeeze(-1)),
             "mlm_x": net_output["mlm_x"]
         }
         return res
 
-    def get_targets(self, sample, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         align_y = sample["is_aligned"]
         mlm_y = net_output["mlm_y"]
         res = {

@@ -7,7 +7,6 @@ from omegaconf import II
 import torch
 import torch.nn as nn
 
-from fairseq_signals.models import register_model
 from fairseq_signals.models.transformer import (
     TransformerConfig,
     TransformerModel,
@@ -370,10 +369,10 @@ class ECGLanguageTransformerModel(TransformerModel):
         )
         return res
 
-    def get_logits(self, net_output):
+    def get_logits(self, net_output, **kwargs):
         raise NotImplementedError()
 
-    def get_targets(self, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         raise NotImplementedError()
     
     @classmethod
@@ -398,8 +397,6 @@ class ECGLanguageTransformerModel(TransformerModel):
             "load_bert_embedding": False,
         }
 
-        model = super().from_pretrained(model_path, cfg, arg_overrides)
-
         assert cfg.sep_token == cfg.args.task.sep_token, (
             "Special token [SEP] is different between pre-training and here."
             "Please check that --sep_token is the same for both pre-training and here"
@@ -408,6 +405,8 @@ class ECGLanguageTransformerModel(TransformerModel):
             "Special token [PAD] id is different between pre-training and here."
             "Please check that --pad_token is the same for both pre-training and here"
         )
+
+        model = super().from_pretrained(model_path, cfg, arg_overrides)
 
         return model
 
@@ -438,10 +437,10 @@ class ECGLanguageTransformerFinetuningModel(TransformerFinetuningModel):
             encoder = ECGLanguageTransformerModel(cfg)
         return cls(cfg, encoder)
 
-    def get_logits(self, net_output, normalize=False, aggregate=False):
+    def get_logits(self, net_output, normalize=False, aggregate=False, **kwargs):
         return NotImplementedError()
     
-    def get_targets(self, sample, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         raise NotImplementedError()
 
     def forward(

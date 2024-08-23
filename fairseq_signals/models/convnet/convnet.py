@@ -88,5 +88,5 @@ class ConvNetModel(BaseModel):
         logits = net_output["x"]
         return logits
     
-    def get_targets(self, sample, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         return sample["label"].float()

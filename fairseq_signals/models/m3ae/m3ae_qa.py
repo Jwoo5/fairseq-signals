@@ -49,7 +49,7 @@ class M3AEQAModel(M3AEFinetuningModel):
         )
         self.head.apply(init_weights)
     
-    def get_logits(self, net_output, normalize=False):
+    def get_logits(self, net_output, normalize=False, **kwargs):
         logits = net_output["out"]
 
         if normalize:
@@ -57,7 +57,7 @@ class M3AEQAModel(M3AEFinetuningModel):
         
         return logits
 
-    def get_targets(self, sample, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         return sample["answer"].float()
 
     def forward(

@@ -40,48 +40,37 @@ class Wav2Vec2CriterionConfig(Dataclass):
 
 @register_criterion("wav2vec2", dataclass = Wav2Vec2CriterionConfig)
 class Wav2Vec2Criterion(BaseCriterion):
-    def __init__(self, task, infonce = False, loss_weights = None, log_keys = None):
+    def __init__(self, task, infonce=False, loss_weights=None, log_keys=None):
         super().__init__(task)
         self.infonce = infonce
         self.loss_weights = loss_weights
         self.log_keys = [] if log_keys is None else log_keys
 
-    def forward(self, model, sample, reduce = True):
-        """Compute the loss for the given sample
-        
-        Returns a tuple with three elements:
-        1) the loss
-        2) the sample size, which is used as the denominator for the gradient
-        3) logging outputs to display while training
+    def compute_loss(
+        self, logits, target, sample=None, net_output=None, model=None, reduce=True
+    ):
         """
-        net_output = model(**sample["net_input"])
-        logits = model.get_logits(net_output).float()
-        target = model.get_targets(sample, net_output)
+        Compute the loss given the logits and targets from the model
+        """
+        reduction = "none" if not reduce else "sum"
+
+        losses = []
 
         weights = None
         if hasattr(model, "get_target_weights") and not self.infonce:
             weights = model.get_target_weights(target, net_output)
             if torch.is_tensor(weights):
                 weights = weights.float()
-        
-        losses = []
-
-        reduction = "none" if not reduce else "sum"
 
         if self.infonce:
-            loss = F.cross_entropy(logits, target, reduction = reduction)
+            loss = F.cross_entropy(logits, target, reduction=reduction)
         else:
             loss = F.binary_cross_entropy_with_logits(
-                logits, target.float(), weights, reduction = reduction
+                logits, target.float(), weights, reduction=reduction
             )
-        
-        if 'sample_size' in sample:
-            sample_size = sample['sample_size']
-        elif 'mask_indices' in sample['net_input']:
-            sample_size = sample['net_input']['mask_indices'].sum()
-        else:
-            sample_size = target.numel() if self.infonce else target.long().sum().item()
-        losses.append(loss.detach().clone())
+        losses.append(loss.detach().item())
+
+        sample_size = self.get_sample_size(sample, target)
 
         if self.loss_weights is not None:
             assert hasattr(model, "get_extra_losses")
@@ -97,15 +86,26 @@ class Wav2Vec2Criterion(BaseCriterion):
                 if coef != 0 and p is not None:
                     p = coef * p.float() * sample_size
                     loss += p
-                    losses.append(p)
-        
-        logging_output = {
-            "loss": loss.item() if reduce else loss.detach(),
-            "ntokens": sample_size,
-            "nsignals": sample["id"].numel(),
-            "sample_size": sample_size
-        }
+                    losses.append(p.detach().item())
 
+        return loss, [losses]
+
+    def get_sample_size(self, sample, target):
+        """
+        Get the sample size, which is used as the denominator for the gradient
+        """
+        if 'sample_size' in sample:
+            sample_size = sample['sample_size']
+        elif 'mask_indices' in sample['net_input']:
+            sample_size = sample['net_input']['mask_indices'].sum()
+        else:
+            sample_size = target.numel() if self.infonce else target.long().sum().item()
+        return sample_size
+
+    def get_logging_output(self, logging_output, logits, target, sample=None, net_output=None):
+        """
+        Get the logging output to display while training
+        """
         for lk in self.log_keys:
             # Only store "logits" and "target" for computing mAP and mAUC
             # during validation
@@ -119,11 +119,7 @@ class Wav2Vec2Criterion(BaseCriterion):
                 value = net_output[lk]
                 value = float(value)
                 logging_output[lk] = value
-        
-        if len(losses) > 1:
-            for i, l in enumerate(losses):
-                logging_output[f"loss_{i}"] = l.item()
-        
+
         if self.infonce:
             with torch.no_grad():
                 if logits.numel() == 0:
@@ -140,12 +136,16 @@ class Wav2Vec2Criterion(BaseCriterion):
                 
                 logging_output["correct"] = corr
                 logging_output["count"] = count
-        
-        return loss, sample_size, logging_output
+        return logging_output
     
     @staticmethod
-    def reduce_metrics(logging_outputs) -> None:
+    def reduce_metrics(logging_outputs, prefix: str = None) -> None:
         """Aggregate logging outputs from data parallel training."""
+        if prefix is None:
+            prefix = ""
+        elif prefix is not None and not prefix.endswith("_"):
+            prefix = prefix + "_"
+
         loss_sum = utils.item(sum(log.get("loss", 0) for log in logging_outputs))
         ntokens = utils.item(sum(log.get("ntokens", 0) for log in logging_outputs))
         nsignals = utils.item(
@@ -156,24 +156,24 @@ class Wav2Vec2Criterion(BaseCriterion):
         )
 
         metrics.log_scalar(
-            "loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
+            f"{prefix}loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round=3
         )
         # metrics.log_scalar("ntokens", ntokens)
-        metrics.log_scalar("nsignals", nsignals)
+        metrics.log_scalar(f"{prefix}nsignals", nsignals)
 
         correct = sum(log.get("correct", 0) for log in logging_outputs)
-        metrics.log_scalar("_correct", correct)
+        metrics.log_scalar(f"_{prefix}correct", correct)
 
         total = sum(log.get("count", 0) for log in logging_outputs)
-        metrics.log_scalar("_total", total)
+        metrics.log_scalar(f"_{prefix}total", total)
 
         if total > 0:
             metrics.log_derived(
-                "accuracy",
+                f"{prefix}accuracy",
                 lambda meters: safe_round(
-                    meters["_correct"].sum / meters["_total"].sum, 5
+                    meters[f"_{prefix}correct"].sum / meters[f"_{prefix}total"].sum, 5
                 )
-                if meters["_total"].sum > 0
+                if meters[f"_{prefix}total"].sum > 0
                 else float("nan")
             )
         
@@ -191,10 +191,10 @@ class Wav2Vec2Criterion(BaseCriterion):
                 val = sum(log.get(k,0) for log in logging_outputs)
                 if k.startswith("loss"):
                     metrics.log_scalar(
-                        k, val / (sample_size or 1) / math.log(2), sample_size, round = 3
+                        prefix + k, val / (sample_size or 1) / math.log(2), sample_size, round = 3
                     )
                 else:
-                    metrics.log_scalar(k, val / len(logging_outputs), round = 3)
+                    metrics.log_scalar(prefix + k, val / len(logging_outputs), round = 3)
     
     def logging_outputs_can_be_summed(self) -> bool:
         """
@@ -203,6 +203,8 @@ class Wav2Vec2Criterion(BaseCriterion):
         to True will improves distributed training speed.
         """
         return False
+
+# TODO migrate "wav2vec2_with_cmsc" criterion to be constructed by "composite_criterion"
 
 @dataclass
 class Wav2Vec2WithCMSCCriterionConfig(Wav2Vec2CriterionConfig, CMSCCriterionConfig):
@@ -221,10 +223,11 @@ class Wav2Vec2WithCMSCCriterion(BaseCriterion):
         self.temp = cfg.temp
         self.eps = cfg.eps
         self.cmsc_weights = cfg.cmsc_weights
-    
+
+    # custom forward function (cannot be used with composite criterion)
     def forward(self, model, sample, reduce=True, save_outputs=False):
         """Compute the loss for the given sample
-        
+
         Returns a tuple with three elements:
         1) the loss
         2) the sample size, which is used as the denominator for the gradient

@@ -12,6 +12,7 @@ import wfdb
 import numpy as np
 from scipy.interpolate import interp1d
 import scipy.io
+from tqdm import tqdm
 
 from multiprocessing import Pool
 
@@ -79,11 +80,8 @@ def main(args):
     leads_to_load = [int(lead) for lead in leads]
     subset = args.subset.replace(' ','').split(',')
 
-    if len(glob.glob(os.path.join(args.root, "**/**/*." + args.ext))) == 0:
-        args.root = os.path.join(args.root, "training")
-
     pid_table = dict()
-    for i, fname in enumerate(glob.iglob(os.path.join(args.root, "**/**/*." + args.ext))):
+    for i, fname in enumerate(glob.iglob(os.path.join(args.root, "**/*." + args.ext), recursive=True)):
         pid_table[os.path.basename(fname)[:-4]] = i
 
     for s in subset:
@@ -93,7 +91,7 @@ def main(args):
         dir_path = os.path.realpath(os.path.join(args.root, s))
         search_path = os.path.join(dir_path, "**/*." + args.ext)
 
-        fnames = list(glob.iglob(search_path, recursive=True))
+        fnames = glob.glob(search_path, recursive=True)
         chunk_size = math.ceil(len(fnames) / args.workers)
 
         file_chunks = [fnames[i:i+chunk_size] for i in range(0, len(fnames), chunk_size)]
@@ -112,7 +110,7 @@ def main(args):
         pool.join()
 
 def preprocess(args, pid_table, classes, dest_path, leads_to_load, fnames):
-    for fname in fnames:
+    for fname in tqdm(fnames, total=len(fnames), desc=os.path.basename(dest_path)):
         fname = fname[:-(len(args.ext)+1)]
 
         if not os.path.exists(fname + ".hea"):

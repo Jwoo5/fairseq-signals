@@ -8,7 +8,7 @@ common:
 common_eval:
   path: ???
   quiet: false
-  model_overrides: "{'model_path': None, 'no_pretrained_weights': False}"
+  model_overrides: "{'model_path': None, 'no_pretrained_weights': True}"
 
 dataset:
   num_workers: 6

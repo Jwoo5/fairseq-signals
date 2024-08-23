@@ -19,8 +19,8 @@ from fairseq_signals.logging.meters import safe_round
 @dataclass
 class BinaryCrossEntropyCriterionConfig(Dataclass):
     weight: Optional[List[float]] = field(
-        default = None,
-        metadata = {
+        default=None,
+        metadata={
             "help": "a manual rescaling weight given to the loss of each batch element."
             "if given, has to be a float list of size nbatch."
         }
@@ -43,45 +43,32 @@ class BinaryCrossEntropyCriterion(BaseCriterion):
         self.threshold = cfg.threshold
         self.weight = cfg.weight
         self.report_auc = cfg.report_auc
-    
-    def forward(self, model, sample, reduce = True):
-        """Compute the loss for the given sample.
-        
-        Returns a tuple with three elements.
-        1) the loss
-        2) the sample size, which is used as the denominator for the gradient
-        3) logging outputs to display while training
-        """
-        net_output = model(**sample["net_input"])
-        logits = model.get_logits(net_output).float()
+
+    def compute_loss(
+        self, logits, target, sample=None, net_output=None, model=None, reduce=True
+    ):
         probs = torch.sigmoid(logits)
-        target = model.get_targets(sample, net_output)
-
-        reduction = "none" if not reduce else "sum"
-
         loss = F.binary_cross_entropy(
-            input = probs,
-            target = target,
-            weight = self.weight,
-            reduction = reduction
+            input=probs,
+            target=target,
+            weight=self.weight,
+            reduction="none" if not reduce else "sum"
         )
+        return loss, [loss.detach().item()]
 
+    def get_sample_size(self, sample, target):
         if 'sample_size' in sample:
             sample_size = sample['sample_size']
         elif 'mask_indices' in sample['net_input']:
             sample_size = sample['net_input']['mask_indices'].sum()
         else:
             sample_size = target.long().sum().item()
-        
-        logging_output = {
-            "loss": loss.item() if reduce else loss.detach(),
-            "nsignals": sample["id"].numel(),
-            "sample_size": sample_size
-        }
+        return sample_size
 
+    def get_logging_output(self, logging_output, logits, target, sample=None, net_output=None):
         with torch.no_grad():
             probs = torch.sigmoid(logits)
-            outputs = (probs > 0.5)
+            output = (probs > 0.5)
 
             if probs.numel() == 0:
                 corr = 0
@@ -92,14 +79,14 @@ class BinaryCrossEntropyCriterion(BaseCriterion):
                 fn = 0
             else:
                 count = float(probs.numel())
-                corr = (outputs == target).sum().item()
+                corr = (output == target).sum().item()
 
                 true = torch.where(target == 1)
                 false = torch.where(target == 0)
-                tp = outputs[true].sum()
-                fn = outputs[true].numel() - tp
-                fp = outputs[false].sum()
-                tn = outputs[false].numel() - fp
+                tp = output[true].sum()
+                fn = output[true].numel() - tp
+                fp = output[false].sum()
+                tn = output[false].numel() - fp
 
             logging_output["correct"] = corr
             logging_output["count"] = count
@@ -112,12 +99,17 @@ class BinaryCrossEntropyCriterion(BaseCriterion):
             if not self.training and self.report_auc:
                 logging_output["_y_true"] = target.cpu().numpy()
                 logging_output["_y_score"] = probs.cpu().numpy()
-        
-        return loss, sample_size, logging_output
-    
+
+        return logging_output
+
     @staticmethod
-    def reduce_metrics(logging_outputs) -> None:
+    def reduce_metrics(logging_outputs, prefix: str = None) -> None:
         """Aggregate logging outputs from data parallel training."""
+        if prefix is None:
+            prefix = ""
+        elif prefix is not None and not prefix.endswith("_"):
+            prefix = prefix + "_"
+
         loss_sum = utils.item(sum(log.get("loss", 0) for log in logging_outputs))
 
         nsignals = utils.item(
@@ -128,71 +120,70 @@ class BinaryCrossEntropyCriterion(BaseCriterion):
         )
 
         metrics.log_scalar(
-            "loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
+            f"{prefix}loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
         )
 
         if "_y_true" in logging_outputs[0] and "_y_score" in logging_outputs[0]:
             y_true = np.concatenate([log.get("_y_true", 0) for log in logging_outputs])
             y_score = np.concatenate([log.get("_y_score", 0) for log in logging_outputs])
 
-            metrics.log_custom(meters.AUCMeter, "_auc", y_score, y_true)
+            metrics.log_custom(meters.AUCMeter, f"_{prefix}auc", y_score, y_true)
 
             if len(y_true) > 0:
                 metrics.log_derived(
-                    "auroc",
+                    f"{prefix}auroc",
                     lambda meters: safe_round(
-                        meters["_auc"].auroc, 3
+                        meters[f"_{prefix}auc"].auroc, 3
                     )
                 )
                 metrics.log_derived(
-                    "auprc",
+                    f"{prefix}auprc",
                     lambda meters: safe_round(
-                        meters["_auc"].auprc, 3
+                        meters[f"_{prefix}auc"].auprc, 3
                     )
                 )
 
-        metrics.log_scalar("nsignals", nsignals)
+        if nsignals > 0:
+            metrics.log_scalar(f"{prefix}nsignals", nsignals)
 
         correct = sum(log.get("correct", 0) for log in logging_outputs)
-        metrics.log_scalar("_correct", correct)
+        metrics.log_scalar(f"_{prefix}correct", correct)
 
         total = sum(log.get("count", 0) for log in logging_outputs)
-        metrics.log_scalar("_total", total)
+        metrics.log_scalar(f"_{prefix}total", total)
 
         tp = sum(log.get("tp", 0) for log in logging_outputs)
-        metrics.log_scalar("_tp", tp)
+        metrics.log_scalar(f"_{prefix}tp", tp)
         fp = sum(log.get("fp", 0) for log in logging_outputs)
-        metrics.log_scalar("_fp", fp)
-        tn = sum(log.get("tn", 0) for log in logging_outputs)
-        metrics.log_scalar("_tn", tn)
+        metrics.log_scalar(f"_{prefix}fp", fp)
         fn = sum(log.get("fn", 0) for log in logging_outputs)
-        metrics.log_scalar("_fn", fn)
+        metrics.log_scalar(f"_{prefix}fn", fn)
 
         if total > 0:
             metrics.log_derived(
-                "accuracy",
+                f"{prefix}accuracy",
                 lambda meters: safe_round(
-                    meters["_correct"].sum / meters["_total"].sum, 5
+                    meters[f"_{prefix}correct"].sum / meters[f"_{prefix}total"].sum, 5
                 )
-                if meters["_total"].sum > 0
+                if meters[f"_{prefix}total"].sum > 0
                 else float("nan")
             )
 
             metrics.log_derived(
-                "precision",
+                f"{prefix}recall",
                 lambda meters: safe_round(
-                    meters["_tp"].sum / (meters["_tp"].sum + meters["_fp"].sum), 5
+                    meters[f"_{prefix}tp"].sum / (meters[f"_{prefix}tp"].sum + meters[f"_{prefix}fn"].sum), 5
                 )
-                if (meters["_tp"].sum + meters["_fp"].sum) > 0
+                if (meters[f"_{prefix}tp"].sum + meters[f"_{prefix}fn"].sum) > 0
                 else float("nan")
             )
 
             metrics.log_derived(
-                "recall",
+                f"{prefix}recall",
                 lambda meters: safe_round(
-                    meters["_tp"].sum / (meters["_tp"].sum + meters["_fn"].sum), 5
+                    meters[f"_{prefix}tp"].sum / (meters[f"_{prefix}tp"].sum + meters[f"_{prefix}fn"].sum), 5
                 )
-                if (meters["_tp"].sum + meters["_fn"].sum) > 0
+                if (meters[f"_{prefix}tp"].sum + meters[f"_{prefix}fn"].sum) > 0
                 else float("nan")
             )
         

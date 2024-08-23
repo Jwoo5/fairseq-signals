@@ -6,10 +6,7 @@ import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
-from fairseq_signals import tasks
 from fairseq_signals.utils import utils
-from fairseq_signals.utils import checkpoint_utils
-from fairseq_signals.dataclass.utils import convert_namespace_to_omegaconf
 from fairseq_signals.models import register_model
 from fairseq_signals.models.pretraining_model import PretrainingConfig, PretrainingModel
 from fairseq_signals.models.finetuning_model import FinetuningConfig, FinetuningModel
@@ -127,7 +124,7 @@ class SEWideResidualNetworkModel(PretrainingModel):
         res = self.forward(source)
         return res
 
-    def get_logits(self, net_output, normalize=False, aggregate=False):
+    def get_logits(self, net_output, normalize=False, aggregate=False, **kwargs):
         logits = net_output["x"]
 
         if net_output["padding_mask"] is not None and net_output["padding_mask"].any():
@@ -141,7 +138,7 @@ class SEWideResidualNetworkModel(PretrainingModel):
 
         return logits
 
-    def get_targets(self, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         raise NotImplementedError()
 
     @classmethod
@@ -159,33 +156,7 @@ class SEWideResidualNetworkModel(PretrainingModel):
             model_path (str): a path to a pre-trained model state dict
             cfg (SEWideResidualNetworkConfig): cfg to override some arguments of pre-trained model
         """
-        state = checkpoint_utils.load_checkpoint_to_cpu(model_path)
-        args = state.get("cfg", None)
-        if args is None:
-            args = convert_namespace_to_omegaconf(state["args"])
-        args.criterion = None
-        args.lr_scheduler = None
-
-        assert cfg.normalize == args.task.normalize, (
-            "Fine-tuning works best when data normalization is the same. "
-            "Please check that --normalize is set or unset for both pre-training and here"
-        )
-        assert cfg.filter == args.task.filter, (
-            "Fine-tuning works best when signal filtering for data is the same. "
-            "Please check that --filter is set or unset for both pre-training and here"
-        )
-
-        args.task.data = cfg.data
-        task = tasks.setup_task(args.task, from_checkpoint=True)
-        model = task.build_model(args.model)
-
-        if hasattr(model, "remove_pretraining_modules"):
-            model.remove_pretraining_modules()
-
-        model.load_state_dict(state["model"], strict=True)
-        logger.info(f"Loaded pre-trained model parameters from {model_path}")
-
-        return model
+        return super().from_pretrained(model_path, cfg, **kwargs)
 
 @dataclass
 class SEWideResidualNetworkFinetuningConfig(FinetuningConfig, SEWideResidualNetworkConfig):

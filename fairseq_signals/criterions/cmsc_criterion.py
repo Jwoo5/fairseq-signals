@@ -38,18 +38,14 @@ class CMSCCriterion(BaseCriterion):
         self.eps = cfg.eps
         self.all_gather = cfg.all_gather
 
-    def forward(self, model, sample, reduce = True):
-        """Compute the loss for the given sample
-        
-        Returns a tuple with three elements:
-        1) the loss
-        2) the sample size, which is used as the denominator for the gradient
-        3) logging outputs to display while training
-        """
-        assert self.mode in ["cmsc", "cmlc", "cmsmlc"], self.mode
+        self.is_target_derived = True
 
-        net_output = model(**sample["net_input"])
-        logits = model.get_logits(net_output, aggregate=True).float()
+    def compute_loss(
+        self, logits, target=None, sample=None, net_output=None, model=None, reduce=True
+    ):
+        """
+        Compute the loss given the final logits and targets directly fed to the loss function
+        """
         logits /= torch.max(
             logits.detach().norm(dim=-1).unsqueeze(-1),
             self.eps * torch.ones_like(logits)
@@ -66,8 +62,7 @@ class CMSCCriterion(BaseCriterion):
             segment = torch.cat(
                 dist_utils.batch_all_gather(segment, group=group)
             )
-
-        losses = []
+        
         loss = 0
 
         indices = torch.where(segment == 0)[0]
@@ -95,31 +90,39 @@ class CMSCCriterion(BaseCriterion):
 
         loss_1 = logits_1[target].mean()
         loss += loss_1/2
-        losses.append(loss_1.detach().clone())
 
         loss_2 = logits_2[target.transpose(-2, -1)].mean()
         loss += loss_2/2
 
-        losses.append(loss_2.detach().clone())
+        return loss, [loss.detach().item()]
 
+    def get_sample_size(self, sample, target):
+        """
+        Get the sample size, which is used as the denominator for the gradient
+        """
         if 'sample_size' in sample:
             sample_size = sample['sample_size']
         elif 'mask_indices' in sample['net_input']:
             sample_size = sample['net_input']['mask_indices'].sum()
         else:
             sample_size = target.long().sum().item()
-        
-        logging_output = {
-            "loss": loss.item() if reduce else loss.detach(),
-            "nsignals": sample["id"].numel(),
-            "sample_size": sample_size
-        }
 
-        return loss, sample_size, logging_output
+    def get_logging_output(
+        self, logging_output, logits=None, target=None, sample=None, net_output=None
+    ):
+        """
+        Get the logging output to display while training
+        """
+        return logging_output
     
     @staticmethod
-    def reduce_metrics(logging_outputs) -> None:
+    def reduce_metrics(logging_outputs, prefix: str = None) -> None:
         """Aggregate logging outputs from data parallel training."""
+        if prefix is None:
+            prefix = ""
+        elif prefix is not None and not prefix.endswith("_"):
+            prefix = prefix + "_"
+
         loss_sum = utils.item(sum(log.get("loss", 0) for log in logging_outputs))
 
         nsignals = utils.item(
@@ -130,10 +133,10 @@ class CMSCCriterion(BaseCriterion):
         )
 
         metrics.log_scalar(
-            "loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
+            f"{prefix}loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
         )
 
-        metrics.log_scalar("nsignals", nsignals)
+        metrics.log_scalar(f"{prefix}nsignals", nsignals)
     
     @staticmethod
     def logging_outputs_can_be_summed() -> bool:

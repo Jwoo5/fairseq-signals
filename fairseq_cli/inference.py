@@ -49,8 +49,13 @@ def main(cfg: DictConfig, override_args=None):
     else:
         overrides = {}
 
-    overrides.update({"task": {"data": cfg.task.data}})
+    if "task" in overrides:
+        overrides["task"]["data"] = cfg.task.data
+    else:
+        overrides["task"] = {"data": cfg.task.data}
     model_overrides = eval(getattr(cfg.common_eval, "model_overrides", "{}"))
+    # force not to load pretrained checkpoint when building a new model instance
+    model_overrides.update({"model_path": None, "no_pretrained_weights": True})
     overrides.update(model_overrides)
 
     # Load model

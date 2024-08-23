@@ -10,13 +10,7 @@ import torch.nn.functional as F
 
 from torch.nn.utils.rnn import pack_padded_sequence
 
-from fairseq_signals import tasks
-from fairseq_signals.utils import utils
-from fairseq_signals.utils import checkpoint_utils
-from fairseq_signals.dataclass.utils import convert_namespace_to_omegaconf
 from fairseq_signals.models.pretraining_model import PretrainingConfig, PretrainingModel
-from fairseq_signals.models.finetuning_model import FinetuningConfig, FinetuningModel
-from fairseq_signals.tasks import Task
 
 logger = logging.getLogger(__name__)
 
@@ -99,6 +93,7 @@ class LSTMModel(PretrainingModel):
         Args:
             model_path (str): a path to a pre-trained model state dict
             cfg (LSTMConfig): cfg to override some arguments of pre-trained model
+            arg_appended (dict): dict to be appended to cfg
         """
 
         arg_overrides = {
@@ -107,34 +102,7 @@ class LSTMModel(PretrainingModel):
         if arg_appended is not None:
             arg_overrides.update(arg_appended)
 
-        state = checkpoint_utils.load_checkpoint_to_cpu(model_path, arg_overrides)
-        args = state.get("cfg", None)
-        if args is None:
-            args = convert_namespace_to_omegaconf(state["args"])
-        args.criterion = None
-        args.lr_scheduler = None
-        cfg.args = args
-
-        assert cfg.normalize == args.task.normalize, (
-            "Fine-tuning works best when data normalization is the same. "
-            "Please check that --normalize is set or unset for both pre-training and here"
-        )
-        assert cfg.filter == args.task.filter, (
-            "Fine-tuning works best when signal filtering for data is the same. "
-            "Please check that --filter is set or unset for both pre-training and here"
-        )
-
-        args.task.data = cfg.data
-        task = tasks.setup_task(args.task, from_checkpoint=True)
-        model = task.build_model(args.model)
-
-        if hasattr(model, "remove_pretraining_modules"):
-            model.remove_pretraining_modules()
-        
-        model.load_state_dict(state["model"], strict=True)
-        logger.info(f"Loaded pre-trained model parameters from {model_path}")
-
-        return model
+        return super().from_pretrained(model_path, cfg, arg_overrides, **kwargs)
 
 @dataclass
 class LanguageLSTMConfig(LSTMConfig):

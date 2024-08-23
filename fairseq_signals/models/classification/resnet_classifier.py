@@ -55,7 +55,7 @@ class Nejedly2021ResnetClassificationModel(Nejedly2021ResnetFinetuningModel):
         nn.init.xavier_uniform_(self.proj.weight)
         nn.init.constant_(self.proj.bias, 0.0)
     
-    def get_logits(self, net_output, normalize=False):
+    def get_logits(self, net_output, normalize=False, **kwargs):
         logits = net_output["out"]
 
         if normalize:
@@ -63,8 +63,11 @@ class Nejedly2021ResnetClassificationModel(Nejedly2021ResnetFinetuningModel):
 
         return logits
     
-    def get_targets(self, sample, net_output):
-        return sample["label"].float()
+    def get_targets(self, sample, net_output, **kwargs):
+        if isinstance(sample["label"], torch.Tensor):
+            return sample["label"].float()
+        else:
+            return sample["label"]
     
     def forward(self, **kwargs):
         res = super().forward(**kwargs)
@@ -119,7 +122,7 @@ class SEWideResidualNetworkClassificationModel(SEWideResidualNetworkFinetuningMo
         nn.init.xavier_uniform_(self.proj.weight)
         nn.init.constant_(self.proj.bias, 0.0)
 
-    def get_logits(self, net_output, normalize=False):
+    def get_logits(self, net_output, normalize=False, **kwargs):
         logits = net_output["out"]
 
         if normalize:
@@ -127,7 +130,7 @@ class SEWideResidualNetworkClassificationModel(SEWideResidualNetworkFinetuningMo
 
         return logits
     
-    def get_targets(self, sample, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         return sample["label"].float()
     
     def forward(self, **kwargs):

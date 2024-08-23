@@ -87,7 +87,7 @@ class BlindTransformerQAModel(TransformerModel):
         """Build a new model instance."""
         return cls(cfg)
 
-    def get_logits(self, net_output, normalize=False):
+    def get_logits(self, net_output, normalize=False, **kwargs):
         logits = net_output["x"]
         
         if normalize:
@@ -95,7 +95,7 @@ class BlindTransformerQAModel(TransformerModel):
         
         return logits
 
-    def get_targets(self, sample, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         return sample["answer"].float()
 
     def forward(

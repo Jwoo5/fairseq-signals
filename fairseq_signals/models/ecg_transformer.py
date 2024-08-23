@@ -192,7 +192,7 @@ class ECGTransformerModel(TransformerModel):
         res = self.forward(source, padding_mask=padding_mask)
         return res
 
-    def get_logits(self, net_output, normalize=False, aggregate=False):
+    def get_logits(self, net_output, normalize=False, aggregate=False, **kwargs):
         logits = net_output["x"]
 
         if net_output["padding_mask"] is not None and net_output["padding_mask"].any():
@@ -206,7 +206,7 @@ class ECGTransformerModel(TransformerModel):
         
         return logits
 
-    def get_targets(self, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         raise NotImplementedError()
 
     @classmethod
@@ -261,7 +261,7 @@ class ECGTransformerFinetuningModel(TransformerFinetuningModel):
         
         return cls(cfg, encoder)
     
-    def get_logits(self, net_output, normalize=False, aggregate=False):
+    def get_logits(self, net_output, normalize=False, aggregate=False, **kwargs):
         logits = net_output["encoder_out"]
 
         if net_output["padding_mask"] is not None and net_output["padding_mask"].any():
@@ -275,7 +275,7 @@ class ECGTransformerFinetuningModel(TransformerFinetuningModel):
         
         return logits
     
-    def get_targets(self, sample, net_output):
+    def get_targets(self, sample, net_output, **kwargs):
         raise NotImplementedError()
     
     def get_normalized_probs(self, net_output, log_probs):

@@ -36,22 +36,18 @@ class ThreeKGCriterion(BaseCriterion):
         self.eps = cfg.eps
         self.all_gather = cfg.all_gather
 
-    def forward(self, model, sample, reduce=True):
-        """Compute the loss for the given sample
-        
-        Returns a tuple with three elements:
-        1) the loss
-        2) the sample size, which is used as the denominator for the gradient
-        3) logging outputs to display while training
+        self.is_target_derived = True
+
+    def compute_loss(
+        self, logits, target=None, sample=None, net_output=None, model=None, reduce=True
+    ):
         """
-        net_output = model(**sample["net_input"])
-        logits = model.get_logits(net_output, aggregate=True).float()
+        Compute the loss given the final logits and targets directly fed to the loss function
+        """
         logits /= torch.max(
             logits.detach().norm(dim=1).unsqueeze(1),
             self.eps * torch.ones_like(logits)
         )
-
-        losses = []
 
         bsz = int(logits.shape[0] / 2)
         pids = sample['patient_id']
@@ -60,10 +56,7 @@ class ThreeKGCriterion(BaseCriterion):
         if self.all_gather and dist_utils.get_data_parallel_world_size() > 1:
             group = dist_utils.get_data_parallel_group()
             pids = torch.cat(
-                dist_utils.batch_all_gather(
-                    pids,
-                    group=group
-                )
+                dist_utils.batch_all_gather(pids, group=group)
             )
 
         sim_matrix = torch.matmul(logits, logits.T)        
@@ -93,46 +86,57 @@ class ThreeKGCriterion(BaseCriterion):
         logits /= self.temp
 
         target = torch.zeros((logits.size(0), ), dtype=torch.long).to(logits.device)
-        
-        reduction = "none" if not reduce else "sum"
 
+        reduction = "none" if not reduce else "sum"
         loss = F.cross_entropy(logits, target, reduction=reduction)
 
-        if 'sample_size' in sample:
-            sample_size = sample['sample_size']
-        elif 'mask_indices' in sample['net_input']:
-            sample_size = sample['net_input']['mask_indices'].sum()
+        return loss, [loss.detach().item()]
+
+    def get_sample_size(self, sample, target=None):
+        """
+        Get the sample size, which is used as the denominator for the gradient
+        """
+        if "sample_size" in sample:
+            sample_size = sample["sample_size"]
+        elif "mask_indices" in sample["net_input"]:
+            sample_size = sample["net_input"]["mask_indices"].sum()
         else:
-            sample_size = target.numel()
-        losses.append(loss.detach().clone())
+            sample_size = len(sample["net_input"]["source"])
+        return sample_size
 
-        logging_output = {
-            "loss": loss.item() if reduce else loss.detach(),
-            "nsignals": sample["id"].numel(),
-            "sample_size": sample_size
-        }
+    def get_logging_output(
+        self, logging_output, logits, target=None, sample=None, net_output=None
+    ):
+        """
+        Get the logging output to display while training
+        """
+        # TODO check if logits is calculated correctly after `compute_loss`
+        # with torch.no_grad():
+        #     if logits.numel() == 0:
+        #         corr = 0
+        #         count = 0
+        #     else:
+        #         assert logits.dim() > 1, logits.shape
+        #         max = logits.argmax(-1) == 0
+        #         min = logits.argmin(-1) == 0
 
-        with torch.no_grad():
-            if logits.numel() == 0:
-                corr = 0
-                count = 0
-            else:
-                assert logits.dim() > 1, logits.shape
-                max = logits.argmax(-1) == 0
-                min = logits.argmin(-1) == 0
-
-                both = max & min
-                corr = max.long().sum().item() - both.long().sum().item()
-                count = float(max.numel())
+        #         both = max & min
+        #         corr = max.long().sum().item() - both.long().sum().item()
+        #         count = float(max.numel())
             
-            logging_output["correct"] = corr
-            logging_output["count"] = count
+        #     logging_output["correct"] = corr
+        #     logging_output["count"] = count
         
-        return loss, sample_size, logging_output
+        return logging_output
 
     @staticmethod
-    def reduce_metrics(logging_outputs) -> None:
+    def reduce_metrics(logging_outputs, prefix: str = None) -> None:
         """Aggregate logging outputs from data parallel training."""
+        if prefix is None:
+            prefix = ""
+        elif prefix is not None and not prefix.endswith("_"):
+            prefix = prefix + "_"
+
         loss_sum = utils.item(sum(log.get("loss", 0) for log in logging_outputs))
         nsignals = utils.item(
             sum(log.get("nsignals", 0) for log in logging_outputs)
@@ -142,23 +146,25 @@ class ThreeKGCriterion(BaseCriterion):
         )
 
         metrics.log_scalar(
-            "loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round = 3
+            f"{prefix}loss", loss_sum / (sample_size or 1) / math.log(2), sample_size, round=3
         )
-        metrics.log_scalar("nsignals", nsignals)
+
+        if nsignals > 0:
+            metrics.log_scalar(f"{prefix}nsignals", nsignals)
 
         correct = sum(log.get("correct", 0) for log in logging_outputs)
-        metrics.log_scalar("_correct", correct)
+        metrics.log_scalar(f"_{prefix}correct", correct)
 
         total = sum(log.get("count", 0) for log in logging_outputs)
-        metrics.log_scalar("_total", total)
+        metrics.log_scalar(f"_{prefix}total", total)
 
         if total > 0:
             metrics.log_derived(
-                "accuracy",
+                f"{prefix}accuracy",
                 lambda meters: safe_round(
-                    meters["_correct"].sum / meters["_total"].sum, 5
+                    meters[f"_{prefix}correct"].sum / meters[f"_{prefix}total"].sum, 5
                 )
-                if meters["_total"].sum > 0
+                if meters[f"_{prefix}total"].sum > 0
                 else float("nan")
             )
         
@@ -175,11 +181,11 @@ class ThreeKGCriterion(BaseCriterion):
                 val = sum(log.get(k,0) for log in logging_outputs)
                 if k.startswith("loss"):
                     metrics.log_scalar(
-                        k, val / (sample_size or 1) / math.log(2), sample_size, round = 3
+                        prefix + k, val / (sample_size or 1) / math.log(2), sample_size, round=3
                     )
                 else:
-                    metrics.log_scalar(k, val / len(logging_outputs), round = 3)
-    
+                    metrics.log_scalar(prefix + k, val / len(logging_outputs), round=3)
+
     @staticmethod
     def logging_outputs_can_be_summed() -> bool:
         """

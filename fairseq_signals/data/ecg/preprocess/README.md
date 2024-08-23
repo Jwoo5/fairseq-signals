@@ -76,9 +76,11 @@ $ python preprocess_ptbxl.py \
 It will filter ECG samples to have at least two corresponding sessions according to `patient id` and randomly crop 5 seconds.
 
 # Prepare data manifest
+### For pretraining and finetuning with PhysioNet2021
+
 Run:
 ```shell script
-$ python manifest.py \
+$ python manifest_physionet2021.py \
    /path/to/data/ \
    --dest /path/to/manifest \
    --valid-percent $valid
@@ -95,7 +97,9 @@ The expected results are like:
 ```
 Note that `pretrain/train.tsv` is used for pre-training, and `finetune/*.tsv` is used for fine-tuning such as cardiac arrhythmia classification task.
 
-For patient identification task, run:
+### For patient identification task (i.e., PTB-XL)
+
+Run:
 ```shell script
 $ python manifest_identification.py \
    /path/to/data \
@@ -121,3 +125,18 @@ path/to/manifest/identify
 └─ valid_probe.tsv
 ```
 Note: `valid_gallery.tsv` and `valid_probe.tsv` should have been from **PTB-XL** dataset.
+
+### Otherwise (i.e., LUDB, ...)
+Run:
+```shell script
+$ python manifest.py /path/to/data \
+    --dest /path/to/manifest \
+    --valid-percent $valid
+```
+The expected results are:
+```
+/path/to/manifest
+├─ test.tsv
+├─ train.tsv
+└─ valid.tsv
+```
