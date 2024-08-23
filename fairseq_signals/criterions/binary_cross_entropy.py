@@ -45,7 +45,7 @@ class BinaryCrossEntropyCriterion(BaseCriterion):
         self.report_auc = cfg.report_auc
 
     def compute_loss(
-        self, logits, target, sample=None, model=None, net_output=None, reduce=True
+        self, logits, target, sample=None, net_output=None, model=None, reduce=True
     ):
         probs = torch.sigmoid(logits)
         loss = F.binary_cross_entropy(

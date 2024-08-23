@@ -75,7 +75,7 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
         self.per_log_keys = cfg.per_log_keys
 
     def compute_loss(
-        self, logits, target, sample=None, net_ouptut=None, model=None, reduce=True
+        self, logits, target, sample=None, net_output=None, model=None, reduce=True
     ):
         """
         Compute the loss given the final logits and targets directly fed to the loss function
