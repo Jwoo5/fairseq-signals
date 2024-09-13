@@ -32,7 +32,12 @@ __all__ = [
     "DistributedModel"
 ]
 
-def build_model(cfg: Union[Dataclass, Dict], task, from_checkpoint=False):
+def build_model(
+    cfg: Union[Dataclass, Dict],
+    task,
+    from_checkpoint=False,
+    checkpoint_path=None,
+) -> BaseModel:
     model = None
     if isinstance(cfg, Dict):
         cfg = OmegaConf.create(cfg)
@@ -84,7 +89,13 @@ def build_model(cfg: Union[Dataclass, Dict], task, from_checkpoint=False):
         + model_type
     )
 
-    return model.build_model(cfg, task)
+    model_instance = model.build_model(cfg, task)
+    if checkpoint_path is not None and from_checkpoint:
+        from fairseq_signals.utils import checkpoint_utils
+        state = checkpoint_utils.load_checkpoint_to_cpu(checkpoint_path)
+        model_instance.load_state_dict(state["model"], strict=True)
+
+    return model_instance
 
 def register_model(name, dataclass=None):
     """
