@@ -116,7 +116,7 @@ def main(cfg: Config) -> None:
         else:
             for valid_sub_split in cfg.dataset.valid_subset.split(","):
                 task.load_dataset(valid_sub_split, combine = False, epoch = 1)
-    
+
     # Build trainer
     trainer = Trainer(cfg, task, model, criterion)
 
@@ -132,7 +132,6 @@ def main(cfg: Config) -> None:
         )
     )
 
-
     # Load the latest checkpoint if one is available and restore the
     # corresponding train iterator
     extra_state, epoch_itr = checkpoint_utils.load_checkpoint(
@@ -141,7 +140,7 @@ def main(cfg: Config) -> None:
         # don't cache epoch iterators for sharded datasets
         disable_iterator_cache = task.has_sharded_data("train")
     )
-    
+
     max_epoch = cfg.optimization.max_epoch or math.inf
     lr = trainer.get_lr()
 
