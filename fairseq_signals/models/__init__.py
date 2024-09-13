@@ -12,6 +12,7 @@ from contextlib import ExitStack
 
 from fairseq_signals.dataclass import Dataclass
 from fairseq_signals.dataclass.utils import merge_with_parent, populate_dataclass
+from fairseq_signals.utils import checkpoint_utils
 from hydra.core.config_store import ConfigStore
 from omegaconf import open_dict, OmegaConf
 
@@ -91,11 +92,16 @@ def build_model(
 
     model_instance = model.build_model(cfg, task)
     if checkpoint_path is not None and from_checkpoint:
-        from fairseq_signals.utils import checkpoint_utils
         state = checkpoint_utils.load_checkpoint_to_cpu(checkpoint_path)
         model_instance.load_state_dict(state["model"], strict=True)
 
     return model_instance
+
+def build_model_from_checkpoint(checkpoint_path):
+    state = checkpoint_utils.load_checkpoint_to_cpu(checkpoint_path)
+    model_cfg = state["cfg"]["model"]
+    
+    return build_model(model_cfg, task=None, from_checkpoint=True, checkpoint_path=checkpoint_path)
 
 def register_model(name, dataclass=None):
     """
