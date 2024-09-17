@@ -12,7 +12,7 @@ We provide implementations of various deep learning methods on ECG data, includi
 * [CLOCS: Contrastive Learning of Cardiac Signals Across Space, Time, and Patients](https://arxiv.org/abs/2005.13249)
 * [wav2vec 2.0: A Framework for Self-supervised Learning of Speech Representations](https://arxiv.org/abs/2006.11477)
 * [A Simple Framework for Contrastive Learning of Visual Representations](https://arxiv.org/abs/2002.05709)
-
+* [ECG-FM: An Open Electrocardiogram Foundation Model](https://arxiv.org/abs/2408.05178)*
 \* denotes for an official implementation
 
 We will keep implementing new methods in this repo. If you have any recommendations, please contact us via an issue or an e-mail.
