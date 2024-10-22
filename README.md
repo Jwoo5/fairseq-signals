@@ -21,6 +21,10 @@ We will keep implementing new methods in this repo. If you have any recommendati
 # Requirements and Installation
 * [PyTorch](https://pytorch.org) version >= 1.5.0
 * Python version >= 3.6, and <= 3.9
+* PIP version <= 24.0; if your pip version is higher than 24.0, please run:
+    ```bash
+    pip install pip==24.0
+    ```
 * For training new models, you'll also need an NVIDIA GPU and [NCCL](https://github.com/NVIDIA/nccl)
 * **To install fairseq-signals** from source and develop locally:
 
