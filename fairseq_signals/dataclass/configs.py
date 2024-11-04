@@ -480,6 +480,16 @@ class CommonEvalConfig(Dataclass):
             "help": "whether or not to save final logits and targets"
         }
     )
+    extract: Optional[List[str]] = field(
+        default = None,
+        metadata = {
+            "help": (
+                "comma-delimited tensors to extract, including: 'output' for model "
+                "outputs and targets; 'encoder_out' for encoder outputs; and "
+                "'saliency' for model saliency maps"
+            )
+        }
+    )
     results_path: Optional[str] = field(
         default = None,
         metadata = {"help": "path to save eval results (optional)"}

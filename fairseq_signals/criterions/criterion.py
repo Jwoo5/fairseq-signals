@@ -19,19 +19,16 @@ class BaseCriterion(_Loss):
     def __init__(self, task):
         super().__init__()
         self.task = task
-        self.output_store = None
-        self.target_store = None
+
+        self.stores = {}
 
         self.kwargs = {}
         self.is_target_derived = False
 
-    def set_output_store(self, output_store: Any):
-        self.output_store = output_store
+    def set_store(self, store_key: str, store: Any):
+        self.stores[store_key] = store
 
-    def set_target_store(self, target_store: Any):
-        self.target_store = target_store
-
-    def store(self, output: Any, target: Any):
+    def store(self, output: Any, target: Any, net_output: Any):
         if dist_utils.get_data_parallel_world_size() > 1:
             group = dist_utils.get_data_parallel_group()
             output = torch.cat(dist_utils.batch_all_gather(output, group=group))
@@ -39,19 +36,21 @@ class BaseCriterion(_Loss):
             if target is not None:
                 target = torch.cat(dist_utils.batch_all_gather(target, group=group))
 
-        if self.output_store is not None:
-            self.output_store(output)
+        if 'output' in self.stores:
+            self.stores['output'](output)
 
-        if self.target_store is not None:
-            # is it okay to store None object?
-            self.target_store(target)
+        if 'target' in self.stores:
+            self.stores['target'](target)
+
+        if 'encoder_out' in self.stores:
+            self.stores['encoder_out'](net_output['encoder_out'])
+
+        if 'padding_mask' in self.stores:
+            self.stores['padding_mask'](net_output['padding_mask'])
 
     def close_stores(self):
-        if self.output_store is not None:
-            self.output_store.close()
-
-        if self.target_store is not None:
-            self.target_store.close()
+        for store in self.stores.values():
+            store.close()
 
     @classmethod
     def add_args(cls, parser):
@@ -59,7 +58,7 @@ class BaseCriterion(_Loss):
         dc = getattr(cls, "__dataclass", None)
         if dc is not None:
             gen_parser_from_dataclass(parser, dc())
-        
+
     @classmethod
     def build_criterion(cls, cfg: Dataclass, task):
         """Construct a crtierion from command-line args."""
@@ -130,7 +129,7 @@ class BaseCriterion(_Loss):
             targets = None
 
         if save_outputs:
-            self.store(logits, targets)
+            self.store(logits, targets, net_output)
 
         # TODO check logits before / after self.compute_loss(...)
         loss, losses_to_log = self.compute_loss(

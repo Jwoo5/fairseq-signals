@@ -7,6 +7,13 @@ import numpy as np
 
 import fairseq_signals.distributed.utils as dist_utils
 
+STORE_KEYS = {
+    'output': f'outputs',
+    'target': f'targets',
+    'encoder_out': f'encoder_out',
+    'padding_mask': f'padding_mask',
+}
+
 def normalize_ext(ext: Optional[str], include_period: bool = True) -> Optional[str]:
     """Normalize the format of a file extension.
 
@@ -368,19 +375,15 @@ class MemmapBatchWriter(MemmapReader):
         return self._is_closed
 
 def initialize_store(
+    save_path,
     dtype,
-    save_file,
     shape,
-    save_directory=None,
 ):
     # Handle stores
     if (
         dist_utils.get_data_parallel_world_size() == 1
         or dist_utils.get_data_parallel_rank() == 0
     ):
-        if save_directory is not None:
-            save_path = os.path.join(save_directory, save_file)
-
         store = MemmapBatchWriter(
             save_path,
             shape,
@@ -392,57 +395,21 @@ def initialize_store(
 
     return None
 
-def initialize_stores(
-    dtype,
-    store_id,
-    outputs_shape,
-    targets_shape,
-    save_directory=None,
-):
-    # Handle stores
-    if (
-        dist_utils.get_data_parallel_world_size() == 1
-        or dist_utils.get_data_parallel_rank() == 0
-    ):
-        outputs_path = f'outputs_{store_id}.npy'
-        output_store = initialize_store(
-            dtype,
-            outputs_path,
-            outputs_shape,
-            save_directory=save_directory,
-        )
-        targets_path = f'targets_{store_id}.npy'
-        target_store = initialize_store(
-            dtype,
-            targets_path,
-            targets_shape,
-            save_directory=save_directory,
-        )
-
-        return output_store, target_store
-
-    return None
-
 def initialize_stores_to_criterion(
+    store_info,
     dtype,
     criterion,
-    store_id,
-    outputs_shape,
-    targets_shape,
-    save_directory=None,
+    save_directory,
 ):
-    stores = initialize_stores(
-        dtype,
-        store_id,
-        outputs_shape,
-        targets_shape,
-        save_directory=save_directory,
-    )
-
-    if stores is not None:
-        output_store, target_store = stores
-        criterion.set_output_store(output_store)
-        criterion.set_target_store(target_store)
+    stores = {}
+    for store_key, (filename, shape) in store_info.items():
+        store = initialize_store(
+            os.path.join(save_directory, filename),
+            dtype,
+            shape,
+        )
+        if store is not None:
+            criterion.set_store(store_key, store)
 
 def store(
     store: MemmapBatchWriter,

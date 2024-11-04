@@ -18,7 +18,7 @@ from fairseq_signals import distributed_utils
 from fairseq_signals.utils import checkpoint_utils, options, utils
 from fairseq_signals.dataclass.utils import convert_namespace_to_omegaconf
 from fairseq_signals.logging import metrics, progress_bar
-from fairseq_signals.utils.store import initialize_stores_to_criterion
+from fairseq_signals.utils.store import STORE_KEYS, initialize_stores_to_criterion
 
 logging.basicConfig(
     format="%(asctime)s | %(levelname)s | %(name)s | %(message)s",
@@ -139,31 +139,81 @@ def main(cfg: DictConfig, override_args=None):
         _dummy_batch = batch_iterator.first_batch
         is_dummy_batch = False
 
-        # Initialize stores
-        if cfg.common_eval.save_outputs:
-            # infer the shape of the outputs
+        # Initialize stores for tensor extraction
+        if cfg.common_eval.extract:
+            if cfg.common_eval.results_path is None:
+                raise ValueError(
+                    "common_eval.results_path must be set with common_eval.extract."
+                )
+            # Convert to a list
+            cfg.common_eval.extract = [
+                item.strip() for item in cfg.common_eval.extract
+            ]
+
+            dummies = {}
             with torch.no_grad():
-                dummy = utils.move_to_cuda(_dummy_batch) if use_cuda else _dummy_batch
-                dummy = _fp_convert_sample(dummy)
-                
+                # Extract dummy batch
+                dummy_batch = utils.move_to_cuda(_dummy_batch) if use_cuda else _dummy_batch
+                dummy_batch = _fp_convert_sample(dummy_batch)
+
                 model.eval()
-                net_output = model(**dummy["net_input"])
-                dummy_logits = model.get_logits(net_output)
-                dummy_targets = model.get_targets(dummy, net_output)
-            # logits and targets could be multiple for the purpose of composite criterion
-            if not isinstance(dummy_logits, list):
-                dummy_logits = [dummy_logits]
-                dummy_targets = [dummy_targets]
-            underlying_criterions = getattr(criterion, "underlying_criterions", [criterion])
-            for i, (l, t) in enumerate(zip(dummy_logits, dummy_targets)):
-                logits_shape = (len(dataset),) + tuple(l.shape[1:])
-                targets_shape = (len(dataset),) + tuple(t.shape[1:])
+
+                if 'output' in cfg.common_eval.extract or \
+                    'encoder_out' in cfg.common_eval.extract:
+                    net_output = model(**dummy_batch["net_input"])
+
+                if 'output' in cfg.common_eval.extract:
+                    dummies['output'] = model.get_logits(net_output)
+                    dummies['target'] = model.get_targets(dummy_batch, net_output)
+
+                if 'encoder_out' in cfg.common_eval.extract:
+                    if 'encoder_out' not in net_output:
+                        raise ValueError(
+                            'Encoder extraction is not supported for this model.'
+                        )
+                    dummies['encoder_out'] = net_output['encoder_out']
+                    if 'padding_mask' in net_output:
+                        dummies['padding_mask'] = net_output['padding_mask']
+
+            underlying_criterions = getattr(
+                criterion,
+                "underlying_criterions",
+                [criterion],
+            )
+
+            # Define the stores inside the criterion(s)
+            if isinstance(list(dummies.values())[0], list):
+                # If the tensors are multiple for the purpose of composite criterion
+                for store_key, tensor_value in dummies.items():
+                    store_info = {}
+                    for i, tensor in enumerate(tensor_value):
+                        shape = (len(dataset),) + tuple(tensor.shape[1:])
+                        store_info[store_key] = \
+                            (f'{STORE_KEYS[store_key]}_{subset}_{i}.npy', shape)
+
+                    initialize_stores_to_criterion(
+                        dtype="float16" if cfg.common.fp16 else "float32",
+                        criterion=underlying_criterions[i],
+                        store_info=store_info,
+                        save_directory=cfg.common_eval.results_path,
+                    )
+            else:
+                # If the tensors are single, i.e., not a composite criterion
+                store_info = {}
+                for store_key, tensor in dummies.items():
+                    if tensor is None:
+                        continue
+
+                    shape = (len(dataset),) + tuple(tensor.shape[1:])
+                    store_info[store_key] = (
+                        f'{STORE_KEYS[store_key]}_{subset}.npy',
+                        shape,
+                    )
+
                 initialize_stores_to_criterion(
                     dtype="float16" if cfg.common.fp16 else "float32",
-                    criterion=underlying_criterions[i],
-                    store_id=subset,
-                    outputs_shape=logits_shape,
-                    targets_shape=targets_shape,
+                    criterion=underlying_criterions[0],
+                    store_info=store_info,
                     save_directory=cfg.common_eval.results_path,
                 )
 
