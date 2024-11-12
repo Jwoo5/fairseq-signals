@@ -100,7 +100,10 @@ def build_model(
 def build_model_from_checkpoint(checkpoint_path):
     state = checkpoint_utils.load_checkpoint_to_cpu(checkpoint_path)
     model_cfg = state["cfg"]["model"]
-    
+    # set `no_pretrained_weights` to True as we will load the whole model weights eventually
+    if hasattr(model_cfg, "no_pretrained_weights") and not model_cfg.no_pretrained_weights:
+        model_cfg.no_pretrained_weights = True
+
     return build_model(model_cfg, task=None, from_checkpoint=True, checkpoint_path=checkpoint_path)
 
 def register_model(name, dataclass=None):
