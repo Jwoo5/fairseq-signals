@@ -32,6 +32,8 @@ class BaseCriterion(_Loss):
         if dist_utils.get_data_parallel_world_size() > 1:
             group = dist_utils.get_data_parallel_group()
             output = torch.cat(dist_utils.batch_all_gather(output, group=group))
+            net_output = torch.cat(dist_utils.batch_all_gather(net_output, group=group))
+
             # some models & criterions do not yield targets
             if target is not None:
                 target = torch.cat(dist_utils.batch_all_gather(target, group=group))
@@ -111,7 +113,7 @@ class BaseCriterion(_Loss):
         """
         raise NotImplementedError("Criterion must implement the `log` method")
 
-    def forward(self, model, sample, reduce=True, save_outputs=False):
+    def forward(self, model, sample, reduce=True):
         """Compute the loss for the given sample.
 
         Returns a tuple with three elements:
@@ -128,8 +130,7 @@ class BaseCriterion(_Loss):
         else:
             targets = None
 
-        if save_outputs:
-            self.store(logits, targets, net_output)
+        self.store(logits, targets, net_output)
 
         # TODO check logits before / after self.compute_loss(...)
         loss, losses_to_log = self.compute_loss(

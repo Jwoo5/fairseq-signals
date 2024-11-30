@@ -474,12 +474,6 @@ class CommonEvalConfig(Dataclass):
             "help": "a dictionary used to override model args at generation that were used during model training"
         }
     )
-    save_outputs: bool = field(
-        default=False,
-        metadata={
-            "help": "whether or not to save final logits and targets"
-        }
-    )
     extract: Optional[List[str]] = field(
         default = None,
         metadata = {

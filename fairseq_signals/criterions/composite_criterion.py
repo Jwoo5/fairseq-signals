@@ -114,8 +114,7 @@ class CompositeCriterion(BaseCriterion):
                     f"using composite criterion, please check: {criterion.__class__}"
                 )
 
-            if save_outputs:
-                criterion.store(logit, target)
+            criterion.store(logit, target, net_output)
 
             partial_loss, partial_losses_to_log = self.loss_weights[i] * criterion.compute_loss(
                 logits=logit,
