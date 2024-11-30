@@ -256,7 +256,6 @@ def main(cfg: DictConfig, override_args=None):
                     model,
                     criterion,
                     subset,
-                    save_outputs=cfg.common_eval.save_outputs
                 )
                 if not is_dummy_batch:
                     log_outputs.append(log_output)
