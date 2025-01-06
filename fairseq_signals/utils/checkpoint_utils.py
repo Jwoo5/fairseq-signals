@@ -308,7 +308,8 @@ def get_maybe_sharded_checkpoint_filename(
 
 def load_model_and_task(
     filename,
-    arg_overrides: Optional[Dict[str, Any]] = None,
+    checkpoint_overrides: Optional[Dict[str, Any]] = None,
+    model_overrides: Optional[Dict[str, Any]] = None, 
     task=None,
     strict=True,
     suffix="",
@@ -333,7 +334,7 @@ def load_model_and_task(
         if not PathManager.exists(filename):
             raise IOError("Model file not found: {}".format(filename))
         if state is None:
-            state = load_checkpoint_to_cpu(filename, arg_overrides)
+            state = load_checkpoint_to_cpu(filename, checkpoint_overrides)
         if "args" in state and state["args"] is not None:
             cfg = convert_namespace_to_omegaconf(state["args"])
         elif "cfg" in state and state["cfg"] is not None:
@@ -342,7 +343,12 @@ def load_model_and_task(
             raise RuntimeError(
                 f"Neither args nor cfg exist in state keys = {state.keys()}"
             )
-    
+
+    # Temporarily disable struct mode for cfg., allowing the introduction of new keys
+    with open_dict(cfg.model):
+        if model_overrides is not None:
+            cfg.model.update(model_overrides)
+
     if task is None:
         task = tasks.setup_task(cfg.task, from_checkpoint=True)
     

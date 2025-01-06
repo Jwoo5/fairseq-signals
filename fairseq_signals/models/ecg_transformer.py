@@ -123,7 +123,8 @@ class ECGTransformerModel(TransformerModel):
         **kwargs
     ):
         x, padding_mask = self.get_embeddings(source, padding_mask)
-        x = self.get_output(x, padding_mask)
+        res = self.get_output(x, padding_mask)
+        x = res["x"]
 
         if self.cfg.all_gather and dist_utils.get_data_parallel_world_size() > 1:
             # we should apply padding mask here if all_gather is true since we cannot assure whether
@@ -133,7 +134,9 @@ class ECGTransformerModel(TransformerModel):
                 padding_mask = None
             x = torch.cat(GatherLayer.apply(x), dim=0)
 
-        return {"x": x, "padding_mask": padding_mask}
+        ret = {"x": x, "padding_mask": padding_mask, "saliency": res["saliency"]}
+
+        return ret
 
     def get_embeddings(self, source, padding_mask):
         if self.feature_grad_mult > 0:
@@ -185,8 +188,8 @@ class ECGTransformerModel(TransformerModel):
         return x, padding_mask
 
     def get_output(self, x, padding_mask=None):
-        x = self.encoder(x, padding_mask=padding_mask)
-        return x
+        res = self.encoder(x, padding_mask=padding_mask)
+        return res
 
     def extract_features(self, source, padding_mask):
         res = self.forward(source, padding_mask=padding_mask)

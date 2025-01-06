@@ -17,6 +17,7 @@ class TransformerEncoderLayer(nn.Module):
         attention_dropout: float = 0.1,
         activation_dropout: float = 0.1,
         layer_norm_first: bool = False,
+        need_weights: bool = False,
     ):
         super().__init__()
         self.embed_dim = embed_dim
@@ -47,12 +48,13 @@ class TransformerEncoderLayer(nn.Module):
         # layer norm associated with the position wise feed-forward NN
         self.final_layer_norm = LayerNorm(self.embed_dim)
 
+        self.need_weights = need_weights
+
     def forward(
         self,
         x: torch.Tensor,
         self_attn_mask: torch.Tensor = None,
         self_attn_padding_mask: torch.Tensor = None,
-        need_weights: bool = False,
         att_args=None,
     ):
         """
@@ -69,7 +71,7 @@ class TransformerEncoderLayer(nn.Module):
                 value=x,
                 key_padding_mask=self_attn_padding_mask,
                 attn_mask=self_attn_mask,
-                need_weights=False,
+                need_weights=self.need_weights,
             )
             x = self.dropout1(x)
             x = residual + x
@@ -91,7 +93,7 @@ class TransformerEncoderLayer(nn.Module):
                 value=x,
                 key_padding_mask=self_attn_padding_mask,
                 attn_mask=self_attn_mask,
-                need_weights=False,
+                need_weights=self.need_weights,
             )
 
             x = self.dropout1(x)
