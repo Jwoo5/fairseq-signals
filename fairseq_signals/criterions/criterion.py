@@ -50,6 +50,9 @@ class BaseCriterion(_Loss):
         if 'padding_mask' in self.stores:
             self.stores['padding_mask'](net_output['padding_mask'])
 
+        if 'saliency' in self.stores:
+            self.stores['saliency'](net_output['saliency'])
+
     def close_stores(self):
         for store in self.stores.values():
             store.close()

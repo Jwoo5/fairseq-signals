@@ -53,16 +53,34 @@ def main(cfg: DictConfig, override_args=None):
         overrides["task"]["data"] = cfg.task.data
     else:
         overrides["task"] = {"data": cfg.task.data}
-    model_overrides = eval(getattr(cfg.common_eval, "model_overrides", "{}"))
+
+    checkpoint_overrides = eval(getattr(cfg.common_eval, "model_overrides", "{}"))
     # force not to load pretrained checkpoint when building a new model instance
-    model_overrides.update({"model_path": None, "no_pretrained_weights": True})
-    overrides.update(model_overrides)
+    checkpoint_overrides.update({"model_path": None, "no_pretrained_weights": True})
+    overrides.update(checkpoint_overrides)
+
+    # Process 'extract' argument
+    model_overrides = {}
+    if cfg.common_eval.extract:
+        if cfg.common_eval.results_path is None:
+            raise ValueError(
+                "common_eval.results_path must be set with common_eval.extract."
+            )
+        # Convert to a list
+        cfg.common_eval.extract = [
+            item.strip() for item in cfg.common_eval.extract
+        ]
+
+        # If extracting saliency, update the model definition 
+        if "saliency" in cfg.common_eval.extract:
+            model_overrides["saliency"] = True
 
     # Load model
     logger.info(f"loading model from {cfg.common_eval.path}")
     model, saved_cfg, task = checkpoint_utils.load_model_and_task(
         cfg.common_eval.path,
-        arg_overrides=overrides,
+        checkpoint_overrides=overrides,
+        model_overrides=model_overrides,
         suffix=cfg.checkpoint.checkpoint_suffix
     )
 
@@ -140,16 +158,7 @@ def main(cfg: DictConfig, override_args=None):
         is_dummy_batch = False
 
         # Initialize stores for tensor extraction
-        if cfg.common_eval.extract:
-            if cfg.common_eval.results_path is None:
-                raise ValueError(
-                    "common_eval.results_path must be set with common_eval.extract."
-                )
-            # Convert to a list
-            cfg.common_eval.extract = [
-                item.strip() for item in cfg.common_eval.extract
-            ]
-
+        if cfg.common_eval.extract is not None:
             dummies = {}
             with torch.no_grad():
                 # Extract dummy batch
@@ -158,8 +167,10 @@ def main(cfg: DictConfig, override_args=None):
 
                 model.eval()
 
-                if 'output' in cfg.common_eval.extract or \
-                    'encoder_out' in cfg.common_eval.extract:
+                if any(
+                    obj in cfg.common_eval.extract for obj in \
+                    ['output', 'encoder_out', 'saliency']
+                ):
                     net_output = model(**dummy_batch["net_input"])
 
                 if 'output' in cfg.common_eval.extract:
@@ -174,6 +185,13 @@ def main(cfg: DictConfig, override_args=None):
                     dummies['encoder_out'] = net_output['encoder_out']
                     if 'padding_mask' in net_output:
                         dummies['padding_mask'] = net_output['padding_mask']
+
+                if 'saliency' in cfg.common_eval.extract:
+                    if 'saliency' not in net_output:
+                        raise ValueError(
+                            'Saliency extraction is not supported for this model.'
+                        )
+                    dummies['saliency'] = net_output['saliency']
 
             underlying_criterions = getattr(
                 criterion,

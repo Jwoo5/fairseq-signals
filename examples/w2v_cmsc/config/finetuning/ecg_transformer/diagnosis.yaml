@@ -69,3 +69,5 @@ model:
   feature_grad_mult: 0.0
   freeze_finetune_updates: 0
   in_d: 12
+
+  saliency: false

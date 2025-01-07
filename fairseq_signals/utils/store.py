@@ -8,10 +8,11 @@ import numpy as np
 import fairseq_signals.distributed.utils as dist_utils
 
 STORE_KEYS = {
-    'output': f'outputs',
-    'target': f'targets',
-    'encoder_out': f'encoder_out',
-    'padding_mask': f'padding_mask',
+    'output': 'outputs',
+    'target': 'targets',
+    'encoder_out': 'encoder_out',
+    'padding_mask': 'padding_mask',
+    'saliency': 'saliency',
 }
 
 def normalize_ext(ext: Optional[str], include_period: bool = True) -> Optional[str]:
@@ -420,3 +421,51 @@ def store(
         values = torch.cat(dist_utils.batch_all_gather(values, group=group))
 
     store(values)
+
+def memmap_batch_process(
+    array: np.memmap,
+    func: callable,
+    batch_size: int,
+    progress: bool = False,
+    **func_kwargs,
+) -> np.ndarray:
+    """
+    Processes a numpy memmap array in batches, applying a specified function to each batch,
+    and returning a standard numpy array that potentially has a different size from the input array.
+
+    Parameters
+    ----------
+    array : np.memmap
+        The memmap array to be processed.
+    func : callable
+        The function to apply to each batch of the array. This function must accept a numpy array
+        as input and return a numpy array which can have a different size.
+    batch_size : int
+        The number of elements in each batch.
+    progress : bool
+        Whether to show the batch progress.
+    **func_kwargs
+        Additional keyword arguments to pass to the function `func`.
+
+    Returns
+    -------
+    np.ndarray
+        A new numpy array containing the processed results.
+    """
+    num_elements = array.shape[0]
+    results = []  # to store results of processing each batch
+
+    iterator = range(0, num_elements, batch_size)
+    if progress:
+        iterator = tqdm(iterator)
+
+    for start_idx in iterator:
+        end_idx = start_idx + batch_size
+        if end_idx > num_elements:
+            end_idx = num_elements
+        # Apply the function and store the result
+        processed_batch = func(array[start_idx:end_idx], **func_kwargs)
+        results.append(processed_batch)
+
+    # Concatenate all processed results into one numpy array
+    return np.concatenate(results)
