@@ -200,9 +200,6 @@ class ECGPretrainingConfig(Dataclass):
         }
     )
     criterion_name: Optional[str] = II("criterion._name")
-    #XXX to be removed
-    model_name: Optional[str] = None
-    clocs_mode: Optional[str] = None
 
 @register_task("ecg_pretraining", dataclass = ECGPretrainingConfig)
 class ECGPretrainingTask(Task):
