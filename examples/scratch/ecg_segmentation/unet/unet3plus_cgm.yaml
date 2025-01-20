@@ -1,0 +1,73 @@
+common:
+  fp16: false
+  log_format: json
+  log_interval: 10
+  # wandb_entity: ecg-pretraining
+  # wandb_project: ecg-segmentation
+
+checkpoint:
+  save_dir: checkpoints
+  save_interval: 100
+  keep_last_epochs: 10
+  save_interval_updates: 0
+  no_epoch_checkpoints: false
+
+task:
+  _name: ecg_segmentation
+  data: ???
+  apply_cgm: true
+  # perturbation_mode: ["powerline_noise", "emg_noise", "baseline_shift", "baseline_wander"]
+  # p: [0.2, 0.2, 0.2, 0.2]
+  sample_rate: 500
+  dependency: false
+  normalize: false
+  enable_padding: true
+
+dataset:
+  num_workers: 0
+  max_tokens: null
+  batch_size: 16
+  valid_subset: "valid,test"
+  validate_interval: 1
+
+distributed_training:
+  distributed_world_size: 1
+
+criterion:
+  _name: composite_criterion
+  criterion_names: [cross_entropy, binary_cross_entropy_with_logits]
+  args:
+    cross_entropy:
+      _name: cross_entropy
+      focal_loss: true
+    binary_cross_entropy_with_logits:
+      _name: binary_cross_entropy_with_logits
+      report_auc: true
+
+optimization:
+  max_epoch: 500
+  max_update: 60000
+  lr: [0.003]
+
+optimizer:
+  _name: adam
+  adam_betas: (0.9, 0.98)
+  adam_eps: 1e-08
+
+lr_scheduler:
+  _name: tri_stage
+  phase_ratio: [0.1, 0.2, 0.7]
+  final_lr_scale: 0.01
+
+model:
+  _name: unet_cgm_segmentor
+  backbone: unet3plus
+  label_idx:
+    p: 0
+    qrs: 1
+    t: 2
+    none: 3
+
+  num_labels: ???
+  model_path: null
+  no_pretrained_weights: true
