@@ -42,13 +42,12 @@ class ECGTransformerClassificationModel(ECGTransformerFinetuningModel):
             return sample["label"].float()
         else:
             return sample["label"]
-    
+
     def forward(self, **kwargs):
         res = super().forward(**kwargs)
-
         x = res["x"]
         padding_mask = res["padding_mask"]
-        
+
         x = self.final_dropout(x)
         if padding_mask is not None and padding_mask.any():
             x[padding_mask] = 0
@@ -61,4 +60,5 @@ class ECGTransformerClassificationModel(ECGTransformerFinetuningModel):
             "encoder_out": res["x"].detach(),
             "padding_mask": padding_mask,
             "out": x,
+            "saliency": None if res["saliency"] is None else res["saliency"].detach(),
         }

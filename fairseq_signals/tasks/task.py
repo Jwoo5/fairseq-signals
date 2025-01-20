@@ -353,10 +353,10 @@ class Task(object):
 
         return loss, sample_size, logging_output
     
-    def valid_step(self, sample, model, criterion, subset=None, save_outputs=False):
+    def valid_step(self, sample, model, criterion, subset=None):
         model.eval()
         with torch.no_grad():
-            loss, sample_size, logging_output = criterion(model, sample, save_outputs=save_outputs)
+            loss, sample_size, logging_output = criterion(model, sample)
         return loss, sample_size, logging_output
     
     def optimizer_step(self, optimizer, model, update_num):

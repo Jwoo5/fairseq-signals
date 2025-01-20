@@ -474,10 +474,14 @@ class CommonEvalConfig(Dataclass):
             "help": "a dictionary used to override model args at generation that were used during model training"
         }
     )
-    save_outputs: bool = field(
-        default=False,
-        metadata={
-            "help": "whether or not to save final logits and targets"
+    extract: Optional[List[str]] = field(
+        default = None,
+        metadata = {
+            "help": (
+                "comma-delimited tensors to extract, including: 'output' for model "
+                "outputs and targets; 'encoder_out' for encoder outputs; and "
+                "'saliency' for model saliency maps"
+            )
         }
     )
     results_path: Optional[str] = field(

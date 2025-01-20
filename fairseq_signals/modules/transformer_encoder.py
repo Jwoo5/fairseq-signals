@@ -4,6 +4,7 @@
 # LICENSE file in the root directory of this source tree.
 
 import numpy as np
+import torch
 import torch.nn as nn
 import torch.nn.functional as F
 
@@ -49,6 +50,7 @@ class TransformerEncoder(nn.Module):
 
         self.dropout = args.dropout
         self.embed_dim = args.encoder_embed_dim
+        self.need_weights = args.saliency
 
         self.layers = nn.ModuleList(
             [
@@ -60,6 +62,7 @@ class TransformerEncoder(nn.Module):
                     attention_dropout=args.attention_dropout,
                     activation_dropout=args.activation_dropout,
                     layer_norm_first=args.layer_norm_first,
+                    need_weights=self.need_weights,
                 ) for _ in range(args.encoder_layers)
             ]
         )
@@ -76,18 +79,22 @@ class TransformerEncoder(nn.Module):
         padding_mask=None,
         attn_mask=None,
     ):
-        x = self.extract_features(x, padding_mask, attn_mask)
+        res = self.extract_features(
+            x,
+            padding_mask,
+            attn_mask,
+        )
 
         if self.layer_norm_first:
-            x = self.layer_norm(x)
+            res["x"] = self.layer_norm(res["x"])
 
-        return x
+        return res
 
     def extract_features(
         self,
         x,
         padding_mask=None,
-        attn_mask=None
+        attn_mask=None,
     ):
         if padding_mask is not None:
             x[padding_mask] = 0
@@ -101,6 +108,7 @@ class TransformerEncoder(nn.Module):
         x = x.transpose(0, 1)
 
         layer_results = []
+        attns = []
         for i, layer in enumerate(self.layers):
             dropout_probability = np.random.random()
             if not self.training or (dropout_probability > self.layerdrop):
@@ -108,11 +116,20 @@ class TransformerEncoder(nn.Module):
                     x,
                     self_attn_padding_mask=padding_mask,
                     self_attn_mask=attn_mask,
-                    need_weights=False
                 )
                 layer_results.append(x)
+
+                # Extract the attention weights
+                if self.need_weights:
+                    (attn, layer_result) = z
+                    attns.append(attn)
+
+        if self.need_weights:
+            attns = torch.transpose(torch.stack(attns), 0, 1)
+        else:
+            attns = None
 
         # T x B x C -> B x T x C
         x = x.transpose(0,1)
 
-        return x
+        return {"x": x, "saliency": attns}
