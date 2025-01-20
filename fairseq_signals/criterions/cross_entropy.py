@@ -51,7 +51,7 @@ class CrossEntropyCriterion(BaseCriterion):
         Compute the loss given the logits and targets from the model
         """
         logits = logits.reshape(-1, logits.size(-1))
-        targets = targets.reshape(-1)
+        target = target.reshape(-1)
 
         loss = F.cross_entropy(
             input=logits,

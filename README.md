@@ -12,6 +12,7 @@ We provide implementations of various deep learning methods on ECG data, includi
 * [CLOCS: Contrastive Learning of Cardiac Signals Across Space, Time, and Patients](https://arxiv.org/abs/2005.13249)
 * [wav2vec 2.0: A Framework for Self-supervised Learning of Speech Representations](https://arxiv.org/abs/2006.11477)
 * [A Simple Framework for Contrastive Learning of Visual Representations](https://arxiv.org/abs/2002.05709)
+* [ECG-FM: An Open Electrocardiogram Foundation Model](https://arxiv.org/abs/2408.05178)*
 
 \* denotes for an official implementation
 
@@ -20,6 +21,10 @@ We will keep implementing new methods in this repo. If you have any recommendati
 # Requirements and Installation
 * [PyTorch](https://pytorch.org) version >= 1.5.0
 * Python version >= 3.6, and <= 3.9
+* PIP version <= 24.0; if your pip version is higher than 24.0, please run:
+    ```bash
+    pip install pip==24.0
+    ```
 * For training new models, you'll also need an NVIDIA GPU and [NCCL](https://github.com/NVIDIA/nccl)
 * **To install fairseq-signals** from source and develop locally:
 
