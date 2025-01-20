@@ -118,8 +118,8 @@ class BlindTransformerQAModel(TransformerModel):
         x_type = self.token_type_embedding(x.new_zeros(x.shape[:-1], dtype=int))
         x += x_type
         
-        x = self.encoder(x, padding_mask=text_padding_mask)
-        
+        x = self.encoder(x, padding_mask=text_padding_mask)["x"]
+
         if text_padding_mask is not None and text_padding_mask.any():
             x[text_padding_mask] = 0
         

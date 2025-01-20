@@ -330,11 +330,18 @@ class Wav2Vec2Model(ECGTransformerModel):
         x_conv = self.conv_pos(x, channel_first=False)
         x = x + x_conv
 
-        x = self.encoder(x, padding_mask = padding_mask)
+        encoder_result = self.encoder(x, padding_mask=padding_mask)
+        x = encoder_result["x"]
+        saliency = encoder_result["saliency"]
 
         if features_only:
-            return {"x": x, "padding_mask" : padding_mask, "features": unmasked_features}
-        
+            return {
+                "x": x,
+                "padding_mask" : padding_mask,
+                "features": unmasked_features,
+                "saliency": saliency,
+            }
+
         if return_features:
             features = x.clone()
 

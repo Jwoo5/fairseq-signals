@@ -292,11 +292,12 @@ class M3AEModel(PretrainingModel):
             uni_modal_ecg_feats, mim_masks, mim_ids_restore = self.random_masking(
                 uni_modal_ecg_feats, self.mim_prob
             )
-            uni_modal_ecg_feats = self.ecg_encoder.get_output(uni_modal_ecg_feats)
+            ecg_result = self.ecg_encoder.get_output(uni_modal_ecg_feats)
             ret["mim_masks"] = mim_masks
             ret["mim_ids_restore"] = mim_ids_restore
         else:
-            uni_modal_ecg_feats = self.ecg_encoder.get_output(uni_modal_ecg_feats, ecg_padding_mask)
+            ecg_result = self.ecg_encoder.get_output(uni_modal_ecg_feats, ecg_padding_mask)
+        uni_modal_ecg_feats = ecg_result["x"]
         uni_modal_ecg_feats = self.multi_modal_ecg_proj(uni_modal_ecg_feats)
 
         if ecg_padding_mask is not None and ecg_padding_mask.any():

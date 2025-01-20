@@ -269,7 +269,8 @@ class MedViLLModel(ECGLanguageTransformerModel):
             )
         else:
             attn_mask = None
-        features = self.encoder(x, padding_mask=padding_mask, attn_mask=attn_mask)
+        x_result = self.encoder(x, padding_mask=padding_mask, attn_mask=attn_mask)
+        features = x_result["x"]
 
         ecg_features = features[:, :ecg_features.size(1)]
         text_features = features[:, ecg_features.size(1):]

@@ -346,9 +346,11 @@ class ECGLanguageTransformerModel(TransformerModel):
         else:
             padding_mask = None
 
-        x = self.encoder(x, padding_mask=padding_mask)
+        res = self.encoder(x, padding_mask=padding_mask)
+        x = res["x"]
+        saliency = res["saliency"]
 
-        return {'x': x, 'padding_mask': padding_mask}
+        return {"x": x, "padding_mask": padding_mask, "saliency": saliency}
 
     def extract_features(
         self,

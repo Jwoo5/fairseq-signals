@@ -109,8 +109,8 @@ class DeafTransformerQAModel(ECGTransformerModel):
             output_lengths = self._get_feat_extract_output_lengths(input_lengths)
             output_length = output_lengths.max()
         
-        x = self.get_output(feats, padding_mask)
-        
+        x = self.get_output(feats, padding_mask)["x"]
+
         feats = x[:, :output_length]
         feats = torch.div(feats.sum(dim=1), (feats != 0).sum(dim=1))
         
