@@ -362,13 +362,12 @@ class ECGPretrainingTask(Task):
         # we do not need to filter by size in this task as dataloaders take care of this
         return indices
 
-    def valid_step(self, sample, model, criterion, subset=None, save_outputs=False):
+    def valid_step(self, sample, model, criterion, subset=None):
         loss, sample_size, logging_output = super().valid_step(
             sample,
             model,
             criterion,
             subset,
-            save_outputs=save_outputs,
         )
 
         return loss, sample_size, logging_output

@@ -88,7 +88,7 @@ class Wav2Vec2Criterion(BaseCriterion):
                     loss += p
                     losses.append(p.detach().item())
 
-        return loss, [losses]
+        return loss, losses
 
     def get_sample_size(self, sample, target):
         """
@@ -225,7 +225,7 @@ class Wav2Vec2WithCMSCCriterion(BaseCriterion):
         self.cmsc_weights = cfg.cmsc_weights
 
     # custom forward function (cannot be used with composite criterion)
-    def forward(self, model, sample, reduce=True, save_outputs=False):
+    def forward(self, model, sample, reduce=True):
         """Compute the loss for the given sample
 
         Returns a tuple with three elements:
@@ -238,8 +238,7 @@ class Wav2Vec2WithCMSCCriterion(BaseCriterion):
         features = model.get_features(net_output, aggregate=True).float()
         w2v_target = model.get_targets(sample, net_output)
 
-        if save_outputs:
-            self.store(logits, w2v_target.float())
+        self.store(logits, w2v_target.float(), net_output)
 
         weights = None
         if hasattr(model, "get_target_weights") and not self.infonce:
