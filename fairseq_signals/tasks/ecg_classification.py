@@ -18,7 +18,7 @@ class ECGClassificationConfig(ECGPretrainingConfig):
     path_dataset: bool = field(
         default=False,
         metadata={
-            "help": "whether to load dataset based on file path, instead of direct file in itself "
+            "help": "whether to load dataset based on file path, instead of direct file in itself. "
             "note that this dataset is also used for multi head classification"
         }
     )

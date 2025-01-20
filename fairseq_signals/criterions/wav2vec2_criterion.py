@@ -88,7 +88,7 @@ class Wav2Vec2Criterion(BaseCriterion):
                     loss += p
                     losses.append(p.detach().item())
 
-        return loss, [losses]
+        return loss, losses
 
     def get_sample_size(self, sample, target):
         """

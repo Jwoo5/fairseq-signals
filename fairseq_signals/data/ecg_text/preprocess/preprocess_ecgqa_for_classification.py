@@ -17,7 +17,7 @@ def get_parser():
     parser = argparse.ArgumentParser()
     parser.add_argument(
         "root", metavar="DIR", default=".",
-        help='root directory containing ptbxl files to pre-process'
+        help='root directory containing ecg-qa files to pre-process'
     )
     parser.add_argument(
         "--dest", type=str, metavar="DIR", default=".",
