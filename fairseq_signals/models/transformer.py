@@ -37,6 +37,9 @@ class TransformerConfig(PretrainingConfig):
     layer_norm_first: bool = field(
         default=False, metadata={"help": "apply layernorm first in the transformer"}
     )
+    saliency: bool = field(
+        default=False, metadata={"help": "whether to extract self-attention weights"}
+    )
 
     # dropouts
     dropout: float = field(

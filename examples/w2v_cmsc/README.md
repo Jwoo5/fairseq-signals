@@ -39,7 +39,7 @@ $ fairseq-hydra-train \
 $ fairseq-hydra-train \
     task.data=/path/to/manifest/finetune \
     model.model_path=/path/to/checkpoint.pt \
-    --config-dir examples/w2v_cmsc/config/finetuning \
+    --config-dir examples/w2v_cmsc/config/finetuning/ecg_transformer \
     --config-name diagnosis
 ```
 If you want to use CinC score as an evaluation metric, add command line parameters (before `--config-dir`)
@@ -53,7 +53,7 @@ $ fairseq-hydra-train \
     task.data=/path/to/manifest/identify \
     model.model_path=/path/to/checkpoint.pt \
     model.num_labels=$N \
-    --config-dir examples/w2v_cmsc/config/finetuning \
+    --config-dir examples/w2v_cmsc/config/finetuning/ecg_transformer \
     --config-name identification
 ```
 `$N` should be set to the number of unique patients in the training dataset. You can manually open `/path/to/manifest/identify/train.tsv` file and check the last line of that file. For example, if the last line is like `*.mat 2500 69977`, then `$N` should be set to `69978`.

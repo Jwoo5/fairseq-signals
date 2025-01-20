@@ -129,20 +129,6 @@ class BinaryCrossEntropyCriterion(BaseCriterion):
 
             metrics.log_custom(meters.AUCMeter, f"_{prefix}auc", y_score, y_true)
 
-            if len(y_true) > 0:
-                metrics.log_derived(
-                    f"{prefix}auroc",
-                    lambda meters: safe_round(
-                        meters[f"_{prefix}auc"].auroc, 3
-                    )
-                )
-                metrics.log_derived(
-                    f"{prefix}auprc",
-                    lambda meters: safe_round(
-                        meters[f"_{prefix}auc"].auprc, 3
-                    )
-                )
-
         if nsignals > 0:
             metrics.log_scalar(f"{prefix}nsignals", nsignals)
 

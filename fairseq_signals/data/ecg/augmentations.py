@@ -51,7 +51,7 @@ class PowerlineNoise(object):
         self.min_amplitude = min_amplitude
         self.freq = freq
         self.p = p
-        self.denpendency = dependency
+        self.dependency = dependency
 
     def __call__(self, sample):
         new_sample = sample.clone()
@@ -61,7 +61,7 @@ class PowerlineNoise(object):
             f = 50 if np.random.uniform(0,1) > 0.5 else 60
             noise = self._apply_powerline_noise(tsz, f)
             new_sample = new_sample + noise * amp
-            if self.denpendency:
+            if self.dependency:
                 new_sample = adjust_channel_dependency(new_sample)
         return new_sample.float()
 
@@ -129,8 +129,7 @@ class BaselineShift(object):
                 segment_len = np.random.normal(shift_length, shift_length*0.2)
                 t0 = int(np.random.uniform(0, tsz-segment_len))
                 t = int(t0+segment_len)
-                c = np.array([i for i in range(12)])
-                noise[c, t0:t] = 1
+                noise[:, t0:t] = 1
             new_sample = new_sample + noise * amp
             if self.dependency:
                 new_sample = adjust_channel_dependency(new_sample)
@@ -163,13 +162,12 @@ class BaselineWander(object):
         if self.p > np.random.uniform(0,1):
             csz, tsz = new_sample.shape
             amp_channel = np.random.normal(1, 0.5, size=(csz, 1))
-            c = np.array([i for i in range(12)])
             amp_general = np.random.uniform(self.min_amplitude, self.max_amplitude, size=self.k)
             noise = np.zeros(shape=(1, tsz))
             for k in range(self.k):
                 noise += self._apply_baseline_wander(tsz) * amp_general[k]
             noise = (noise * amp_channel).astype(np.float32)
-            new_sample[c,:] = new_sample[c,:] + noise[c,:]
+            new_sample = new_sample + noise
             if self.dependency:
                 new_sample = adjust_channel_dependency(new_sample)
         return new_sample.float()

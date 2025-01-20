@@ -343,20 +343,6 @@ class BinaryCrossEntropyWithLogitsCriterion(BinaryCrossEntropyCriterion):
 
             metrics.log_custom(meters.AUCMeter, f"_{prefix}auc", y_score, y_true, y_class)
 
-            if len(y_true) > 0:
-                metrics.log_derived(
-                    f"{prefix}auroc",
-                    lambda meters: safe_round(
-                        meters[f"_{prefix}auc"].auroc, 3
-                    )
-                )
-                metrics.log_derived(
-                    f"{prefix}auprc",
-                    lambda meters: safe_round(
-                        meters[f"_{prefix}auc"].auprc, 3
-                    )
-                )
-
         observed_score = sum(log.get("o_score", 0) for log in logging_outputs)
         metrics.log_scalar(f"_{prefix}o_score", observed_score)
 

@@ -204,9 +204,7 @@ class AUCMeter(Meter):
                 # if len(np.unique(y_true_per_class[c])) == 1:
                 #     continue
                 res.append(average_precision_score(y_true=y_true_per_class[c], y_score=y_score_per_class[c]))
-
             res = np.mean(res)
-
         else:
             res =  average_precision_score(y_true=y_true, y_score=y_score, average='micro')
 

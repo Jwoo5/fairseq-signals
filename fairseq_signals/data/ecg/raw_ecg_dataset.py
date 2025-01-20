@@ -143,8 +143,10 @@ class RawECGDataset(BaseDataset):
         return index
 
     def perturb(self, feats):
-        new_feats = feats.clone()
+        if not self.training:
+            return feats
 
+        new_feats = feats.clone()
         for aug in self.aug_list:
             new_feats = aug(new_feats)
 
@@ -162,6 +164,7 @@ class RawECGDataset(BaseDataset):
         feats = self.load_specific_leads(feats, leads_to_load=leads_to_load, pad=self.pad_leads)
 
         if self.filter:
+            import neurokit2 as nk
             feats = torch.from_numpy(
                 np.stack([nk.ecg_clean(l, sampling_rate=500) for l in feats])
             )
@@ -261,7 +264,7 @@ class RawECGDataset(BaseDataset):
 
         sources = [s["source"] for s in samples]
         originals = None
-        if self.retain_original:
+        if self.retain_original and "original" in samples[0]:
             originals = [s["original"] for s in samples]
         sizes = [s.size(-1) for s in sources]
 

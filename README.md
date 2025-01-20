@@ -5,6 +5,7 @@ Fairseq-signals is a collection of deep learning models for ECG data processing 
 We provide implementations of various deep learning methods on ECG data, including official implementations of our works.
 
 ### List of implemented papers:
+* [Deep learning based ECG segmentation for delineation of diverse arrhythmias](https://arxiv.org/abs/2304.06237)
 * [Multi-Modal Masked Autoencoders for Medical Vision-and-Language Pre-Training](https://arxiv.org/abs/2209.07098)
 * [Multi-modal Understanding and Generation for Medical Images and Text via Vision-Language Pre-Training](https://arxiv.org/abs/2105.11333)
 * [Lead-agnostic Self-supervised Learning for Local and Global Representations of Electrocardiogram](https://arxiv.org/abs/2203.06889)*
@@ -78,7 +79,7 @@ $ python fairseq_signals/data/ecg/preprocess/manifest_identification.py \
     --dest /path/to/manifest \
     --valid-percent $valid
 ```
-Please fine more details about pre-processing and data manifest from [here](fairseq_signals/data/ecg/preprocess/README.md).
+Please find more details about pre-processing and data manifest from [here](fairseq_signals/data/ecg/preprocess/README.md).
 
 ## For multi-modal tasks (Multi-modal pre-training or ECG question answering)
 ### Prepare ECG dataset
