@@ -106,7 +106,7 @@ def save_checkpoint(cfg: CheckpointConfig, trainer, epoch_itr, val_loss):
         # remove old checkpoints; checkpoints are sorted in descending order
         if cfg.keep_interval_updates_pattern == -1:
             checkpoints = checkpoint_paths(
-                cfg.save_dir, pattern = r"checkpoint_\d+_(\d+){}\.pt".format(suffix())
+                cfg.save_dir, pattern = r"checkpoint_\d+_(\d+){}\.pt".format(suffix)
             )
         else:
             checkpoints = checkpoint_paths(
