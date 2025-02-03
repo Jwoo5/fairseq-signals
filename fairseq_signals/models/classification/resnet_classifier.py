@@ -131,8 +131,11 @@ class SEWideResidualNetworkClassificationModel(SEWideResidualNetworkFinetuningMo
         return logits
     
     def get_targets(self, sample, net_output, **kwargs):
-        return sample["label"].float()
-    
+        if isinstance(sample["label"], torch.Tensor):
+            return sample["label"].float()
+        else:
+            return sample["label"]
+
     def forward(self, **kwargs):
         res = super().forward(**kwargs)
 
