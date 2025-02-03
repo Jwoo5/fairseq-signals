@@ -53,16 +53,33 @@ def main(cfg: DictConfig, override_args=None):
         overrides["task"]["data"] = cfg.task.data
     else:
         overrides["task"] = {"data": cfg.task.data}
-    model_overrides = eval(getattr(cfg.common_eval, "model_overrides", "{}"))
+    checkpoint_overrides = eval(getattr(cfg.common_eval, "model_overrides", "{}"))
     # force not to load pretrained checkpoint when building a new model instance
-    model_overrides.update({"model_path": None, "no_pretrained_weights": True})
-    overrides.update(model_overrides)
+    checkpoint_overrides.update({"model_path": None, "no_pretrained_weights": True})
+    overrides.update(checkpoint_overrides)
+
+    # Process 'extract' argument
+    model_overrides = {}
+    if cfg.common_eval.extract:
+        if cfg.common_eval.results_path is None:
+            raise ValueError(
+                "common_eval.results_path must be set with common_eval.extract."
+            )
+        # Convert to a list
+        cfg.common_eval.extract = [
+            item.strip() for item in cfg.common_eval.extract
+        ]
+
+        # If extracting saliency, update the model definition 
+        if "saliency" in cfg.common_eval.extract:
+            model_overrides["saliency"] = True
 
     # Load model
     logger.info(f"loading model from {cfg.common_eval.path}")
     model, saved_cfg, task = checkpoint_utils.load_model_and_task(
         cfg.common_eval.path,
-        arg_overrides=overrides,
+        checkpoint_overrides=overrides,
+        model_overrides=model_overrides,
         suffix=cfg.checkpoint.checkpoint_suffix
     )
 
