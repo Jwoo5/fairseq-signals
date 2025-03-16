@@ -134,15 +134,18 @@ def main(args):
         results['cardiac_markers'] = cardiac_markers
 
     # Incorporate machine diagnoses/reports
-    machine_diagnoses = pd.read_csv(
-        os.path.join(args.raw_root, "mimic_iv_ecg_machine_diagnoses.csv")
+    measurements = pd.read_csv(
+        os.path.join(
+            args.raw_root,
+            "mimic-iv-ecg-diagnostic-electrocardiogram-matched-subset-1.0/machine_measurements.csv",
+        ),
+        low_memory=False,
     )
-    records['machine_diagnosis'] = machine_diagnoses['0']
+    reports = measurements[
+        measurements.columns[measurements.columns.str.startswith('report_')]
+    ].fillna('').agg('; '.join, axis=1).str.replace(r'(;\s*)+', '; ', regex=True).str.strip('; ')
 
-    machine_report = pd.read_csv(
-        os.path.join(args.raw_root, "mimic_iv_ecg_machine_report.csv")
-    )
-    records['machine_report'] = machine_report['0']
+    records['machine_report'] = reports
     results['records'] = records
 
     # Save results
