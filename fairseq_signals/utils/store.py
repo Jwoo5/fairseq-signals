@@ -4,6 +4,7 @@ import os
 import pickle
 
 import numpy as np
+import torch
 
 import fairseq_signals.distributed.utils as dist_utils
 

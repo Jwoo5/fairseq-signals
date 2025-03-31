@@ -89,7 +89,9 @@ class Trainer(object):
         self._wrapped_model = None
 
         if self.cuda and self.data_parallel_world_size > 1:
-            self._grad_norm_buf = torch.cuda.DoubleTensor(self.data_parallel_world_size)
+            self._grad_norm_buf = (
+                torch.zeros(self.data_parallel_world_size, dtype=torch.double, device="cuda")
+            )
         else:
             self._grad_norm_buf = None
         
