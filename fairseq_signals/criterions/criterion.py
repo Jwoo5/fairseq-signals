@@ -29,8 +29,12 @@ class BaseCriterion(_Loss):
         self.stores[store_key] = store
 
     def store(self, output: Any, target: Any, net_output: Any):
+        if len(self.stores) == 0:
+            return # do nothing
+
         if dist_utils.get_data_parallel_world_size() > 1:
             group = dist_utils.get_data_parallel_group()
+            # TODO handle when output and net_output are not torch tensors; it usually is python dict
             output = torch.cat(dist_utils.batch_all_gather(output, group=group))
             net_output = torch.cat(dist_utils.batch_all_gather(net_output, group=group))
 
@@ -125,7 +129,7 @@ class BaseCriterion(_Loss):
         3) logging outputs to display while training
         """
         net_output = model(**sample["net_input"])
-        logits = model.get_logits(net_output, sample=sample, **self.kwargs).float()
+        logits = model.get_logits(net_output, sample=sample, **self.kwargs)
         # some models / criterions don't need to implement get_targets as they derive targets from
         # logits (e.g., ThreeKGCriterion, etc)
         if not self.is_target_derived:
