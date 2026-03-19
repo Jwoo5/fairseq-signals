@@ -491,12 +491,12 @@ class CommonEvalConfig(Dataclass):
 
 @dataclass
 class Config(Dataclass):
-    common: CommonConfig = CommonConfig()
-    common_eval: CommonEvalConfig = CommonEvalConfig()
-    distributed_training: DistributedTrainingConfig = DistributedTrainingConfig()
-    dataset: DatasetConfig = DatasetConfig()
-    optimization: OptimizationConfig = OptimizationConfig()
-    checkpoint: CheckpointConfig = CheckpointConfig()
+    common: CommonConfig = field(default_factory=CommonConfig)
+    common_eval: CommonEvalConfig = field(default_factory=CommonEvalConfig)
+    distributed_training: DistributedTrainingConfig = field(default_factory=DistributedTrainingConfig)
+    dataset: DatasetConfig = field(default_factory=DatasetConfig)
+    optimization: OptimizationConfig = field(default_factory=OptimizationConfig)
+    checkpoint: CheckpointConfig = field(default_factory=CheckpointConfig)
     model: Any = MISSING
     task: Any = None
     criterion: Any = None
