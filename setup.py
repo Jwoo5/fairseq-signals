@@ -173,6 +173,8 @@ def do_setup(package_data):
             "Programming Language :: Python :: 3.7",
             "Programming Language :: Python :: 3.8",
             "Programming Language :: Python :: 3.9",
+            "Programming Language :: Python :: 3.10",
+            "Programming Language :: Python :: 3.11",
             "Topic :: Scientific/Engineering :: Artificial Intelligence",
         ],
         long_description=readme,
@@ -195,7 +197,7 @@ def do_setup(package_data):
             "tqdm",
             "scikit-learn",
             "wfdb",
-            "transformers",
+            "transformers>=4.19.0",
         ],
         dependency_links=dependency_links,
         packages=find_packages(

@@ -3,6 +3,7 @@
 # This source code is licensed under the MIT license found in the
 # LICENSE file in the root directory of this source tree.
 
+import dataclasses
 import logging
 from hydra.core.config_store import ConfigStore
 from fairseq_signals.dataclass.configs import Config
@@ -15,7 +16,11 @@ def hydra_init(cfg_name = "config") -> None:
     cs.store(name = cfg_name, node = Config)
 
     for k in Config.__dataclass_fields__:
-        v = Config.__dataclass_fields__[k].default
+        f = Config.__dataclass_fields__[k]
+        v = f.default
+        if v is dataclasses.MISSING and f.default_factory is not dataclasses.MISSING:
+            v = f.default_factory()
+
         try:
             cs.store(name = k, node = v)
         except BaseException:

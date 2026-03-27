@@ -23,6 +23,7 @@ from fairseq_signals.dataclass.utils import (
 )
 from fairseq_signals.distributed.fully_sharded_data_parallel import FSDP, has_FSDP
 from fairseq_signals.utils.file_io import PathManager
+from fairseq_signals.dataclass.utils import omegaconf_no_object_check
 from omegaconf import Container, DictConfig, open_dict, OmegaConf
 
 logger = logging.getLogger(__name__)
@@ -265,7 +266,7 @@ def load_checkpoint_to_cpu(path, arg_overrides = None, load_on_all_ranks = False
         local_path = PathManager.get_local_path(path)
     
     with open(local_path, "rb") as f:
-        state = torch.load(f, map_location=torch.device("cpu"))
+        state = torch.load(f, map_location=torch.device("cpu"), weights_only=False)
 
     if "args" in state and state["args"] is not None and arg_overrides is not None:
         args = state["args"]
@@ -276,14 +277,8 @@ def load_checkpoint_to_cpu(path, arg_overrides = None, load_on_all_ranks = False
 
         # hack to be able to set Namespace in dict config. this should be removed when we update to newer
         # omegaconf version that supports object flags, or when we migrate all existing models
-        from omegaconf import _utils
-
-        old_primitive = _utils.is_primitive_type
-        _utils.is_primitive_type = lambda _: True
-
-        state["cfg"] = OmegaConf.create(state["cfg"])
-
-        _utils.is_primitive_type = old_primitive
+        with omegaconf_no_object_check():
+            state["cfg"] = OmegaConf.create(state["cfg"])
         OmegaConf.set_struct(state["cfg"], True)
 
         if arg_overrides is not None:
