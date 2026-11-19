@@ -58,9 +58,9 @@ def main(args):
             second_root = f.readline().strip()
             second_lines = f.readlines()
         common_root = os.path.commonpath([first_root, second_root])
-        if common_root == "":
-            common_root = "/"
         first_relpath = os.path.relpath(first_root, common_root) + "/"
+        if first_relpath == "./":
+            first_relpath = ""
         second_relpath = os.path.relpath(second_root, common_root) + "/"
 
         with open(os.path.join(dest_path, os.path.basename(x)), "w") as f:
