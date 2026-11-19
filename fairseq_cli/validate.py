@@ -28,6 +28,11 @@ logging.basicConfig(
 )
 logger = logging.getLogger("fairseq_cli.validate")
 
+def _shapes(tensors):
+    if isinstance(tensors, list):
+        return [tuple(t.shape) for t in tensors]
+    return tuple(tensors.shape)
+
 def main(cfg: DictConfig, override_args=None):
     utils.import_user_module(cfg.common)
 
@@ -66,6 +71,7 @@ def main(cfg: DictConfig, override_args=None):
             raise ValueError(
                 "common_eval.results_path must be set with common_eval.extract."
             )
+        os.makedirs(cfg.common_eval.results_path, exist_ok=True)
         # Convert to a list
         cfg.common_eval.extract = [
             item.strip() for item in cfg.common_eval.extract
@@ -159,6 +165,8 @@ def main(cfg: DictConfig, override_args=None):
 
         # Initialize stores for tensor extraction
         if cfg.common_eval.extract is not None:
+            underlying_criterions = getattr(criterion, "underlying_criterions", [criterion])
+
             dummies = {}
             with torch.no_grad():
                 # Extract dummy batch
@@ -177,6 +185,20 @@ def main(cfg: DictConfig, override_args=None):
                     dummies['output'] = model.get_logits(net_output)
                     dummies['target'] = model.get_targets(dummy_batch, net_output)
 
+                    # the criterion stores the outputs computed with the sample, which should
+                    # have the same shape to be stored for each sample
+                    model_kwargs = {}
+                    for c in underlying_criterions:
+                        model_kwargs.update(c.kwargs)
+                    logits = model.get_logits(net_output, sample=dummy_batch, **model_kwargs)
+                    if _shapes(logits) != _shapes(dummies['output']):
+                        raise ValueError(
+                            "Extracting 'output' is not supported for this model, since its "
+                            "outputs are not aligned with the samples (e.g., the outputs of "
+                            "segmentation models are masked by `segment_mask`). To save the "
+                            "outputs of each sample, use `fairseq-hydra-inference` instead."
+                        )
+
                 if 'encoder_out' in cfg.common_eval.extract:
                     if 'encoder_out' not in net_output:
                         raise ValueError(
@@ -193,44 +215,34 @@ def main(cfg: DictConfig, override_args=None):
                         )
                     dummies['saliency'] = net_output['saliency']
 
-            underlying_criterions = getattr(
-                criterion,
-                "underlying_criterions",
-                [criterion],
-            )
+            # Define the stores inside the criterion(s). If the model returns a list of tensors
+            # for a composite criterion, the i-th tensor is stored by the i-th criterion
+            store_infos = [{} for _ in underlying_criterions]
+            for store_key, tensor in dummies.items():
+                if tensor is None:
+                    continue
 
-            # Define the stores inside the criterion(s)
-            if isinstance(list(dummies.values())[0], list):
-                # If the tensors are multiple for the purpose of composite criterion
-                for store_key, tensor_value in dummies.items():
-                    store_info = {}
-                    for i, tensor in enumerate(tensor_value):
-                        shape = (len(dataset),) + tuple(tensor.shape[1:])
-                        store_info[store_key] = \
-                            (f'{STORE_KEYS[store_key]}_{subset}_{i}.npy', shape)
-
-                    initialize_stores_to_criterion(
-                        dtype="float16" if cfg.common.fp16 else "float32",
-                        criterion=underlying_criterions[i],
-                        store_info=store_info,
-                        save_directory=cfg.common_eval.results_path,
-                    )
-            else:
-                # If the tensors are single, i.e., not a composite criterion
-                store_info = {}
-                for store_key, tensor in dummies.items():
-                    if tensor is None:
-                        continue
-
-                    shape = (len(dataset),) + tuple(tensor.shape[1:])
-                    store_info[store_key] = (
+                if isinstance(tensor, list):
+                    if len(tensor) != len(underlying_criterions):
+                        raise ValueError(
+                            f"Expected {len(underlying_criterions)} tensors for '{store_key}' "
+                            f"(one for each criterion), but got {len(tensor)}."
+                        )
+                    for i, t in enumerate(tensor):
+                        store_infos[i][store_key] = (
+                            f'{STORE_KEYS[store_key]}_{subset}_{i}.npy',
+                            (len(dataset),) + tuple(t.shape[1:]),
+                        )
+                else:
+                    store_infos[0][store_key] = (
                         f'{STORE_KEYS[store_key]}_{subset}.npy',
-                        shape,
+                        (len(dataset),) + tuple(tensor.shape[1:]),
                     )
 
+            for c, store_info in zip(underlying_criterions, store_infos):
                 initialize_stores_to_criterion(
                     dtype="float16" if cfg.common.fp16 else "float32",
-                    criterion=underlying_criterions[0],
+                    criterion=c,
                     store_info=store_info,
                     save_directory=cfg.common_eval.results_path,
                 )
@@ -269,6 +281,10 @@ def main(cfg: DictConfig, override_args=None):
                 sample = utils.move_to_cuda(sample) if use_cuda else sample
                 sample = _fp_convert_sample(sample)
 
+                # outputs of a dummy batch should not be stored
+                for c in getattr(criterion, "underlying_criterions", [criterion]):
+                    c.is_dummy_batch = is_dummy_batch
+
                 _loss, _sample_size, log_output = task.valid_step(
                     sample,
                     model,
@@ -280,7 +296,8 @@ def main(cfg: DictConfig, override_args=None):
                 is_dummy_batch = False
 
         # Close any initialized stores
-        criterion.close_stores()
+        for c in getattr(criterion, "underlying_criterions", [criterion]):
+            c.close_stores()
 
         if data_parallel_world_size > 1:
             log_outputs = distributed_utils.all_gather_list(

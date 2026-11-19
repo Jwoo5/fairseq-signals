@@ -58,6 +58,10 @@ def main(cfg: DictConfig, override_args=None):
     checkpoint_overrides.update({"model_path": None, "no_pretrained_weights": True})
     overrides.update(checkpoint_overrides)
 
+    if cfg.common_eval.results_path is None:
+        raise ValueError("common_eval.results_path must be set to save the model outputs.")
+    os.makedirs(cfg.common_eval.results_path, exist_ok=True)
+
     # Process 'extract' argument
     model_overrides = {}
     if cfg.common_eval.extract:
@@ -168,14 +172,24 @@ def main(cfg: DictConfig, override_args=None):
 
             model.eval()
             net_output = model(**dummy["net_input"])
-            logits_shape = (len(dataset),) + tuple(model.get_logits(net_output).shape[1:])
+            logits = model.get_logits(net_output)
 
-        output_store = initialize_store(
-            dtype="float16" if cfg.common.fp16 else "float32",
-            save_file=f'outputs_{subset}.npy',
-            shape=logits_shape,
-            save_directory=cfg.common_eval.results_path,
-        )
+        # a model can return a list of outputs (e.g., segmentation and classification outputs of
+        # `unet_cgm_segmentor`), each of which is saved as outputs_{subset}_{i}.npy
+        if isinstance(logits, list):
+            filenames = [f"outputs_{subset}_{i}.npy" for i in range(len(logits))]
+        else:
+            filenames = [f"outputs_{subset}.npy"]
+            logits = [logits]
+
+        output_stores = [
+            initialize_store(
+                os.path.join(cfg.common_eval.results_path, filename),
+                dtype="float16" if cfg.common.fp16 else "float32",
+                shape=(len(dataset),) + tuple(l.shape[1:]),
+            )
+            for filename, l in zip(filenames, logits)
+        ]
 
         progress = progress_bar.progress_bar(
             itr,
@@ -211,15 +225,21 @@ def main(cfg: DictConfig, override_args=None):
                 sample = _fp_convert_sample(sample)
 
                 net_output = model(**sample["net_input"])
-
-                if not is_dummy_batch:
-                    logits = model.get_logits(net_output).float()
-                    store(output_store, logits)
+                logits = model.get_logits(net_output)
+                if not isinstance(logits, list):
+                    logits = [logits]
+                for output_store, l in zip(output_stores, logits):
+                    l = l.float()
+                    if is_dummy_batch:
+                        # store nothing, but still take part in gathering
+                        l = l[:0]
+                    store(output_store, l)
 
                 is_dummy_batch = False
 
-        if data_parallel_rank == 0:
-            output_store.close()
+        for output_store in output_stores:
+            if output_store is not None:
+                output_store.close()
 
 def cli_main():
     parser = options.get_inference_parser()

@@ -58,4 +58,6 @@ class ECGQuestionAnsweringTask(ECGTextPretrainingTask):
             mean_path=task_cfg.get("mean_path", self.cfg.mean_path),
             std_path=task_cfg.get("std_path", self.cfg.std_path),
             training=True if 'train' in split else False,
+            # validate / inference pass shuffle=False to keep the order of the manifest
+            shuffle=kwargs.get("shuffle", True),
         )

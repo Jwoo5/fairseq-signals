@@ -80,5 +80,7 @@ class ECGSegmentationTask(ECGPretrainingTask):
             std_path=task_cfg.get("std_path", self.cfg.std_path),
             num_buckets=self.cfg.num_batch_buckets,
             training=True if "train" in split else False,
+            # validate / inference pass shuffle=False to keep the order of the manifest
+            shuffle=kwargs.get("shuffle", True),
             **self._get_perturbation_kwargs()
         )

@@ -21,45 +21,50 @@ class BaseCriterion(_Loss):
         self.task = task
 
         self.stores = {}
+        # set by the caller (e.g., fairseq_cli/validate.py) when the current batch is a dummy batch
+        # whose outputs should not be stored
+        self.is_dummy_batch = False
 
         self.kwargs = {}
         self.is_target_derived = False
 
     def set_store(self, store_key: str, store: Any):
+        # `store` is None on the non-master ranks, which only take part in gathering the tensors
         self.stores[store_key] = store
 
     def store(self, output: Any, target: Any, net_output: Any):
         if len(self.stores) == 0:
             return # do nothing
 
+        tensors = {}
+        for key in self.stores:
+            if key == 'output':
+                tensors[key] = output
+            elif key == 'target':
+                tensors[key] = target
+            else:
+                tensors[key] = net_output[key]
+
+        if self.is_dummy_batch:
+            # store nothing, but still take part in gathering below
+            tensors = {key: tensor[:0] for key, tensor in tensors.items()}
+
         if dist_utils.get_data_parallel_world_size() > 1:
+            # every rank should call this for the same keys in the same order
             group = dist_utils.get_data_parallel_group()
-            # TODO handle when output and net_output are not torch tensors; it usually is python dict
-            output = torch.cat(dist_utils.batch_all_gather(output, group=group))
-            net_output = torch.cat(dist_utils.batch_all_gather(net_output, group=group))
+            tensors = {
+                key: torch.cat(dist_utils.batch_all_gather(tensor, group=group))
+                for key, tensor in tensors.items()
+            }
 
-            # some models & criterions do not yield targets
-            if target is not None:
-                target = torch.cat(dist_utils.batch_all_gather(target, group=group))
-
-        if 'output' in self.stores:
-            self.stores['output'](output)
-
-        if 'target' in self.stores:
-            self.stores['target'](target)
-
-        if 'encoder_out' in self.stores:
-            self.stores['encoder_out'](net_output['encoder_out'])
-
-        if 'padding_mask' in self.stores:
-            self.stores['padding_mask'](net_output['padding_mask'])
-
-        if 'saliency' in self.stores:
-            self.stores['saliency'](net_output['saliency'])
+        for key, tensor in tensors.items():
+            if self.stores[key] is not None:
+                self.stores[key](tensor)
 
     def close_stores(self):
         for store in self.stores.values():
-            store.close()
+            if store is not None:
+                store.close()
 
     @classmethod
     def add_args(cls, parser):
