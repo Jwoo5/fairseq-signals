@@ -221,6 +221,8 @@ class ECGUNetSegmentationWithCGMModel(ECGUNetSegmentationModel):
         ):
             seg_targets = seg_targets[~sample["segment_mask"]]
         cls_targets = sample["label"]
+        if isinstance(cls_targets, torch.Tensor):
+            cls_targets = cls_targets.float()
         return [seg_targets, cls_targets]
     
     def forward(self, source, **kwargs):

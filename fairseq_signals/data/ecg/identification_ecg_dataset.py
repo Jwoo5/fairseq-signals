@@ -83,6 +83,6 @@ class IdentificationECGDataset(RawECGDataset):
         res["patient_id"] = ecg["patient_id"][0,0]
 
         if self.label:
-            res["label"] = torch.tensor([self.pids[index]])
+            res["label"] = torch.tensor(self.pids[index])
 
         return res
