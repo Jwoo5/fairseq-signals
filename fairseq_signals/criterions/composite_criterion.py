@@ -25,7 +25,7 @@ class CompositeCriterionConfig(Dataclass):
         default=None,
         metadata={
             "help": "weights for each loss term. if given, has to be a float list of size "
-                "n_criterions"
+                "n_criterions. the logged losses of each criterion are also weighted"
         }
     )
     args: Any = field(
@@ -64,7 +64,12 @@ class CompositeCriterion(BaseCriterion):
         if cfg.loss_weights is None:
             self.loss_weights = [1] * len(underlying_criterions)
         else:
-            self.loss_weights = cfg.loss_weights
+            if len(cfg.loss_weights) != len(underlying_criterions):
+                raise ValueError(
+                    "length of loss_weights does not match with the number of criterions. "
+                    f"Expected: {len(underlying_criterions)}, but got: {len(cfg.loss_weights)}."
+                )
+            self.loss_weights = list(cfg.loss_weights)
 
     def forward(self, model, sample, reduce=True, save_outputs=False):
         """
@@ -116,7 +121,7 @@ class CompositeCriterion(BaseCriterion):
 
             criterion.store(logit, target, net_output)
 
-            partial_loss, partial_losses_to_log = self.loss_weights[i] * criterion.compute_loss(
+            partial_loss, partial_losses_to_log = criterion.compute_loss(
                 logits=logit,
                 target=target,
                 sample=sample,
@@ -124,6 +129,10 @@ class CompositeCriterion(BaseCriterion):
                 model=model,
                 reduce=reduce
             )
+            # weight the logged losses as well, so that the total loss in `reduce_metrics` matches
+            # the loss to be optimized
+            partial_loss = self.loss_weights[i] * partial_loss
+            partial_losses_to_log = [self.loss_weights[i] * l for l in partial_losses_to_log]
 
             sample_size = criterion.get_sample_size(sample, target)
 
@@ -164,23 +173,22 @@ class CompositeCriterion(BaseCriterion):
 
         log_keys = logging_outputs[0].keys()
 
+        # logging outputs of the i-th criterion are stored as "{i}_{key}" in `forward`
         grouped_log_keys = defaultdict(list)
         for lk in log_keys:
-            group = lk.split("_")[-1]
-            key = "_".join(lk.split("_")[:-1])
+            group, _, key = lk.partition("_")
             if key != "" and group.isdigit():
-                grouped_log_keys[group].append(key)
-        grouped_log_keys = dict(sorted(grouped_log_keys.items()))
-        grouped_log_keys = list(grouped_log_keys.values())
+                grouped_log_keys[int(group)].append(key)
+        grouped_log_keys = [grouped_log_keys[i] for i in sorted(grouped_log_keys)]
 
         total_loss = 0
         for i, log_keys in enumerate(grouped_log_keys):
-            criterion_cls = logging_outputs[0][f"criterion_cls_{i}"]
+            criterion_cls = logging_outputs[0][f"{i}_criterion_cls"]
             logging_output = []
             for log in logging_outputs:
                 log_dict = {}
                 for log_key in set(log_keys) - {"criterion_cls"}:
-                    log_dict[log_key] = log[f"{log_key}_{i}"]
+                    log_dict[log_key] = log[f"{i}_{log_key}"]
                 logging_output.append(log_dict)
             criterion_cls.reduce_metrics(logging_output, prefix=str(i))
 
