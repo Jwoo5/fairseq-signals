@@ -76,6 +76,12 @@ PROCESSED_ROOT=".../data"
 cd .../fairseq-signals/scripts/preprocess/ecg
 ```
 
+## Requirements
+In addition to the packages installed together with `fairseq-signals`, some scripts require the following packages:
+* `pandarallel`: used by the `*_signals.py` scripts for parallel processing. Not required if `--no_parallel` is specified.
+* `h5py`: used by `code_15_signals.py` (CODE-15).
+* `xmltodict` and `lxml`: used by `muse_signals.py` (MUSE).
+
 ## Datasets
 ### PhysioNet 2021
 Designed for and tested with [PhysioNet 2021 v1.0.3](https://physionet.org/content/challenge-2021/1.0.3/) and its [evaluation code](https://github.com/physionetchallenges/evaluation-2021). This data source stores its waveforms as WFDB files.
