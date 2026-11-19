@@ -2,8 +2,8 @@ common:
   all_gather_list_size: 4096000
   log_format: tqdm
   log_interval: 10
-  wandb_entity: ecg-pretraining
-  wandb_project: question-answering
+  # wandb_entity: ecg-pretraining
+  # wandb_project: question-answering
 
 common_eval:
   path: ???

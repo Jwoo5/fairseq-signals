@@ -2,8 +2,8 @@ common:
   fp16: false
   log_format: json
   log_interval: 10
-  wandb_entity: ecg-pretraining
-  wandb_project: ecg-segmentation
+  # wandb_entity: ecg-pretraining
+  # wandb_project: ecg-segmentation
 
 checkpoint:
   save_dir: checkpoints
