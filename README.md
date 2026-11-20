@@ -220,6 +220,8 @@ We provide detailed READMEs for each model implementation:
 
 To train models from scratch (i.e., without pre-training) for each downstream task (ECG classification, patient identification, ECG question answering, and ECG segmentation), see [here](examples/scratch/README.md).
 
+To train a model with multiple GPUs, set `distributed_training.distributed_world_size` to the number of GPUs. Note that the fine-tuning configurations with `model.feature_grad_mult: 0.0` freeze the feature extractor of the pre-trained model, so add `distributed_training.find_unused_parameters=true` to fine-tune them with multiple GPUs.
+
 # Contact
 If you have any questions or recommendations, please contact us via an issue or an e-mail.
 * ojw0123@kaist.ac.kr
