@@ -274,7 +274,12 @@ class RawECGDataset(BaseDataset):
             target_size = min(min(sizes), self.max_sample_size)
 
         collated_sources = sources[0].new_zeros((len(sources), len(sources[0]), target_size))
-        collated_originals = collated_sources.clone() if originals else None
+        # the original signals keep all the leads, while the sources may contain only some of them
+        # (e.g., when --leads_to_load is given without --enable_padding_leads)
+        collated_originals = (
+            collated_sources.new_zeros((len(originals), len(originals[0]), target_size))
+            if originals else None
+        )
         padding_mask = (
             torch.BoolTensor(collated_sources.shape).fill_(False) if self.pad else None
         )

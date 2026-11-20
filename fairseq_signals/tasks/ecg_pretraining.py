@@ -143,7 +143,10 @@ class ECGPretrainingConfig(Dataclass):
     )
     dependency: bool = field(
         default=True,
-        metadata={"help": "whether to apply dependency between frontal leads"}
+        metadata={
+            "help": "whether to apply dependency between frontal leads, which requires 12-lead "
+                "samples"
+        }
     )
     shift_ratio: float = field(
         default=0.2,
@@ -170,7 +173,8 @@ class ECGPretrainingConfig(Dataclass):
         metadata={
             "help": "how to choose leads to be masked. random is masking every "
                 "lead with the probability of --mask_leads_prob. conditional is masking "
-                "specific number of leads according to --mask_leads_condition"
+                "specific number of leads according to --mask_leads_condition, which "
+                "requires 12-lead samples (see --enable_padding_leads)"
         }
     )
     mask_leads_prob: float = field(
