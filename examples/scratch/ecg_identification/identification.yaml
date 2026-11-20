@@ -69,6 +69,6 @@ model:
   encoder_embed_dim: 512
   encoder_attention_heads: 8
 
-  feature_grad_mult: 0.0
+  feature_grad_mult: 0.1
   freeze_finetune_updates: 0
   in_d: 12
