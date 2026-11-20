@@ -45,7 +45,7 @@ class ECGSegmentationTask(ECGPretrainingTask):
         return cls(cfg)
 
     def _get_perturbation_kwargs(self):
-        return {
+        kwargs = {
             "p": self.cfg.p,
             "max_amplitude": self.cfg.max_amplitude,
             "min_amplitude": self.cfg.min_amplitude,
@@ -54,12 +54,15 @@ class ECGSegmentationTask(ECGPretrainingTask):
             "num_segment": self.cfg.num_segment,
             "max_freq": self.cfg.max_freq,
             "min_freq": self.cfg.min_freq,
-            "freq": self.cfg.sample_rate,
             "k": self.cfg.k,
             "mask_leads_selection": self.cfg.mask_leads_selection,
             "mask_leads_prob": self.cfg.mask_leads_prob,
             "mask_leads_condition": self.cfg.mask_leads_condition,
         }
+        # if not set, the augmentations use their default sampling frequency (500 Hz)
+        if self.cfg.sample_rate is not None:
+            kwargs["freq"] = self.cfg.sample_rate
+        return kwargs
 
     def load_dataset(self, split: str, task_cfg: Dataclass=None, **kwargs):
         data_path = self.cfg.data
