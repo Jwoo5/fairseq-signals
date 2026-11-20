@@ -38,6 +38,7 @@ class CMSCCriterion(BaseCriterion):
         self.eps = cfg.eps
         self.all_gather = cfg.all_gather
 
+        self.kwargs["aggregate"] = True
         self.is_target_derived = True
 
     def compute_loss(
@@ -84,6 +85,9 @@ class CMSCCriterion(BaseCriterion):
         logits = torch.matmul(mat1, mat2.transpose(0,1))
         logits /= self.temp
         target = torch.stack([p == p2 for p in p1]).to(logits.device)
+        # the target is derived here, so keep the sample size (the number of positive pairs) for
+        # `get_sample_size`
+        self._sample_size = target.long().sum().item()
 
         logits_1 = -F.log_softmax(logits, dim = -1)
         logits_2 = -F.log_softmax(logits.transpose(-2,-1), dim = -1)
@@ -105,7 +109,9 @@ class CMSCCriterion(BaseCriterion):
         elif 'mask_indices' in sample['net_input']:
             sample_size = sample['net_input']['mask_indices'].sum()
         else:
-            sample_size = target.long().sum().item()
+            # computed in `compute_loss`, which is called before this
+            sample_size = self._sample_size
+        return sample_size
 
     def get_logging_output(
         self, logging_output, logits=None, target=None, sample=None, net_output=None

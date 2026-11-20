@@ -69,6 +69,8 @@ class SimCLRCriterion(BaseCriterion):
         logits /= self.temp
 
         target = torch.zeros((logits.size(0), ), dtype=torch.long).to(logits.device)
+        # the target is derived here, so keep the sample size for `get_sample_size`
+        self._sample_size = target.numel()
 
         loss = F.cross_entropy(logits, target, reduction=reduction)
 
@@ -83,7 +85,8 @@ class SimCLRCriterion(BaseCriterion):
         elif 'mask_indices' in sample['net_input']:
             sample_size = sample['net_input']['mask_indices'].sum()
         else:
-            sample_size = target.numel()
+            # computed in `compute_loss`, which is called before this
+            sample_size = self._sample_size
         return sample_size
 
     def get_logging_output(self, logging_output, logits, target, sample=None, net_output=None):
