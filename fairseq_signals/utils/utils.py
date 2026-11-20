@@ -113,7 +113,7 @@ def clip_grad_norm_(params, max_norm, aggregate_norm_fn = None) -> torch.Tensor:
     if len(grads) == 1:
         total_norm = torch.norm(grads[0], p = 2, dtype = torch.float32)
     else:
-        if torch.cuda.is_available:
+        if torch.cuda.is_available():
             device = torch.cuda.current_device()
         else:
             device = torch.device("cpu")

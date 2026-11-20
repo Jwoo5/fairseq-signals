@@ -24,9 +24,9 @@ Before pre-processing the data, the file structure should be like this:
 Then, run:
 ```shell script
 $ python preprocess_ptbxl.py /path/to/ptbxl \
-   --dest /path/to/output \
-   --meda-dir ./
+   --dest /path/to/output
 ```
+Before running the script, copy `ptbxl_database_translated.csv` in this directory to `/path/to/ptbxl`. It is an English-translated version of `ptbxl_database.csv`. If it is not found in `/path/to/ptbxl`, the script falls back to the original `ptbxl_database.csv`, where some reports are written in German.
 If you need to exclude specific samples to be processed, use an additional argument `--exclude`, which is described in `preprocess_ptbxl.py`.
 
 It will output .mat files to `/path/to/output` directory where each sample consists of a 10-second ECG signal and its corresponding report.
@@ -160,13 +160,13 @@ First, you should run this script (existed in the [ECG-QA repository](https://gi
 Then, run:
 ```shell script
 $ python preprocess_ecgqa.py /path/to/ecgqa \
-    --dest /path/to/output \
+    --dest /path/to/output/paraphrased \
     --apply_paraphrase
 ```
 \*`/path/to/ecgqa` should be consistent with `$dest_dir` in the mapping script (i.e., `mapping_ptbxl_samples.py` or `mapping_mimic_iv_ecg_samples.py`).  
-Note that if you run with `--apply_paraphrase`, the scripts will process the paraphrased version of ECG-QA dataset. Otherwise, it will process the template version.
+Note that if you run with `--apply_paraphrase`, the scripts will process the paraphrased version of ECG-QA dataset. Otherwise, it will process the template version. To process the template version, run the script without `--apply_paraphrase` and with `--dest /path/to/output/template`.
 
-It will output .mat files to `/path/to/output/template/$split` or `/path/to/output/paraphrased/$split` directory for each split, and prepare manifest files as `/path/to/output/template/$split.tsv` or `/path/to/output/paraphrased/$split.tsv` (see below).
+The script writes its outputs directly under `--dest`: .mat files to `$dest/$split` directory for each split, and manifest files as `$dest/$split.tsv`. With the `--dest` paths above, the results are organized as follows:
 ```
 /path/to/output
 ├── paraphrased

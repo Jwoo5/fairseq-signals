@@ -36,6 +36,7 @@ class ThreeKGCriterion(BaseCriterion):
         self.eps = cfg.eps
         self.all_gather = cfg.all_gather
 
+        self.kwargs["aggregate"] = True
         self.is_target_derived = True
 
     def compute_loss(
@@ -86,6 +87,9 @@ class ThreeKGCriterion(BaseCriterion):
         logits /= self.temp
 
         target = torch.zeros((logits.size(0), ), dtype=torch.long).to(logits.device)
+        # the target is derived here, so keep the sample size (the number of positive pairs) for
+        # `get_sample_size`
+        self._sample_size = target.numel()
 
         reduction = "none" if not reduce else "sum"
         loss = F.cross_entropy(logits, target, reduction=reduction)
@@ -101,7 +105,8 @@ class ThreeKGCriterion(BaseCriterion):
         elif "mask_indices" in sample["net_input"]:
             sample_size = sample["net_input"]["mask_indices"].sum()
         else:
-            sample_size = len(sample["net_input"]["source"])
+            # computed in `compute_loss`, which is called before this
+            sample_size = self._sample_size
         return sample_size
 
     def get_logging_output(

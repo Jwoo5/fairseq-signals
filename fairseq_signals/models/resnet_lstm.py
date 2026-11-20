@@ -4,6 +4,7 @@ import logging
 
 import torch
 import torch.nn as nn
+from omegaconf import II
 
 from fairseq_signals.models.resnet import VanillaResnetConfig, VanillaResnetModel
 from fairseq_signals.models.lstm import LanguageLSTMConfig, LanguageLSTMModel
@@ -32,6 +33,9 @@ class ResnetLSTMConfig(VanillaResnetConfig, LanguageLSTMConfig):
             "help": "project final embeddings of resnet and lstm to this many dimensions"
         }
     )
+    # used by ResnetLSTMModel and LanguageLSTMModel, but no longer defined in LanguageLSTMConfig
+    pad_token: int = II("task.pad_token")
+    sep_token: int = II("task.sep_token")
 
 class ResnetLSTMModel(PretrainingModel):
     """

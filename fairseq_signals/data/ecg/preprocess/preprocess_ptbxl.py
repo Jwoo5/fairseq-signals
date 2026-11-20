@@ -40,9 +40,8 @@ def get_parser():
     )
     parser.add_argument(
         "--only-norm",
-        default=False,
-        type=bool,
-        help="whether to preprocess only normal samples (normal sinus rhythms)"
+        action="store_true",
+        help="if set, preprocess only normal samples (records with 'NORM' in scp_codes)"
     )
     parser.add_argument("--seed", default=42, type=int, metavar="N", help="random seed")
 
@@ -66,16 +65,12 @@ def main(args):
 
     table = dict()
     for fname, patient_id, scp_code in zip(fnames, patient_ids, scp_codes):
-        if args.only_norm and 'NORM' in eval(scp_code):
-            if patient_id in table:
-                table[patient_id] += ',' + os.path.join(dir_path, fname)
-            else:
-                table[patient_id] = os.path.join(dir_path, fname)
+        if args.only_norm and 'NORM' not in eval(scp_code):
+            continue
+        if patient_id in table:
+            table[patient_id] += ',' + os.path.join(dir_path, fname)
         else:
-            if patient_id in table:
-                table[patient_id] += ',' + os.path.join(dir_path, fname)
-            else:
-                table[patient_id] = os.path.join(dir_path, fname)
+            table[patient_id] = os.path.join(dir_path, fname)
     
     filtered = {k: v for k, v in table.items() if len(v.split(',')) >= 2}
 

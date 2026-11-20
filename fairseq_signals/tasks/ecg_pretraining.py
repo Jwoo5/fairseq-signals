@@ -77,7 +77,8 @@ class ECGPretrainingConfig(Dataclass):
     sample_rate: Optional[int] = field(
         default = None,
         metadata = {
-            "help": "target sample rate. it not set, allow any sample rate."
+            "help": "target sample rate. it not set, allow any sample rate. also used as the "
+                "sampling frequency of the augmentations (500 if not set)"
         }
     )
     filter: bool = field(
@@ -143,7 +144,10 @@ class ECGPretrainingConfig(Dataclass):
     )
     dependency: bool = field(
         default=True,
-        metadata={"help": "whether to apply dependency between frontal leads"}
+        metadata={
+            "help": "whether to apply dependency between frontal leads, which requires 12-lead "
+                "samples"
+        }
     )
     shift_ratio: float = field(
         default=0.2,
@@ -170,7 +174,8 @@ class ECGPretrainingConfig(Dataclass):
         metadata={
             "help": "how to choose leads to be masked. random is masking every "
                 "lead with the probability of --mask_leads_prob. conditional is masking "
-                "specific number of leads according to --mask_leads_condition"
+                "specific number of leads according to --mask_leads_condition, which "
+                "requires 12-lead samples (see --enable_padding_leads)"
         }
     )
     mask_leads_prob: float = field(
@@ -222,7 +227,7 @@ class ECGPretrainingTask(Task):
         return cls(cfg)
     
     def _get_perturbation_kwargs(self):
-        return {
+        kwargs = {
             "p": self.cfg.p,
             "max_amplitude": self.cfg.max_amplitude,
             "min_amplitude": self.cfg.min_amplitude,
@@ -231,12 +236,15 @@ class ECGPretrainingTask(Task):
             "num_segment": self.cfg.num_segment,
             "max_freq": self.cfg.max_freq,
             "min_freq": self.cfg.min_freq,
-            "freq": self.cfg.sample_rate,
             "k": self.cfg.k,
             "mask_leads_selection": self.cfg.mask_leads_selection,
             "mask_leads_prob": self.cfg.mask_leads_prob,
             "mask_leads_condition": self.cfg.mask_leads_condition,
         }
+        # if not set, the augmentations use their default sampling frequency (500 Hz)
+        if self.cfg.sample_rate is not None:
+            kwargs["freq"] = self.cfg.sample_rate
+        return kwargs
 
     def _get_mask_precompute_kwargs(self, cfg):
         if self.cfg.precompute_mask_indices:

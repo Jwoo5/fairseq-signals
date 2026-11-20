@@ -12,8 +12,8 @@ from setuptools import setup, find_packages, Extension
 from setuptools import Extension, find_packages, setup
 
 
-if sys.version_info < (3, 6):
-    sys.exit("Sorry, Python >= 3.6 is required for fairseq.")
+if sys.version_info < (3, 7):
+    sys.exit("Sorry, Python >= 3.7 is required for fairseq.")
 
 
 def write_version_py():
@@ -169,7 +169,6 @@ def do_setup(package_data):
         # url="https://github.com/pytorch/fairseq",
         classifiers=[
             "Intended Audience :: Science/Research",
-            "Programming Language :: Python :: 3.6",
             "Programming Language :: Python :: 3.7",
             "Programming Language :: Python :: 3.8",
             "Programming Language :: Python :: 3.9",
@@ -179,6 +178,7 @@ def do_setup(package_data):
         ],
         long_description=readme,
         long_description_content_type="text/markdown",
+        python_requires=">=3.7",
         setup_requires=[
             "cython",
             'numpy<1.20.0; python_version<"3.7"',
@@ -196,7 +196,9 @@ def do_setup(package_data):
             "torch",
             "tqdm",
             "scikit-learn",
-            "wfdb",
+            'wfdb; python_version<"3.9"',
+            # wfdb < 4.2.0 fails to read annotations (wfdb.rdann) with NumPy 2
+            'wfdb>=4.2.0; python_version>="3.9"',
             "transformers>=4.19.0",
         ],
         dependency_links=dependency_links,

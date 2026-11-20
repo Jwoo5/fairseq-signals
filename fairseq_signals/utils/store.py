@@ -348,7 +348,16 @@ class MemmapBatchWriter(MemmapReader):
             )
 
         # Apply the transform function and write the batch to the store
-        self._write_array[self.n: new_n] = self.transform(batch)
+        batch = self.transform(batch)
+        try:
+            self._write_array[self.n: new_n] = batch
+        except ValueError as e:
+            raise ValueError(
+                f"Cannot write a batch of shape {tuple(np.shape(batch))} to {self.file}, which "
+                f"stores samples of shape {tuple(self.shape[1:])}. Note that the shape of the "
+                "store is fixed when it is initialized, so every sample should have the same "
+                "shape (e.g., the same signal length to extract `encoder_out` or `saliency`)."
+            ) from e
         self.n = new_n
 
 
@@ -410,18 +419,25 @@ def initialize_stores_to_criterion(
             dtype,
             shape,
         )
-        if store is not None:
-            criterion.set_store(store_key, store)
+        # register the store on every rank (None on the non-master ranks) so that all the ranks
+        # take part in gathering the tensors in `BaseCriterion.store`
+        criterion.set_store(store_key, store)
 
 def store(
-    store: MemmapBatchWriter,
+    store: Optional[MemmapBatchWriter],
     values: Any,
 ):
+    """Gather `values` from all the ranks and write them to `store` (None on the non-master ranks).
+
+    Should be called by every rank at every step. Pass an empty tensor (e.g., `values[:0]`) for a
+    dummy batch.
+    """
     if dist_utils.get_data_parallel_world_size() > 1:
         group = dist_utils.get_data_parallel_group()
         values = torch.cat(dist_utils.batch_all_gather(values, group=group))
 
-    store(values)
+    if store is not None:
+        store(values)
 
 def memmap_batch_process(
     array: np.memmap,

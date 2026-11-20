@@ -37,7 +37,7 @@ distributed_training:
   distributed_world_size: 8
 
 criterion:
-  _name: clocs
+  _name: cmsc
 
 optimization:
   max_epoch: 200

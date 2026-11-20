@@ -31,6 +31,13 @@ def instantiate_from_name(str: PERTURBATION_CHOICES, **kwargs):
 
 def adjust_channel_dependency(ecg):
     # synthesize III, aVR, aVL, aVF from I, II
+    if ecg.shape[0] != 12:
+        raise ValueError(
+            "task.dependency=true synthesizes III, aVR, aVL, and aVF from I and II, so it requires "
+            "12-lead samples in the standard order (I, II, III, aVR, aVL, aVF, V1-V6), but got a "
+            f"sample with {ecg.shape[0]} leads. Set task.dependency=false if only some leads are "
+            "loaded (e.g., with task.leads_to_load)."
+        )
     ecg[2] = ecg[1]-ecg[0]
     ecg[3] = -(ecg[1]+ecg[0])/2
     ecg[4] = ecg[0]-ecg[1]/2
@@ -188,6 +195,24 @@ class RandomLeadsMask(object):
         mask_leads_condition=None,
         **kwargs,
     ):
+        if mask_leads_selection not in ("random", "conditional"):
+            raise ValueError(
+                "mask_leads_selection should be either 'random' or 'conditional', but got "
+                f"{mask_leads_selection!r}."
+            )
+        if mask_leads_selection == "conditional":
+            if mask_leads_condition is None or len(mask_leads_condition) != 2:
+                raise ValueError(
+                    "mask_leads_condition should be a tuple of 2 values for the conditional "
+                    f"leads masking, but got {mask_leads_condition!r}."
+                )
+            n1, n2 = mask_leads_condition
+            if not (0 <= n1 <= 6 and 0 <= n2 <= 6):
+                raise ValueError(
+                    "each value of mask_leads_condition should be between 0 and 6, but got "
+                    f"({n1}, {n2})."
+                )
+
         self.p = p
         self.mask_leads_prob = mask_leads_prob
         self.mask_leads_selection = mask_leads_selection
@@ -195,24 +220,25 @@ class RandomLeadsMask(object):
     
     def __call__(self, sample):
         if self.p >= np.random.uniform(0,1):
-            new_sample = sample.new_zeros(sample.size())
+            num_leads = sample.size(0)
             if self.mask_leads_selection == "random":
-                survivors = np.random.uniform(0, 1, size=12) >= self.mask_leads_prob
-                new_sample[survivors] = sample[survivors]
-            elif self.mask_leads_selection == "conditional":
-                (n1, n2) = self.mask_leads_selection
-                assert (
-                    (0 <= n1 and n1 <= 6) and
-                    (0 <= n2 and n2 <= 6)
-                ), (n1, n2)
-                s1 = np.array(
-                    random.sample(list(np.arange(6)), 6-n1)
-                )
-                s2 = np.array(
-                    random.sample(list(np.arange(6)), 6-n2)
-                ) + 6
-                new_sample[s1] = sample[s1]
-                new_sample[s2] = sample[s2]
+                survivors = np.random.uniform(0, 1, size=num_leads) >= self.mask_leads_prob
+            else:
+                # mask n1 leads out of the limb leads (I, II, III, aVR, aVL, aVF) and n2 leads out of
+                # the precordial leads (V1-V6)
+                if num_leads != 12:
+                    raise ValueError(
+                        "mask_leads_selection='conditional' requires 12-lead samples, but got a "
+                        f"sample with {num_leads} leads. If only some leads are loaded with "
+                        "task.leads_to_load, set task.enable_padding_leads=true to pad the other "
+                        "leads, or use mask_leads_selection='random'."
+                    )
+                n1, n2 = self.mask_leads_condition
+                survivors = np.zeros(num_leads, dtype=bool)
+                survivors[random.sample(range(6), 6 - n1)] = True
+                survivors[[6 + i for i in random.sample(range(6), 6 - n2)]] = True
+            new_sample = sample.new_zeros(sample.size())
+            new_sample[survivors] = sample[survivors]
         else:
             new_sample = sample.clone()
         return new_sample.float()

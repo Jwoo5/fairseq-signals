@@ -44,8 +44,7 @@ def main(args):
     search_path = os.path.join(args.root, "**/*." + args.ext)
     rand = random.Random(args.seed)
 
-    if not os.path.exists(args.dest):
-        os.makedirs(args.dest)
+    os.makedirs(os.path.join(args.dest, "identify"), exist_ok=True)
 
     with open(os.path.join(args.dest, "identify", "train.tsv"), "w") as train_f, open(
         os.path.join(args.dest, "identify", "valid_gallery.tsv"), "w") as valid_gallery_f, open(

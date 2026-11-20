@@ -102,8 +102,8 @@ def main(args):
             groups = list(grouped_fnames.keys())
             rand.shuffle(groups)
             
-            valid_len = int(len(groups) * args.valid_percent)
-            test_len = int(len(groups) * args.valid_percent)
+            valid_len = int(len(groups) * valid_percent)
+            test_len = int(len(groups) * valid_percent)
             train_len = len(groups) - (valid_len + test_len)
 
             train = sum([grouped_fnames[x] for x in groups[:train_len]], [])

@@ -34,14 +34,13 @@ class ArcFaceModel(ECGTransformerFinetuningModel):
         self.kernel.data.uniform_(-1, 1).renorm_(2, 1, 1e-5).mul_(1e5)
 
     def get_logits(self, net_output, normalize=False, **kwargs):
-        logits = net_output["out"]
-
         if normalize:
-            logits = utils.log_softmax(logits.float(), dim=-1)
+            logits = utils.log_softmax(net_output["out"].float(), dim=-1)
+            return self.get_cosine_similarity(logits)
 
-        logits = self.get_cosine_similarity(logits)
-
-        return logits
+        # computed in `forward`, since DistributedDataParallel does not allow using the parameters
+        # (i.e., `self.kernel`) outside of `forward` (e.g., with --find-unused-parameters)
+        return net_output["cos_sim"]
 
     def get_targets(self, sample, net_output, **kwargs):
         return sample["label"].long()
@@ -61,7 +60,8 @@ class ArcFaceModel(ECGTransformerFinetuningModel):
         return {
             "encoder_out": res["x"].detach(),
             "padding_mask": padding_mask,
-            "out": x
+            "out": x,
+            "cos_sim": self.get_cosine_similarity(x),
         }
     
     def get_cosine_similarity(self, logits):

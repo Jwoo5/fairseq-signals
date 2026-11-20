@@ -236,6 +236,9 @@ def batch_all_gather(tensor, group, return_tensor=False):
     world_size = get_world_size(group=group)
     rank = get_rank(group=group)
 
+    # NCCL requires contiguous tensors (e.g., encoder outputs are often transposed views)
+    tensor = tensor.contiguous()
+
     size_list = [
         tensor.new_zeros(tensor.dim(), dtype=torch.int64) for _ in range(world_size)
     ]
